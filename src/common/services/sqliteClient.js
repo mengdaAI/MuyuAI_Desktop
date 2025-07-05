@@ -226,17 +226,17 @@ class SQLiteClient {
         });
     }
 
-    async saveApiKey(apiKey, uid = this.defaultUserId) {
+    async saveApiKey(apiKey, uid = this.defaultUserId, provider = 'openai') {
         return new Promise((resolve, reject) => {
             this.db.run(
-                'UPDATE users SET api_key = ? WHERE uid = ?',
-                [apiKey, uid],
+                'UPDATE users SET api_key = ?, provider = ? WHERE uid = ?',
+                [apiKey, provider, uid],
                 function(err) {
                     if (err) {
                         console.error('SQLite: Failed to save API key:', err);
                         reject(err);
                     } else {
-                        console.log(`SQLite: API key saved for user ${uid}.`);
+                        console.log(`SQLite: API key saved for user ${uid} with provider ${provider}.`);
                         resolve({ changes: this.changes });
                     }
                 }

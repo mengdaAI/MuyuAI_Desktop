@@ -113,6 +113,7 @@ class HeaderTransitionManager {
             ipcRenderer.on('request-firebase-logout', async () => {
                 console.log('[HeaderController] Received request to sign out.');
                 try {
+                    this.hasApiKey = false;
                     await signOut(auth);
                 } catch (error) {
                     console.error('[HeaderController] Sign out failed', error);
@@ -316,7 +317,7 @@ class HeaderTransitionManager {
         if (!window.require) return;
         return window
             .require('electron')
-            .ipcRenderer.invoke('resize-header-window', { width: 285, height: 220 })
+            .ipcRenderer.invoke('resize-header-window', { width: 285, height: 300 })
             .catch(() => {});
     }
 

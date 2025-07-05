@@ -3,11 +3,13 @@ const { BrowserWindow, ipcMain } = require('electron');
 const { spawn } = require('child_process');
 const { saveDebugAudio } = require('./audioUtils.js');
 const { getSystemPrompt } = require('../../common/prompts/promptBuilder.js');
+const { connectToGeminiSession } = require('../../common/services/googleGeminiClient.js');
 const { connectToOpenAiSession, createOpenAiGenerativeClient, getOpenAiGenerativeModel } = require('../../common/services/openAiClient.js');
+const { makeChatCompletionWithPortkey } = require('../../common/services/aiProviderService.js');
 const sqliteClient = require('../../common/services/sqliteClient');
 const dataService = require('../../common/services/dataService');
 
-const { isFirebaseLoggedIn, getCurrentFirebaseUser } = require('../../electron/windowManager.js');
+const { isFirebaseLoggedIn, getCurrentFirebaseUser, getStoredProvider } = require('../../electron/windowManager.js');
 
 function getApiKey() {
     const { getStoredApiKey } = require('../../electron/windowManager.js');
@@ -26,6 +28,18 @@ function getApiKey() {
 
     console.error('[LiveSummaryService] No API key found in storage or environment');
     return null;
+}
+
+async function getAiProvider() {
+    try {
+        const { ipcRenderer } = require('electron');
+        const provider = await ipcRenderer.invoke('get-ai-provider');
+        return provider || 'openai';
+    } catch (error) {
+        // If we're in the main process, get it directly
+        const { getStoredProvider } = require('../../electron/windowManager.js');
+        return getStoredProvider ? getStoredProvider() : 'openai';
+    }
 }
 
 let currentSessionId = null;
@@ -208,41 +222,25 @@ Keep all points concise and build upon previous analysis if provided.`,
         if (!API_KEY) {
             throw new Error('No API key available');
         }
+        
+        const provider = getStoredProvider ? getStoredProvider() : 'openai';
         const loggedIn = isFirebaseLoggedIn(); // true ➜ vKey, false ➜ apiKey
-        const keyType = loggedIn ? 'vKey' : 'apiKey';
-        console.log(`[LiveSummary] keyType: ${keyType}`);
+        const usePortkey = loggedIn && provider === 'openai'; // Only use Portkey for OpenAI with Firebase
+        
+        console.log(`[LiveSummary] provider: ${provider}, usePortkey: ${usePortkey}`);
 
-        const fetchUrl = keyType === 'apiKey' ? 'https://api.openai.com/v1/chat/completions' : 'https://api.portkey.ai/v1/chat/completions';
-
-        const headers =
-            keyType === 'apiKey'
-                ? {
-                      Authorization: `Bearer ${API_KEY}`,
-                      'Content-Type': 'application/json',
-                  }
-                : {
-                      'x-portkey-api-key': 'gRv2UGRMq6GGLJ8aVEB4e7adIewu',
-                      'x-portkey-virtual-key': API_KEY,
-                      'Content-Type': 'application/json',
-                  };
-
-        const response = await fetch(fetchUrl, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-                model: 'gpt-4.1',
-                messages,
-                temperature: 0.7,
-                max_tokens: 1024,
-            }),
+        const completion = await makeChatCompletionWithPortkey({
+            apiKey: API_KEY,
+            provider: provider,
+            messages: messages,
+            temperature: 0.7,
+            maxTokens: 1024,
+            model: provider === 'openai' ? 'gpt-4.1' : 'gemini-2.5-flash',
+            usePortkey: usePortkey,
+            portkeyVirtualKey: usePortkey ? API_KEY : null
         });
 
-        if (!response.ok) {
-            throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
-        }
-
-        const result = await response.json();
-        const responseText = result.choices[0].message.content.trim();
+        const responseText = completion.content;
         console.log(`✅ Analysis response received: ${responseText}`);
         const structuredData = parseResponseText(responseText, previousAnalysisResult);
 
@@ -582,7 +580,6 @@ async function initializeLiveSummarySession(language = 'en') {
     sendToRenderer('session-initializing', true);
     sendToRenderer('update-status', 'Initializing sessions...');
 
-    // Merged block
     const API_KEY = getApiKey();
     if (!API_KEY) {
         console.error('FATAL ERROR: API Key is not defined.');
@@ -594,73 +591,90 @@ async function initializeLiveSummarySession(language = 'en') {
 
     await initializeNewSession();
 
+    const provider = await getAiProvider();
+    const isGemini  = provider === 'gemini';
+    console.log(`[LiveSummaryService] Initializing STT for provider: ${provider}`);
+
     try {
         const handleMyMessage = message => {
-            const type = message.type;
-            const text = message.transcript || message.delta || (message.alternatives && message.alternatives[0]?.transcript) || '';
-
-            if (type === 'conversation.item.input_audio_transcription.delta') {
-                if (myCompletionTimer) {
-                    clearTimeout(myCompletionTimer);
-                    myCompletionTimer = null;
-                }
-
-                myCurrentUtterance += text;
-
-                const continuousText = myCompletionBuffer + (myCompletionBuffer ? ' ' : '') + myCurrentUtterance;
-
-                if (text && !text.includes('vq_lbr_audio_')) {
-                    sendToRenderer('stt-update', {
-                        speaker: 'Me',
-                        text: continuousText,
-                        isPartial: true,
-                        isFinal: false,
-                        timestamp: Date.now(),
-                    });
-                }
-            } else if (type === 'conversation.item.input_audio_transcription.completed') {
+            if (isGemini) {
+                // console.log('[Gemini Raw Message - Me]:', JSON.stringify(message, null, 2));
+                const text = message.serverContent?.inputTranscription?.text || '';
                 if (text && text.trim()) {
-                    const finalUtteranceText = text.trim();
-                    myCurrentUtterance = '';
-
-                    debounceMyCompletion(finalUtteranceText);
+                    const finalUtteranceText = text.trim().replace(/<noise>/g, '').trim();
+                    if (finalUtteranceText && finalUtteranceText !== '.') {
+                        debounceMyCompletion(finalUtteranceText);
+                    }
                 }
-            } else if (message.error) {
+            } else {
+                const type = message.type;
+                const text = message.transcript || message.delta || (message.alternatives && message.alternatives[0]?.transcript) || '';
+
+                if (type === 'conversation.item.input_audio_transcription.delta') {
+                    if (myCompletionTimer) clearTimeout(myCompletionTimer);
+                    myCompletionTimer = null;
+                    myCurrentUtterance += text;
+                    const continuousText = myCompletionBuffer + (myCompletionBuffer ? ' ' : '') + myCurrentUtterance;
+                    if (text && !text.includes('vq_lbr_audio_')) {
+                        sendToRenderer('stt-update', {
+                            speaker: 'Me',
+                            text: continuousText,
+                            isPartial: true,
+                            isFinal: false,
+                            timestamp: Date.now(),
+                        });
+                    }
+                } else if (type === 'conversation.item.input_audio_transcription.completed') {
+                    if (text && text.trim()) {
+                        const finalUtteranceText = text.trim();
+                        myCurrentUtterance = '';
+                        debounceMyCompletion(finalUtteranceText);
+                    }
+                }
+            }
+
+            if (message.error) {
                 console.error('[Me] STT Session Error:', message.error);
             }
         };
 
         const handleTheirMessage = message => {
-            const type = message.type;
-            const text = message.transcript || message.delta || (message.alternatives && message.alternatives[0]?.transcript) || '';
-
-            if (type === 'conversation.item.input_audio_transcription.delta') {
-                if (theirCompletionTimer) {
-                    clearTimeout(theirCompletionTimer);
-                    theirCompletionTimer = null;
-                }
-
-                theirCurrentUtterance += text;
-
-                const continuousText = theirCompletionBuffer + (theirCompletionBuffer ? ' ' : '') + theirCurrentUtterance;
-
-                if (text && !text.includes('vq_lbr_audio_')) {
-                    sendToRenderer('stt-update', {
-                        speaker: 'Them',
-                        text: continuousText,
-                        isPartial: true,
-                        isFinal: false,
-                        timestamp: Date.now(),
-                    });
-                }
-            } else if (type === 'conversation.item.input_audio_transcription.completed') {
+            if (isGemini) {
+                // console.log('[Gemini Raw Message - Them]:', JSON.stringify(message, null, 2));
+                const text = message.serverContent?.inputTranscription?.text || '';
                 if (text && text.trim()) {
-                    const finalUtteranceText = text.trim();
-                    theirCurrentUtterance = '';
-
-                    debounceTheirCompletion(finalUtteranceText);
+                    const finalUtteranceText = text.trim().replace(/<noise>/g, '').trim();
+                    if (finalUtteranceText && finalUtteranceText !== '.') {
+                        debounceTheirCompletion(finalUtteranceText);
+                    }
                 }
-            } else if (message.error) {
+            } else {
+                const type = message.type;
+                const text = message.transcript || message.delta || (message.alternatives && message.alternatives[0]?.transcript) || '';
+                if (type === 'conversation.item.input_audio_transcription.delta') {
+                    if (theirCompletionTimer) clearTimeout(theirCompletionTimer);
+                    theirCompletionTimer = null;
+                    theirCurrentUtterance += text;
+                    const continuousText = theirCompletionBuffer + (theirCompletionBuffer ? ' ' : '') + theirCurrentUtterance;
+                    if (text && !text.includes('vq_lbr_audio_')) {
+                        sendToRenderer('stt-update', {
+                            speaker: 'Them',
+                            text: continuousText,
+                            isPartial: true,
+                            isFinal: false,
+                            timestamp: Date.now(),
+                        });
+                    }
+                } else if (type === 'conversation.item.input_audio_transcription.completed') {
+                    if (text && text.trim()) {
+                        const finalUtteranceText = text.trim();
+                        theirCurrentUtterance = '';
+                        debounceTheirCompletion(finalUtteranceText);
+                    }
+                }
+            }
+            
+            if (message.error) {
                 console.error('[Them] STT Session Error:', message.error);
             }
         };
@@ -682,10 +696,17 @@ async function initializeLiveSummarySession(language = 'en') {
             },
         };
 
-        [mySttSession, theirSttSession] = await Promise.all([
-            connectToOpenAiSession(API_KEY, mySttConfig, keyType),
-            connectToOpenAiSession(API_KEY, theirSttConfig, keyType),
-        ]);
+        if (isGemini) {
+            [mySttSession, theirSttSession] = await Promise.all([
+                connectToGeminiSession(API_KEY, mySttConfig),
+                connectToGeminiSession(API_KEY, theirSttConfig),
+            ]);
+        } else {
+            [mySttSession, theirSttSession] = await Promise.all([
+                connectToOpenAiSession(API_KEY, mySttConfig, keyType),
+                connectToOpenAiSession(API_KEY, theirSttConfig, keyType),
+            ]);
+        }
 
         console.log('✅ Both STT sessions initialized successfully.');
         triggerAnalysisIfNeeded();
@@ -697,7 +718,7 @@ async function initializeLiveSummarySession(language = 'en') {
         sendToRenderer('update-status', 'Connected. Ready to listen.');
         return true;
     } catch (error) {
-        console.error('❌ Failed to initialize OpenAI STT sessions:', error);
+        console.error('❌ Failed to initialize STT sessions:', error);
         isInitializingSession = false;
         sendToRenderer('session-initializing', false);
         sendToRenderer('update-status', 'Initialization failed.');
@@ -769,6 +790,9 @@ async function startMacOSAudioCapture() {
 
     let audioBuffer = Buffer.alloc(0);
 
+    const provider = await getAiProvider();
+    const isGemini  = provider === 'gemini';
+
     systemAudioProc.stdout.on('data', async data => {
         audioBuffer = Buffer.concat([audioBuffer, data]);
 
@@ -783,10 +807,11 @@ async function startMacOSAudioCapture() {
 
             if (theirSttSession) {
                 try {
-                    // await theirSttSession.sendRealtimeInput({
-                    //     audio: { data: base64Data, mimeType: 'audio/pcm;rate=24000' },
-                    // });
-                    await theirSttSession.sendRealtimeInput(base64Data);
+                    // await theirSttSession.sendRealtimeInput(base64Data);
+                    const payload = isGemini
+                        ? { audio: { data: base64Data, mimeType: 'audio/pcm;rate=24000' } }
+                        : base64Data;
+                    await theirSttSession.sendRealtimeInput(payload);
                 } catch (err) {
                     console.error('Error sending system audio:', err.message);
                 }
@@ -905,9 +930,17 @@ function setupLiveSummaryIpcHandlers() {
     });
 
     ipcMain.handle('send-audio-content', async (event, { data, mimeType }) => {
+    const provider = await getAiProvider();
+    const isGemini  = provider === 'gemini';
         if (!mySttSession) return { success: false, error: 'User STT session not active' };
         try {
-            await mySttSession.sendRealtimeInput(data);
+            // await mySttSession.sendRealtimeInput(data);
+                   // provider에 맞는 형식으로 래핑
+       const payload = isGemini
+           ? { audio: { data, mimeType: mimeType || 'audio/pcm;rate=24000' } }
+           : data;   // OpenAI는 base64 string 그대로
+
+       await mySttSession.sendRealtimeInput(payload);
             return { success: true };
         } catch (error) {
             console.error('Error sending user audio:', error);

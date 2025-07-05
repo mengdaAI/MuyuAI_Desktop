@@ -5,7 +5,8 @@ const LATEST_SCHEMA = {
             { name: 'display_name', type: 'TEXT NOT NULL' },
             { name: 'email', type: 'TEXT NOT NULL' },
             { name: 'created_at', type: 'INTEGER' },
-            { name: 'api_key', type: 'TEXT' }
+            { name: 'api_key', type: 'TEXT' },
+            { name: 'provider', type: 'TEXT DEFAULT \'openai\'' }
         ]
     },
     sessions: {
