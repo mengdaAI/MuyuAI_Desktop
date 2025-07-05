@@ -101,8 +101,8 @@ export default function ActivityPage() {
                       {deletingId === session.id ? 'Deleting...' : 'Delete'}
                     </button>
                   </div>
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    Conversation
+                  <span className={`capitalize inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${session.session_type === 'listen' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
+                    {session.session_type || 'ask'}
                   </span>
                 </div>
               ))}

@@ -43,6 +43,8 @@ let myInactivityTimer = null;
 let theirInactivityTimer = null;
 const INACTIVITY_TIMEOUT = 3000;
 
+const SESSION_IDLE_TIMEOUT_SECONDS = 30 * 60; // 30 minutes
+
 let previousAnalysisResult = null;
 let analysisHistory = [];
 
@@ -243,6 +245,16 @@ Keep all points concise and build upon previous analysis if provided.`,
         const responseText = result.choices[0].message.content.trim();
         console.log(`✅ Analysis response received: ${responseText}`);
         const structuredData = parseResponseText(responseText, previousAnalysisResult);
+
+        if (currentSessionId) {
+            sqliteClient.saveSummary({
+                sessionId: currentSessionId,
+                tldr: structuredData.summary.join('\n'),
+                bullet_json: JSON.stringify(structuredData.topic.bullets),
+                action_json: JSON.stringify(structuredData.actions),
+                model: 'gpt-4.1'
+            }).catch(err => console.error('[DB] Failed to save summary:', err));
+        }
 
         // 분석 결과 저장
         previousAnalysisResult = structuredData;
@@ -445,11 +457,52 @@ function getCurrentSessionData() {
 }
 
 // Conversation management functions
+async function getOrCreateActiveSession(requestedType = 'ask') {
+    // 1. Check for an existing, valid session
+    if (currentSessionId) {
+        const session = await sqliteClient.getSession(currentSessionId);
+
+        if (session && !session.ended_at) {
+            // Ask sessions can expire, Listen sessions can't (they are closed explicitly)
+            const isExpired = session.session_type === 'ask' && 
+                              (Date.now() / 1000) - session.updated_at > SESSION_IDLE_TIMEOUT_SECONDS;
+
+            if (!isExpired) {
+                // Session is valid, potentially promote it
+                if (requestedType === 'listen' && session.session_type === 'ask') {
+                    await sqliteClient.updateSessionType(currentSessionId, 'listen');
+                    console.log(`[Session] Promoted session ${currentSessionId} to 'listen'.`);
+                } else {
+                    await sqliteClient.touchSession(currentSessionId);
+                }
+                return currentSessionId;
+            } else {
+                console.log(`[Session] Ask session ${currentSessionId} expired. Closing it.`);
+                await sqliteClient.endSession(currentSessionId);
+                currentSessionId = null; // Important: clear the expired session ID
+            }
+        }
+    }
+
+    // 2. If no valid session, create a new one
+    console.log(`[Session] No active session found. Creating a new one with type: ${requestedType}`);
+    const uid = dataService.currentUserId;
+    currentSessionId = await sqliteClient.createSession(uid, requestedType);
+    
+    // Clear old conversation data for the new session
+    conversationHistory = [];
+    myCurrentUtterance = '';
+    theirCurrentUtterance = '';
+    previousAnalysisResult = null;
+    analysisHistory = [];
+
+    return currentSessionId;
+}
+
 async function initializeNewSession() {
     try {
-        const uid = dataService.currentUserId; // Get current user (local or firebase)
-        currentSessionId = await sqliteClient.createSession(uid);
-        console.log(`[DB] New session started in DB: ${currentSessionId}`);
+        currentSessionId = await getOrCreateActiveSession('listen');
+        console.log(`[DB] New listen session ensured: ${currentSessionId}`);
 
         conversationHistory = [];
         myCurrentUtterance = '';
@@ -484,12 +537,8 @@ async function initializeNewSession() {
 
 async function saveConversationTurn(speaker, transcription) {
     if (!currentSessionId) {
-        console.log('No active session, initializing a new one first.');
-        const success = await initializeNewSession();
-        if (!success) {
-            console.error('Could not save turn because session initialization failed.');
-            return;
-        }
+        console.error('[DB] Cannot save turn, no active session ID.');
+        return;
     }
     if (transcription.trim() === '') return;
 
@@ -513,14 +562,6 @@ async function saveConversationTurn(speaker, transcription) {
             timestamp: Date.now(),
             transcription: transcription.trim(),
         };
-        sendToRenderer('update-live-transcription', { turn: conversationTurn });
-        if (conversationHistory.length % 5 === 0) {
-            console.log(`🔄 Auto-saving conversation session ${currentSessionId} (${conversationHistory.length} turns)`);
-            sendToRenderer('save-conversation-session', {
-                sessionId: currentSessionId,
-                conversationHistory: conversationHistory,
-            });
-        }
     } catch (error) {
         console.error('Failed to save transcript to DB:', error);
     }
@@ -551,7 +592,7 @@ async function initializeLiveSummarySession(language = 'en') {
         return false;
     }
 
-    initializeNewSession();
+    await initializeNewSession();
 
     try {
         const handleMyMessage = message => {
@@ -859,7 +900,7 @@ function setupLiveSummaryIpcHandlers() {
 
     ipcMain.handle('initialize-openai', async (event, profile = 'interview', language = 'en') => {
         console.log(`Received initialize-openai request with profile: ${profile}, language: ${language}`);
-        const success = await initializeLiveSummarySession();
+        const success = await initializeLiveSummarySession(language);
         return success;
     });
 
@@ -940,10 +981,36 @@ function setupLiveSummaryIpcHandlers() {
             return { success: false, error: error.message };
         }
     });
+
+    ipcMain.handle('save-ask-message', async (event, { userPrompt, aiResponse }) => {
+        try {
+            const sessionId = await getOrCreateActiveSession('ask');
+            if (!sessionId) {
+                throw new Error('Could not get or create a session for the ASK message.');
+            }
+    
+            await sqliteClient.addAiMessage({
+                sessionId: sessionId,
+                role: 'user',
+                content: userPrompt
+            });
+    
+            await sqliteClient.addAiMessage({
+                sessionId: sessionId,
+                role: 'assistant',
+                content: aiResponse
+            });
+    
+            console.log(`[DB] Saved ask/answer pair to session ${sessionId}`);
+            return { success: true };
+        } catch(error) {
+            console.error('[IPC] Failed to save ask message:', error);
+            return { success: false, error: error.message };
+        }
+    });
 }
 
 module.exports = {
-    initializeLiveSummarySession,
     sendToRenderer,
     initializeNewSession,
     saveConversationTurn,
