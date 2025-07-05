@@ -527,6 +527,8 @@ async function saveConversationTurn(speaker, transcription) {
 }
 
 async function initializeLiveSummarySession(language = 'en') {
+    // Use system environment variable if set, otherwise use the provided language
+    const effectiveLanguage = process.env.OPENAI_TRANSCRIBE_LANG || language || 'en';
     if (isInitializingSession) {
         console.log('Session initialization already in progress.');
         return false;
@@ -623,7 +625,7 @@ async function initializeLiveSummarySession(language = 'en') {
         };
 
         const mySttConfig = {
-            language: language,
+            language: effectiveLanguage,
             callbacks: {
                 onmessage: handleMyMessage,
                 onerror: error => console.error('My STT session error:', error.message),
@@ -631,7 +633,7 @@ async function initializeLiveSummarySession(language = 'en') {
             },
         };
         const theirSttConfig = {
-            language: language,
+            language: effectiveLanguage,
             callbacks: {
                 onmessage: handleTheirMessage,
                 onerror: error => console.error('Their STT session error:', error.message),
