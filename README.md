@@ -98,7 +98,7 @@ We love contributions! Feel free to open issues for bugs or feature requests.
 |--------|--------------------------------|---------------------------------------------------|
 | 🚧 WIP     | AEC Improvement                | Transcription is not working occasionally |
 | 🚧 WIP     | Code Refactoring               | Refactoring the entire codebase for better maintainability. |
-| 🚧 WIP      | Firebase Data Storage Issue    | Session & ask should be saved in firebase |
+| 🚧 WIP      | Firebase Data Storage Issue    | Session & ask should be saved in firebase for signup users |
 | 🚧 WIP      | Login Issue                    | Currently breaking when switching between local and sign-in mode |
 | 🚧 WIP      | Liquid Glass                    | Liquid Glass UI for MacOS 26 |
 | 🚧 WIP      | Permission Issue           | Mic & system audio & display capture permission sometimes not working|
