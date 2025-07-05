@@ -34,15 +34,18 @@ mac:
     category: public.app-category.utilities
     # Path to the .icns icon file
     icon: src/assets/logo.icns
-    # Target both Intel and Apple Silicon architectures
-    target:
-        - target: dmg
-          arch:
-              - x64
-              - arm64
-        - target: zip
-          arch:
-              - x64
-              - arm64
     # Minimum macOS version (supports both Intel and Apple Silicon)
     minimumSystemVersion: '11.0'
+    hardenedRuntime: true
+    entitlements: entitlements.plist
+    entitlementsInherit: entitlements.plist
+    notarize: true
+    target:
+      - target: dmg
+        arch:
+          - x64
+          - arm64
+      - target: zip
+        arch:
+          - x64
+          - arm64
