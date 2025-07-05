@@ -1833,7 +1833,102 @@ function setupIpcHandlers(openaiSessionRef) {
             header.webContents.send('request-firebase-logout');
         }
     });
+
+    ipcMain.handle('check-system-permissions', async () => {
+        const { systemPreferences } = require('electron');
+        const permissions = {
+            microphone: false,
+            screen: false,
+            needsSetup: false
+        };
+
+        try {
+            if (process.platform === 'darwin') {
+                // Check microphone permission on macOS
+                const micStatus = systemPreferences.getMediaAccessStatus('microphone');
+                permissions.microphone = micStatus === 'granted';
+
+                try {
+                    const sources = await desktopCapturer.getSources({ 
+                        types: ['screen'], 
+                        thumbnailSize: { width: 1, height: 1 } 
+                    });
+                    permissions.screen = sources && sources.length > 0;
+                } catch (err) {
+                    console.log('[Permissions] Screen capture test failed:', err);
+                    permissions.screen = false;
+                }
+
+                permissions.needsSetup = !permissions.microphone || !permissions.screen;
+            } else {
+                permissions.microphone = true;
+                permissions.screen = true;
+                permissions.needsSetup = false;
+            }
+
+            console.log('[Permissions] System permissions status:', permissions);
+            return permissions;
+        } catch (error) {
+            console.error('[Permissions] Error checking permissions:', error);
+            return {
+                microphone: false,
+                screen: false,
+                needsSetup: true,
+                error: error.message
+            };
+        }
+    });
+
+    ipcMain.handle('request-microphone-permission', async () => {
+        if (process.platform !== 'darwin') {
+            return { success: true };
+        }
+
+        const { systemPreferences } = require('electron');
+        try {
+            const status = systemPreferences.getMediaAccessStatus('microphone');
+            if (status === 'granted') {
+                return { success: true, status: 'already-granted' };
+            }
+
+            // Req mic permission
+            const granted = await systemPreferences.askForMediaAccess('microphone');
+            return { 
+                success: granted, 
+                status: granted ? 'granted' : 'denied' 
+            };
+        } catch (error) {
+            console.error('[Permissions] Error requesting microphone permission:', error);
+            return { 
+                success: false, 
+                error: error.message 
+            };
+        }
+    });
+
+    ipcMain.handle('open-system-preferences', async (event, section) => {
+        if (process.platform !== 'darwin') {
+            return { success: false, error: 'Not supported on this platform' };
+        }
+
+        try {
+            // Open System Preferences to Privacy & Security > Screen Recording
+            if (section === 'screen-recording') {
+                await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture');
+            } else if (section === 'microphone') {
+                await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone');
+            } else {
+                await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy');
+            }
+            return { success: true };
+        } catch (error) {
+            console.error('[Permissions] Error opening system preferences:', error);
+            return { success: false, error: error.message };
+        }
+    });
 }
+
+
 
 let storedApiKey = null;
 let storedProvider = 'openai';

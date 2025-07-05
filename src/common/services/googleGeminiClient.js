@@ -1,4 +1,5 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { GoogleGenAI } = require('@google/genai');
 
 /**
  * Creates and returns a Google Gemini client instance for generative AI.
@@ -113,8 +114,58 @@ function createGeminiChat(client, model = 'gemini-2.5-flash', config = {}) {
     };
 }
 
+// async function connectToGeminiSession(apiKey, { language = 'en-US', callbacks = {} } = {}) {
+//         const liveClient = new GoogleGenAI({
+//                 vertexai: false,   // Vertex AI 사용 안함
+//                 apiKey,
+//             });
+        
+//             // 라이브 STT 세션 열기
+//             const session = await liveClient.live.connect({
+//                 model: 'gemini-live-2.5-flash-preview',
+//                 callbacks,
+//                 config: {
+//                     inputAudioTranscription: {},                 // 실시간 STT 필수
+//                     speechConfig: { languageCode: language },
+//                 },
+//             });
+
+//         return {
+//             sendRealtimeInput: async data => session.send({
+//                 audio: { data, mimeType: 'audio/pcm;rate=24000' }
+//             }),
+//             close: async () => session.close(),
+//         };
+// }
+
+async function connectToGeminiSession(apiKey, { language = 'en-US', callbacks = {} } = {}) {
+        // ① 옛날 스타일 helper 재사용
+        const liveClient = new GoogleGenAI({ vertexai: false, apiKey });
+    
+        // ② 언어 코드 강제 BCP-47 변환
+        const lang = language.includes('-') ? language : `${language}-US`;
+    
+        const session = await liveClient.live.connect({
+            model: 'gemini-live-2.5-flash-preview',
+            callbacks,
+            config: {
+                inputAudioTranscription: {},
+                speechConfig: { languageCode: lang },
+            },
+        });
+    
+        // ③ SDK 0.5+ : sendRealtimeInput 가 정식 이름
+        return {
+            sendRealtimeInput: async payload => session.sendRealtimeInput(payload),
+            close: async () => session.close(),
+        };
+     }
+
+
+
 module.exports = {
     createGeminiClient,
     getGeminiGenerativeModel,
-    createGeminiChat
+    createGeminiChat,
+    connectToGeminiSession,
 };

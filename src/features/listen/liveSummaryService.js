@@ -3,6 +3,7 @@ const { BrowserWindow, ipcMain } = require('electron');
 const { spawn } = require('child_process');
 const { saveDebugAudio } = require('./audioUtils.js');
 const { getSystemPrompt } = require('../../common/prompts/promptBuilder.js');
+const { connectToGeminiSession } = require('../../common/services/googleGeminiClient.js');
 const { connectToOpenAiSession, createOpenAiGenerativeClient, getOpenAiGenerativeModel } = require('../../common/services/openAiClient.js');
 const { makeChatCompletionWithPortkey } = require('../../common/services/aiProviderService.js');
 const sqliteClient = require('../../common/services/sqliteClient');
@@ -538,7 +539,6 @@ async function initializeLiveSummarySession(language = 'en') {
     sendToRenderer('session-initializing', true);
     sendToRenderer('update-status', 'Initializing sessions...');
 
-    // Merged block
     const API_KEY = getApiKey();
     if (!API_KEY) {
         console.error('FATAL ERROR: API Key is not defined.');
@@ -550,73 +550,90 @@ async function initializeLiveSummarySession(language = 'en') {
 
     initializeNewSession();
 
+    const provider = await getAiProvider();
+    const isGemini  = provider === 'gemini';
+    console.log(`[LiveSummaryService] Initializing STT for provider: ${provider}`);
+
     try {
         const handleMyMessage = message => {
-            const type = message.type;
-            const text = message.transcript || message.delta || (message.alternatives && message.alternatives[0]?.transcript) || '';
-
-            if (type === 'conversation.item.input_audio_transcription.delta') {
-                if (myCompletionTimer) {
-                    clearTimeout(myCompletionTimer);
-                    myCompletionTimer = null;
-                }
-
-                myCurrentUtterance += text;
-
-                const continuousText = myCompletionBuffer + (myCompletionBuffer ? ' ' : '') + myCurrentUtterance;
-
-                if (text && !text.includes('vq_lbr_audio_')) {
-                    sendToRenderer('stt-update', {
-                        speaker: 'Me',
-                        text: continuousText,
-                        isPartial: true,
-                        isFinal: false,
-                        timestamp: Date.now(),
-                    });
-                }
-            } else if (type === 'conversation.item.input_audio_transcription.completed') {
+            if (isGemini) {
+                // console.log('[Gemini Raw Message - Me]:', JSON.stringify(message, null, 2));
+                const text = message.serverContent?.inputTranscription?.text || '';
                 if (text && text.trim()) {
-                    const finalUtteranceText = text.trim();
-                    myCurrentUtterance = '';
-
-                    debounceMyCompletion(finalUtteranceText);
+                    const finalUtteranceText = text.trim().replace(/<noise>/g, '').trim();
+                    if (finalUtteranceText && finalUtteranceText !== '.') {
+                        debounceMyCompletion(finalUtteranceText);
+                    }
                 }
-            } else if (message.error) {
+            } else {
+                const type = message.type;
+                const text = message.transcript || message.delta || (message.alternatives && message.alternatives[0]?.transcript) || '';
+
+                if (type === 'conversation.item.input_audio_transcription.delta') {
+                    if (myCompletionTimer) clearTimeout(myCompletionTimer);
+                    myCompletionTimer = null;
+                    myCurrentUtterance += text;
+                    const continuousText = myCompletionBuffer + (myCompletionBuffer ? ' ' : '') + myCurrentUtterance;
+                    if (text && !text.includes('vq_lbr_audio_')) {
+                        sendToRenderer('stt-update', {
+                            speaker: 'Me',
+                            text: continuousText,
+                            isPartial: true,
+                            isFinal: false,
+                            timestamp: Date.now(),
+                        });
+                    }
+                } else if (type === 'conversation.item.input_audio_transcription.completed') {
+                    if (text && text.trim()) {
+                        const finalUtteranceText = text.trim();
+                        myCurrentUtterance = '';
+                        debounceMyCompletion(finalUtteranceText);
+                    }
+                }
+            }
+
+            if (message.error) {
                 console.error('[Me] STT Session Error:', message.error);
             }
         };
 
         const handleTheirMessage = message => {
-            const type = message.type;
-            const text = message.transcript || message.delta || (message.alternatives && message.alternatives[0]?.transcript) || '';
-
-            if (type === 'conversation.item.input_audio_transcription.delta') {
-                if (theirCompletionTimer) {
-                    clearTimeout(theirCompletionTimer);
-                    theirCompletionTimer = null;
-                }
-
-                theirCurrentUtterance += text;
-
-                const continuousText = theirCompletionBuffer + (theirCompletionBuffer ? ' ' : '') + theirCurrentUtterance;
-
-                if (text && !text.includes('vq_lbr_audio_')) {
-                    sendToRenderer('stt-update', {
-                        speaker: 'Them',
-                        text: continuousText,
-                        isPartial: true,
-                        isFinal: false,
-                        timestamp: Date.now(),
-                    });
-                }
-            } else if (type === 'conversation.item.input_audio_transcription.completed') {
+            if (isGemini) {
+                // console.log('[Gemini Raw Message - Them]:', JSON.stringify(message, null, 2));
+                const text = message.serverContent?.inputTranscription?.text || '';
                 if (text && text.trim()) {
-                    const finalUtteranceText = text.trim();
-                    theirCurrentUtterance = '';
-
-                    debounceTheirCompletion(finalUtteranceText);
+                    const finalUtteranceText = text.trim().replace(/<noise>/g, '').trim();
+                    if (finalUtteranceText && finalUtteranceText !== '.') {
+                        debounceTheirCompletion(finalUtteranceText);
+                    }
                 }
-            } else if (message.error) {
+            } else {
+                const type = message.type;
+                const text = message.transcript || message.delta || (message.alternatives && message.alternatives[0]?.transcript) || '';
+                if (type === 'conversation.item.input_audio_transcription.delta') {
+                    if (theirCompletionTimer) clearTimeout(theirCompletionTimer);
+                    theirCompletionTimer = null;
+                    theirCurrentUtterance += text;
+                    const continuousText = theirCompletionBuffer + (theirCompletionBuffer ? ' ' : '') + theirCurrentUtterance;
+                    if (text && !text.includes('vq_lbr_audio_')) {
+                        sendToRenderer('stt-update', {
+                            speaker: 'Them',
+                            text: continuousText,
+                            isPartial: true,
+                            isFinal: false,
+                            timestamp: Date.now(),
+                        });
+                    }
+                } else if (type === 'conversation.item.input_audio_transcription.completed') {
+                    if (text && text.trim()) {
+                        const finalUtteranceText = text.trim();
+                        theirCurrentUtterance = '';
+                        debounceTheirCompletion(finalUtteranceText);
+                    }
+                }
+            }
+            
+            if (message.error) {
                 console.error('[Them] STT Session Error:', message.error);
             }
         };
@@ -638,10 +655,17 @@ async function initializeLiveSummarySession(language = 'en') {
             },
         };
 
-        [mySttSession, theirSttSession] = await Promise.all([
-            connectToOpenAiSession(API_KEY, mySttConfig, keyType),
-            connectToOpenAiSession(API_KEY, theirSttConfig, keyType),
-        ]);
+        if (isGemini) {
+            [mySttSession, theirSttSession] = await Promise.all([
+                connectToGeminiSession(API_KEY, mySttConfig),
+                connectToGeminiSession(API_KEY, theirSttConfig),
+            ]);
+        } else {
+            [mySttSession, theirSttSession] = await Promise.all([
+                connectToOpenAiSession(API_KEY, mySttConfig, keyType),
+                connectToOpenAiSession(API_KEY, theirSttConfig, keyType),
+            ]);
+        }
 
         console.log('✅ Both STT sessions initialized successfully.');
         triggerAnalysisIfNeeded();
@@ -653,7 +677,7 @@ async function initializeLiveSummarySession(language = 'en') {
         sendToRenderer('update-status', 'Connected. Ready to listen.');
         return true;
     } catch (error) {
-        console.error('❌ Failed to initialize OpenAI STT sessions:', error);
+        console.error('❌ Failed to initialize STT sessions:', error);
         isInitializingSession = false;
         sendToRenderer('session-initializing', false);
         sendToRenderer('update-status', 'Initialization failed.');
@@ -725,6 +749,9 @@ async function startMacOSAudioCapture() {
 
     let audioBuffer = Buffer.alloc(0);
 
+    const provider = await getAiProvider();
+    const isGemini  = provider === 'gemini';
+
     systemAudioProc.stdout.on('data', async data => {
         audioBuffer = Buffer.concat([audioBuffer, data]);
 
@@ -739,10 +766,11 @@ async function startMacOSAudioCapture() {
 
             if (theirSttSession) {
                 try {
-                    // await theirSttSession.sendRealtimeInput({
-                    //     audio: { data: base64Data, mimeType: 'audio/pcm;rate=24000' },
-                    // });
-                    await theirSttSession.sendRealtimeInput(base64Data);
+                    // await theirSttSession.sendRealtimeInput(base64Data);
+                    const payload = isGemini
+                        ? { audio: { data: base64Data, mimeType: 'audio/pcm;rate=24000' } }
+                        : base64Data;
+                    await theirSttSession.sendRealtimeInput(payload);
                 } catch (err) {
                     console.error('Error sending system audio:', err.message);
                 }
@@ -861,9 +889,17 @@ function setupLiveSummaryIpcHandlers() {
     });
 
     ipcMain.handle('send-audio-content', async (event, { data, mimeType }) => {
+    const provider = await getAiProvider();
+    const isGemini  = provider === 'gemini';
         if (!mySttSession) return { success: false, error: 'User STT session not active' };
         try {
-            await mySttSession.sendRealtimeInput(data);
+            // await mySttSession.sendRealtimeInput(data);
+                   // provider에 맞는 형식으로 래핑
+       const payload = isGemini
+           ? { audio: { data, mimeType: mimeType || 'audio/pcm;rate=24000' } }
+           : data;   // OpenAI는 base64 string 그대로
+
+       await mySttSession.sendRealtimeInput(payload);
             return { success: true };
         } catch (error) {
             console.error('Error sending user audio:', error);
