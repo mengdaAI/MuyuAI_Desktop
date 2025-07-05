@@ -433,6 +433,34 @@ class SQLiteClient {
             this.db = null;
         }
     }
+
+    async query(sql, params = []) {
+        return new Promise((resolve, reject) => {
+            if (!this.db) {
+                return reject(new Error('Database not connected'));
+            }
+
+            if (sql.toUpperCase().startsWith('SELECT')) {
+                this.db.all(sql, params, (err, rows) => {
+                    if (err) {
+                        console.error('Query error:', err);
+                        reject(err);
+                    } else {
+                        resolve(rows);
+                    }
+                });
+            } else {
+                this.db.run(sql, params, function(err) {
+                    if (err) {
+                        console.error('Query error:', err);
+                        reject(err);
+                    } else {
+                        resolve({ changes: this.changes, lastID: this.lastID });
+                    }
+                });
+            }
+        });
+    }
 }
 
 const sqliteClient = new SQLiteClient();

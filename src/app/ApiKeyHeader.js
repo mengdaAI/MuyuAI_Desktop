@@ -268,7 +268,6 @@ export class ApiKeyHeader extends LitElement {
         this.handleAnimationEnd = this.handleAnimationEnd.bind(this);
         this.handleUsePicklesKey = this.handleUsePicklesKey.bind(this);
         this.handleProviderChange = this.handleProviderChange.bind(this);
-        this.checkAndRequestPermissions = this.checkAndRequestPermissions.bind(this);
     }
 
     reset() {
@@ -407,18 +406,10 @@ export class ApiKeyHeader extends LitElement {
             const isValid = await this.validateApiKey(this.apiKey.trim(), this.selectedProvider);
             
             if (isValid) {
-                console.log('API key valid – checking system permissions…');
-                const permissionResult = await this.checkAndRequestPermissions();
-
-                if (permissionResult.success) {
-                    console.log('All permissions granted – starting slide-out animation');
+                console.log('API key valid - starting slide out animation');
                     this.startSlideOutAnimation();
                     this.validatedApiKey = this.apiKey.trim();
-                    this.validatedProvider = this.selectedProvider;
-                } else {
-                    this.errorMessage = permissionResult.error || 'Permission setup required';
-                    console.log('Permission setup incomplete:', permissionResult);
-                }
+                this.validatedProvider = this.selectedProvider;
             } else {
                 this.errorMessage = 'Invalid API key - please check and try again';
                 console.log('API key validation failed');
@@ -495,45 +486,6 @@ export class ApiKeyHeader extends LitElement {
         }
         
         return false;
-    }
-
-    async checkAndRequestPermissions() {
-        if (!window.require) return { success: true };
-    
-        const { ipcRenderer } = window.require('electron');
-    
-        try {
-            const permissions = await ipcRenderer.invoke('check-system-permissions');
-            console.log('[Permissions] Current status:', permissions);
-    
-            if (!permissions.needsSetup) return { success: true };
-    
-            if (!permissions.microphone) {
-                console.log('[Permissions] Requesting microphone permission…');
-                const micResult = await ipcRenderer.invoke('request-microphone-permission');
-                if (!micResult.success) {
-                    await ipcRenderer.invoke('open-system-preferences', 'microphone');
-                    return {
-                        success: false,
-                        error: 'Please grant microphone access in System Preferences',
-                    };
-                }
-            }
-    
-            if (!permissions.screen) {
-                console.log('[Permissions] Screen-recording permission needed');
-                await ipcRenderer.invoke('open-system-preferences', 'screen-recording');
-                return {
-                    success: false,
-                    error: 'Please grant screen recording access in System Preferences',
-                };
-            }
-    
-            return { success: true };
-        } catch (err) {
-            console.error('[Permissions] Error checking/requesting permissions:', err);
-            return { success: false, error: 'Failed to check permissions' };
-        }
     }
 
     startSlideOutAnimation() {

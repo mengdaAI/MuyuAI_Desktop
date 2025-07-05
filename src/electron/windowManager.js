@@ -1845,32 +1845,27 @@ function setupIpcHandlers(openaiSessionRef) {
     ipcMain.handle('check-system-permissions', async () => {
         const { systemPreferences } = require('electron');
         const permissions = {
-            microphone: false,
-            screen: false,
-            needsSetup: false
+            microphone: 'unknown',
+            screen: 'unknown',
+            needsSetup: true
         };
 
         try {
             if (process.platform === 'darwin') {
                 // Check microphone permission on macOS
                 const micStatus = systemPreferences.getMediaAccessStatus('microphone');
-                permissions.microphone = micStatus === 'granted';
+                console.log('[Permissions] Microphone status:', micStatus);
+                permissions.microphone = micStatus;
 
-                try {
-                    const sources = await desktopCapturer.getSources({ 
-                        types: ['screen'], 
-                        thumbnailSize: { width: 1, height: 1 } 
-                    });
-                    permissions.screen = sources && sources.length > 0;
-                } catch (err) {
-                    console.log('[Permissions] Screen capture test failed:', err);
-                    permissions.screen = false;
-                }
+                // Check screen recording permission using the system API
+                const screenStatus = systemPreferences.getMediaAccessStatus('screen');
+                console.log('[Permissions] Screen status:', screenStatus);
+                permissions.screen = screenStatus;
 
-                permissions.needsSetup = !permissions.microphone || !permissions.screen;
+                permissions.needsSetup = micStatus !== 'granted' || screenStatus !== 'granted';
             } else {
-                permissions.microphone = true;
-                permissions.screen = true;
+                permissions.microphone = 'granted';
+                permissions.screen = 'granted';
                 permissions.needsSetup = false;
             }
 
@@ -1879,8 +1874,8 @@ function setupIpcHandlers(openaiSessionRef) {
         } catch (error) {
             console.error('[Permissions] Error checking permissions:', error);
             return {
-                microphone: false,
-                screen: false,
+                microphone: 'unknown',
+                screen: 'unknown',
                 needsSetup: true,
                 error: error.message
             };
@@ -1895,15 +1890,16 @@ function setupIpcHandlers(openaiSessionRef) {
         const { systemPreferences } = require('electron');
         try {
             const status = systemPreferences.getMediaAccessStatus('microphone');
+            console.log('[Permissions] Microphone status:', status);
             if (status === 'granted') {
-                return { success: true, status: 'already-granted' };
+                return { success: true, status: 'granted' };
             }
 
             // Req mic permission
             const granted = await systemPreferences.askForMediaAccess('microphone');
             return { 
-                success: granted, 
-                status: granted ? 'granted' : 'denied' 
+                success: granted,
+                status: granted ? 'granted' : 'denied'
             };
         } catch (error) {
             console.error('[Permissions] Error requesting microphone permission:', error);
@@ -1920,18 +1916,59 @@ function setupIpcHandlers(openaiSessionRef) {
         }
 
         try {
-            // Open System Preferences to Privacy & Security > Screen Recording
             if (section === 'screen-recording') {
-                await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture');
-            } else if (section === 'microphone') {
-                await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone');
-            } else {
-                await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy');
+                // First trigger screen capture request to register the app in system preferences
+                try {
+                    console.log('[Permissions] Triggering screen capture request to register app...');
+                    await desktopCapturer.getSources({ 
+                        types: ['screen'], 
+                        thumbnailSize: { width: 1, height: 1 } 
+                    });
+                    console.log('[Permissions] App registered for screen recording');
+                } catch (captureError) {
+                    console.log('[Permissions] Screen capture request triggered (expected to fail):', captureError.message);
+                }
+                
+                // Then open system preferences
+                // await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture');
             }
+            // if (section === 'microphone') {
+            //     await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone');
+            // }
             return { success: true };
         } catch (error) {
             console.error('[Permissions] Error opening system preferences:', error);
             return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('mark-permissions-completed', async () => {
+        try {
+            // Store in SQLite that permissions have been completed
+            await sqliteClient.query(
+                'INSERT OR REPLACE INTO system_settings (key, value) VALUES (?, ?)',
+                ['permissions_completed', 'true']
+            );
+            console.log('[Permissions] Marked permissions as completed');
+            return { success: true };
+        } catch (error) {
+            console.error('[Permissions] Error marking permissions as completed:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('check-permissions-completed', async () => {
+        try {
+            const result = await sqliteClient.query(
+                'SELECT value FROM system_settings WHERE key = ?',
+                ['permissions_completed']
+            );
+            const completed = result.length > 0 && result[0].value === 'true';
+            console.log('[Permissions] Permissions completed status:', completed);
+            return completed;
+        } catch (error) {
+            console.error('[Permissions] Error checking permissions completed status:', error);
+            return false;
         }
     });
 }
