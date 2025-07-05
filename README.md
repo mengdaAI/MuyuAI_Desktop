@@ -97,6 +97,4 @@ We love contributions! Feel free to open issues for bugs or feature requests.
 **Our mission is to build a living digital clone for everyone.** Glass is part of Step 1—a trusted pipeline that transforms your daily data into a scalable clone. Visit [pickle.com](https://pickle.com) to learn more.
 
 ## Star History
-
-<img src="./public/assets/star-history-202574.png">
-
+[![Star History Chart](https://api.star-history.com/svg?repos=pickle-com/glass&type=Date)](https://www.star-history.com/#pickle-com/glass&Date)

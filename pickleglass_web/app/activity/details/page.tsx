@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRedirectIfNotAuth } from '@/utils/auth'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   UserProfile,
@@ -10,6 +10,7 @@ import {
   Transcript,
   AiMessage,
   getSessionDetails,
+  deleteSession,
 } from '@/utils/api'
 
 type ConversationItem = (Transcript & { type: 'transcript' }) | (AiMessage & { type: 'ai_message' });
@@ -29,6 +30,8 @@ function SessionDetailsContent() {
   const [isLoading, setIsLoading] = useState(true);
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('sessionId');
+  const router = useRouter();
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (userInfo && sessionId) {
@@ -46,6 +49,20 @@ function SessionDetailsContent() {
       fetchDetails();
     }
   }, [userInfo, sessionId]);
+
+  const handleDelete = async () => {
+    if (!sessionId) return;
+    if (!window.confirm('Are you sure you want to delete this activity? This cannot be undone.')) return;
+    setDeleting(true);
+    try {
+      await deleteSession(sessionId);
+      router.push('/activity');
+    } catch (error) {
+      alert('Failed to delete activity.');
+      setDeleting(false);
+      console.error(error);
+    }
+  };
 
   if (!userInfo || isLoading) {
     return (
@@ -92,14 +109,23 @@ function SessionDetailsContent() {
             </div>
 
             <div className="bg-white p-8 rounded-xl">
-                <div className="mb-6">
-                    <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                        {sessionDetails.session.title || `Conversation on ${new Date(sessionDetails.session.started_at * 1000).toLocaleDateString()}`}
-                    </h1>
-                    <div className="flex items-center text-sm text-gray-500 space-x-4">
-                        <span>{new Date(sessionDetails.session.started_at * 1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
-                        <span>{new Date(sessionDetails.session.started_at * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</span>
+                <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                            {sessionDetails.session.title || `Conversation on ${new Date(sessionDetails.session.started_at * 1000).toLocaleDateString()}`}
+                        </h1>
+                        <div className="flex items-center text-sm text-gray-500 space-x-4">
+                            <span>{new Date(sessionDetails.session.started_at * 1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+                            <span>{new Date(sessionDetails.session.started_at * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</span>
+                        </div>
                     </div>
+                    <button
+                        onClick={handleDelete}
+                        disabled={deleting}
+                        className={`px-4 py-2 rounded text-sm font-medium border border-red-200 text-red-700 bg-red-50 hover:bg-red-100 transition-colors ${deleting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                        {deleting ? 'Deleting...' : 'Delete Activity'}
+                    </button>
                 </div>
 
                 {sessionDetails.summary && (

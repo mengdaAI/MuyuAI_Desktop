@@ -8,29 +8,41 @@ productName: Glass
 
 # Publish configuration for GitHub releases
 publish:
-  provider: github
-  owner: pickle-com
-  repo: glass
-  releaseType: draft
+    provider: github
+    owner: pickle-com
+    repo: glass
+    releaseType: draft
 
 # List of files to be included in the app package
 files:
-  - src/**/*
-  - package.json
-  - pickleglass_web/backend_node/**/*
-  - '!**/node_modules/electron/**'
-  - public/build/**/*
+    - src/**/*
+    - package.json
+    - pickleglass_web/backend_node/**/*
+    - '!**/node_modules/electron/**'
+    - public/build/**/*
 
 # Additional resources to be copied into the app's resources directory
 extraResources:
-  - from: src/assets/SystemAudioDump
-    to: SystemAudioDump
-  - from: pickleglass_web/out
-    to: out
+    - from: src/assets/SystemAudioDump
+      to: SystemAudioDump
+    - from: pickleglass_web/out
+      to: out
 
 # macOS specific configuration
 mac:
-  # The application category type
-  category: public.app-category.utilities
-  # Path to the .icns icon file
-  icon: src/assets/logo.icns 
+    # The application category type
+    category: public.app-category.utilities
+    # Path to the .icns icon file
+    icon: src/assets/logo.icns
+    # Target both Intel and Apple Silicon architectures
+    target:
+        - target: dmg
+          arch:
+              - x64
+              - arm64
+        - target: zip
+          arch:
+              - x64
+              - arm64
+    # Minimum macOS version (supports both Intel and Apple Silicon)
+    minimumSystemVersion: '11.0'
