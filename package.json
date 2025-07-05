@@ -65,5 +65,9 @@
         "electron-builder": "^26.0.12",
         "electron-reloader": "^1.2.3",
         "esbuild": "^0.25.5"
+    },
+    "optionalDependencies": {
+        "@img/sharp-darwin-x64": "^0.34.2",
+        "@img/sharp-libvips-darwin-x64": "^1.1.0"
     }
 }
