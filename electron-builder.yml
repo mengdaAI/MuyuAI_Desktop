@@ -23,10 +23,11 @@ files:
 
 # Additional resources to be copied into the app's resources directory
 extraResources:
-    - from: src/assets/SystemAudioDump
-      to: SystemAudioDump
     - from: pickleglass_web/out
       to: out
+
+asarUnpack:
+    - "src/assets/SystemAudioDump"
 
 # macOS specific configuration
 mac:
@@ -39,13 +40,8 @@ mac:
     hardenedRuntime: true
     entitlements: entitlements.plist
     entitlementsInherit: entitlements.plist
-    notarize: true
     target:
       - target: dmg
-        arch:
-          - x64
-          - arm64
+        arch: universal
       - target: zip
-        arch:
-          - x64
-          - arm64
+        arch: universal
