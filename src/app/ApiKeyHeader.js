@@ -109,7 +109,7 @@ export class ApiKeyHeader extends LitElement {
             font-weight: 500; /* Medium */
             margin: 0;
             text-align: center;
-            flex-shrink: 0; /* 제목이 줄어들지 않도록 고정 */
+            flex-shrink: 0;
         }
 
         .form-content {
@@ -117,14 +117,14 @@ export class ApiKeyHeader extends LitElement {
             flex-direction: column;
             align-items: center;
             width: 100%;
-            margin-top: auto; /* 이 속성이 제목과 폼 사이의 공간을 만듭니다. */
+            margin-top: auto;
         }
 
         .error-message {
             color: rgba(239, 68, 68, 0.9);
             font-weight: 500;
             font-size: 11px;
-            height: 14px; /* Reserve space to prevent layout shift */
+            height: 14px;
             text-align: center;
             margin-bottom: 4px;
         }

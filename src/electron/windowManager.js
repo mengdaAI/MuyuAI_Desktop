@@ -107,6 +107,10 @@ function createFeatureWindows(header) {
 }
 
 function destroyFeatureWindows() {
+    if (settingsHideTimer) {
+        clearTimeout(settingsHideTimer);
+        settingsHideTimer = null;
+    }
     featureWindows.forEach(name=>{
         const win = windowPool.get(name);
         if (win && !win.isDestroyed()) win.destroy();
@@ -1328,8 +1332,12 @@ function setupIpcHandlers(openaiSessionRef) {
                     clearTimeout(settingsHideTimer);
                 }
                 settingsHideTimer = setTimeout(() => {
-                    window.setAlwaysOnTop(false);
-                    window.hide();
+                    // window.setAlwaysOnTop(false);
+                    // window.hide();
+                    if (window && !window.isDestroyed()) {
+                        window.setAlwaysOnTop(false);
+                        window.hide();
+                    }
                     settingsHideTimer = null;
                 }, 200);
             } else {
@@ -1809,23 +1817,23 @@ function setupIpcHandlers(openaiSessionRef) {
 
     ipcMain.handle('firebase-logout', () => {
         console.log('[WindowManager] Received request to log out.');
-        // setApiKey(null)
-        //     .then(() => {
-        //         console.log('[WindowManager] API key cleared successfully after logout');
-        //         windowPool.forEach(win => {
-        //             if (win && !win.isDestroyed()) {
-        //                 win.webContents.send('api-key-removed');
-        //             }
-        //         });
-        //     })
-        //     .catch(err => {
-        //         console.error('[WindowManager] setApiKey error:', err);
-        //         windowPool.forEach(win => {
-        //             if (win && !win.isDestroyed()) {
-        //                 win.webContents.send('api-key-removed');
-        //             }
-        //         });
-        //     });
+        setApiKey(null)
+            .then(() => {
+                console.log('[WindowManager] API key cleared successfully after logout');
+                windowPool.forEach(win => {
+                    if (win && !win.isDestroyed()) {
+                        win.webContents.send('api-key-removed');
+                    }
+                });
+            })
+            .catch(err => {
+                console.error('[WindowManager] setApiKey error:', err);
+                windowPool.forEach(win => {
+                    if (win && !win.isDestroyed()) {
+                        win.webContents.send('api-key-removed');
+                    }
+                });
+            });
 
         const header = windowPool.get('header');
         if (header && !header.isDestroyed()) {

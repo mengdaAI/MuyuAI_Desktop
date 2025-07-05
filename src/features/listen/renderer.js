@@ -1035,6 +1035,18 @@ async function sendMessage(userPrompt, options = {}) {
                         if (window.require) {
                             const { ipcRenderer } = window.require('electron');
                             ipcRenderer.send('ask-response-stream-end');
+
+                            // Save the full conversation to DB
+                            ipcRenderer.invoke('save-ask-message', {
+                                userPrompt: userPrompt.trim(),
+                                aiResponse: fullResponse
+                            }).then(result => {
+                                if (result.success) {
+                                    console.log('Ask/answer pair saved successfully.');
+                                } else {
+                                    console.error('Failed to save ask/answer pair:', result.error);
+                                }
+                            });
                         }
                         return { success: true, response: fullResponse };
                     }
@@ -1079,26 +1091,6 @@ async function initConversationStorage() {
     }
 }
 
-async function saveConversationSession(sessionId, conversationHistory) {
-    try {
-        if (!apiClient) {
-            throw new Error('API client not available');
-        }
-
-        const response = await apiClient.client.post('/api/conversations', {
-            sessionId,
-            conversationHistory,
-            userId: apiClient.userId,
-        });
-
-        console.log('대화 세션 저장 완료:', sessionId);
-        return response.data;
-    } catch (error) {
-        console.error('대화 세션 저장 실패:', error);
-        throw error;
-    }
-}
-
 async function getConversationSession(sessionId) {
     try {
         if (!apiClient) {
@@ -1126,27 +1118,6 @@ async function getAllConversationSessions() {
         throw error;
     }
 }
-
-// Listen for conversation data from main process
-ipcRenderer.on('save-conversation-turn', async (event, data) => {
-    try {
-        await saveConversationSession(data.sessionId, data.fullHistory);
-        console.log('Conversation session saved:', data.sessionId);
-    } catch (error) {
-        console.error('Error saving conversation session:', error);
-    }
-});
-
-// Listen for session save request from main process
-ipcRenderer.on('save-conversation-session', async (event, data) => {
-    try {
-        console.log(`📥 Received conversation session save request: ${data.sessionId}`);
-        await saveConversationSession(data.sessionId, data.conversationHistory);
-        console.log(`✅ Conversation session saved successfully: ${data.sessionId}`);
-    } catch (error) {
-        console.error('❌ Error saving conversation session:', error);
-    }
-});
 
 // Initialize conversation storage when renderer loads
 initConversationStorage().catch(console.error);

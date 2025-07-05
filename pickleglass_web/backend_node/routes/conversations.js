@@ -7,7 +7,7 @@ const validator = require('validator');
 router.get('/', (req, res) => {
     try {
         const sessions = db.prepare(
-            "SELECT id, uid, title, started_at, ended_at, sync_state, updated_at FROM sessions WHERE uid = ? ORDER BY started_at DESC"
+            "SELECT id, uid, title, session_type, started_at, ended_at, sync_state, updated_at FROM sessions WHERE uid = ? ORDER BY started_at DESC"
         ).all(req.uid);
         res.json(sessions);
     } catch (error) {

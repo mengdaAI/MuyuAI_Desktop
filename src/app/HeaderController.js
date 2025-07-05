@@ -113,6 +113,7 @@ class HeaderTransitionManager {
             ipcRenderer.on('request-firebase-logout', async () => {
                 console.log('[HeaderController] Received request to sign out.');
                 try {
+                    this.hasApiKey = false;
                     await signOut(auth);
                 } catch (error) {
                     console.error('[HeaderController] Sign out failed', error);

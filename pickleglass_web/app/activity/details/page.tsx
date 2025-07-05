@@ -89,12 +89,7 @@ function SessionDetailsContent() {
     )
   }
   
-  const combinedConversation = [
-    ...sessionDetails.transcripts.map(t => ({ ...t, type: 'transcript' as const, created_at: t.start_at })),
-    ...sessionDetails.ai_messages.map(m => ({ ...m, type: 'ai_message' as const, created_at: m.sent_at }))
-  ].sort((a, b) => (a.created_at || 0) - (b.created_at || 0));
-
-  const audioTranscripts = sessionDetails.transcripts.filter(t => t.speaker !== 'Me');
+  const askMessages = sessionDetails.ai_messages || [];
 
   return (
     <div className="min-h-screen bg-[#FDFCF9] text-gray-800">
@@ -108,8 +103,8 @@ function SessionDetailsContent() {
                 </Link>
             </div>
 
-            <div className="bg-white p-8 rounded-xl">
-                <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="bg-white p-8 rounded-xl shadow-md border border-gray-100">
+                <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900 mb-2">
                             {sessionDetails.session.title || `Conversation on ${new Date(sessionDetails.session.started_at * 1000).toLocaleDateString()}`}
@@ -117,6 +112,9 @@ function SessionDetailsContent() {
                         <div className="flex items-center text-sm text-gray-500 space-x-4">
                             <span>{new Date(sessionDetails.session.started_at * 1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
                             <span>{new Date(sessionDetails.session.started_at * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</span>
+                            <span className={`capitalize px-2 py-0.5 rounded-full text-xs font-medium ${sessionDetails.session.session_type === 'listen' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
+                                {sessionDetails.session.session_type}
+                            </span>
                         </div>
                     </div>
                     <button
@@ -130,29 +128,57 @@ function SessionDetailsContent() {
 
                 {sessionDetails.summary && (
                     <Section title="Summary">
-                        <p className="italic">"{sessionDetails.summary.tldr}"</p>
+                        <p className="text-lg italic text-gray-600 mb-4">"{sessionDetails.summary.tldr}"</p>
+                        
+                        {sessionDetails.summary.bullet_json && JSON.parse(sessionDetails.summary.bullet_json).length > 0 &&
+                            <div className="mt-4">
+                                <h3 className="font-semibold text-gray-700 mb-2">Key Points:</h3>
+                                <ul className="list-disc list-inside space-y-1 text-gray-600">
+                                    {JSON.parse(sessionDetails.summary.bullet_json).map((point: string, index: number) => (
+                                        <li key={index}>{point}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        }
+
+                        {sessionDetails.summary.action_json && JSON.parse(sessionDetails.summary.action_json).length > 0 &&
+                            <div className="mt-4">
+                                <h3 className="font-semibold text-gray-700 mb-2">Action Items:</h3>
+                                <ul className="list-disc list-inside space-y-1 text-gray-600">
+                                    {JSON.parse(sessionDetails.summary.action_json).map((action: string, index: number) => (
+                                        <li key={index}>{action}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        }
                     </Section>
                 )}
                 
-                <Section title="Notes">
-                    {combinedConversation.map((item) => (
-                        <p key={item.id}>
-                            <span className="font-semibold">{(item.type === 'transcript' && item.speaker === 'Me') || (item.type === 'ai_message' && item.role === 'user') ? 'You: ' : 'AI: '}</span>
-                            {item.type === 'transcript' ? item.text : item.content}
-                        </p>
-                    ))}
-                    {combinedConversation.length === 0 && <p>No notes recorded for this session.</p>}
-                </Section>
+                {sessionDetails.transcripts && sessionDetails.transcripts.length > 0 && (
+                    <Section title="Listen: Transcript">
+                        <div className="space-y-3">
+                            {sessionDetails.transcripts.map((item) => (
+                                <p key={item.id} className="text-gray-700">
+                                    <span className="font-semibold capitalize">{item.speaker}: </span>
+                                    {item.text}
+                                </p>
+                            ))}
+                        </div>
+                    </Section>
+                )}
                 
-                <Section title="Audio transcript content">
-                    {audioTranscripts.length > 0 ? (
-                        <ul className="list-disc list-inside space-y-1">
-                            {audioTranscripts.map(t => <li key={t.id}>{t.text}</li>)}
-                        </ul>
-                    ) : (
-                        <p>No audio transcript available for this session.</p>
-                    )}
-                </Section>
+                {askMessages.length > 0 && (
+                    <Section title="Ask: Q&A">
+                        <div className="space-y-4">
+                            {askMessages.map((item) => (
+                                <div key={item.id} className={`p-3 rounded-lg ${item.role === 'user' ? 'bg-gray-100' : 'bg-blue-50'}`}>
+                                    <p className="font-semibold capitalize text-sm text-gray-600 mb-1">{item.role === 'user' ? 'You' : 'AI'}</p>
+                                    <p className="text-gray-800 whitespace-pre-wrap">{item.content}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </Section>
+                )}
             </div>
         </div>
     </div>
