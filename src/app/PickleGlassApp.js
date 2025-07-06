@@ -1,7 +1,6 @@
 import { html, css, LitElement } from '../assets/lit-core-2.7.4.min.js';
-import { CustomizeView } from '../features/customize/CustomizeView.js';
+import { SettingsView } from '../features/settings/SettingsView.js';
 import { AssistantView } from '../features/listen/AssistantView.js';
-import { OnboardingView } from '../features/onboarding/OnboardingView.js';
 import { AskView } from '../features/ask/AskView.js';
 
 import '../features/listen/renderer.js';
@@ -21,7 +20,7 @@ export class PickleGlassApp extends LitElement {
             width: 100%;
         }
 
-        ask-view, customize-view, history-view, help-view, onboarding-view, setup-view {
+        ask-view, settings-view, history-view, help-view, setup-view {
             display: block;
             width: 100%;
         }
@@ -180,8 +179,8 @@ export class PickleGlassApp extends LitElement {
         this.isMainViewVisible = !this.isMainViewVisible;
     }
 
-    handleCustomizeClick() {
-        this.currentView = 'customize';
+    handleSettingsClick() {
+        this.currentView = 'settings';
         this.isMainViewVisible = true;
     }
 
@@ -247,10 +246,6 @@ export class PickleGlassApp extends LitElement {
         this.currentResponseIndex = e.detail.index;
     }
 
-    handleOnboardingComplete() {
-        this.currentView = 'main';
-    }
-
     render() {
         switch (this.currentView) {
             case 'listen':
@@ -263,19 +258,17 @@ export class PickleGlassApp extends LitElement {
                 ></assistant-view>`;
             case 'ask':
                 return html`<ask-view></ask-view>`;
-            case 'customize':
-                return html`<customize-view
+            case 'settings':
+                return html`<settings-view
                     .selectedProfile=${this.selectedProfile}
                     .selectedLanguage=${this.selectedLanguage}
                     .onProfileChange=${profile => (this.selectedProfile = profile)}
                     .onLanguageChange=${lang => (this.selectedLanguage = lang)}
-                ></customize-view>`;
+                ></settings-view>`;
             case 'history':
                 return html`<history-view></history-view>`;
             case 'help':
                 return html`<help-view></help-view>`;
-            case 'onboarding':
-                return html`<onboarding-view></onboarding-view>`;
             case 'setup':
                 return html`<setup-view></setup-view>`;
             default:
