@@ -13,14 +13,18 @@ const systemSettingsRepository = require('../common/repositories/systemSettings'
 const userRepository = require('../common/repositories/user');
 const fetch = require('node-fetch');
 
+
+/* ────────────────[ GLASS BYPASS ]─────────────── */
 const isLiquidGlassSupported = () => {
     if (process.platform !== 'darwin') {
         return false;
     }
     const majorVersion = parseInt(os.release().split('.')[0], 10);
-    return majorVersion >= 26; // macOS 26+ (Darwin 25+)
+    // return majorVersion >= 25; // macOS 26+ (Darwin 25+)
+    return majorVersion >= 26; // See you soon!
 };
 const shouldUseLiquidGlass = isLiquidGlassSupported();
+/* ────────────────[ GLASS BYPASS ]─────────────── */
 
 let isContentProtectionOn = true;
 let currentDisplayId = null;
@@ -139,11 +143,11 @@ function createFeatureWindows(header) {
     windowPool.set('ask', ask);
 
     // settings
-    const settings = new BrowserWindow({ ...commonChildOptions, width:240, maxHeight:350, parent:undefined });
+    const settings = new BrowserWindow({ ...commonChildOptions, width:240, maxHeight:400, parent:undefined });
     settings.setContentProtection(isContentProtectionOn);
     settings.setVisibleOnAllWorkspaces(true,{visibleOnFullScreen:true});
     settings.setWindowButtonVisibility(false);
-    const settingsLoadOptions = { query: { view: 'customize' } };
+    const settingsLoadOptions = { query: { view: 'settings' } };
     if (!shouldUseLiquidGlass) {
         settings.loadFile(path.join(__dirname,'../app/content.html'), settingsLoadOptions)
             .catch(console.error);
@@ -379,10 +383,10 @@ function createWindows() {
 
         if (windowToToggle) {
             if (featureName === 'listen') {
-                const liveSummaryService = require('../features/listen/liveSummaryService');
-                if (liveSummaryService.isSessionActive()) {
+                const listenService = global.listenService;
+                if (listenService && listenService.isSessionActive()) {
                     console.log('[WindowManager] Listen session is active, closing it via toggle.');
-                    await liveSummaryService.closeSession();
+                    await listenService.closeSession();
                     return;
                 }
             }

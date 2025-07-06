@@ -292,11 +292,12 @@ export class MainHeader extends LitElement {
             width: 16px;
             height: 16px;
         }
+
+        /* ────────────────[ GLASS BYPASS ]─────────────── */
         :host-context(body.has-glass) .header,
         :host-context(body.has-glass) .listen-button,
         :host-context(body.has-glass) .header-actions,
         :host-context(body.has-glass) .settings-button {
-            /* 배경·블러·그림자 전부 제거 */
             background: transparent !important;
             filter: none !important;
             box-shadow: none !important;
@@ -307,7 +308,6 @@ export class MainHeader extends LitElement {
             border: none !important;
         }
 
-        /* 장식용 before/after 레이어와 버튼 오버레이 비활성화 */
         :host-context(body.has-glass) .header::before,
         :host-context(body.has-glass) .header::after,
         :host-context(body.has-glass) .listen-button::before,
@@ -315,7 +315,6 @@ export class MainHeader extends LitElement {
             display: none !important;
         }
 
-        /* hover 때 의도치 않게 생기는 배경도 차단 */
         :host-context(body.has-glass) .header-actions:hover,
         :host-context(body.has-glass) .settings-button:hover,
         :host-context(body.has-glass) .listen-button:hover::before {
@@ -330,7 +329,6 @@ export class MainHeader extends LitElement {
             box-shadow: none !important;
         }
 
-        /* 2) pill 형태·아이콘 박스 둥근 모서리 평면화 (선택) */
         :host-context(body.has-glass) .header,
         :host-context(body.has-glass) .listen-button,
         :host-context(body.has-glass) .header-actions,

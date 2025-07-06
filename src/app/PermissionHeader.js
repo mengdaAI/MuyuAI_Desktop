@@ -237,6 +237,8 @@ export class PermissionHeader extends LitElement {
             background: rgba(255, 255, 255, 0.2);
             cursor: not-allowed;
         }
+
+        /* ────────────────[ GLASS BYPASS ]─────────────── */
         :host-context(body.has-glass) .container,
         :host-context(body.has-glass) .action-button,
         :host-context(body.has-glass) .continue-button,
@@ -248,14 +250,12 @@ export class PermissionHeader extends LitElement {
             backdrop-filter: none !important;
         }
 
-        /* Remove gradient borders / pseudo layers */
         :host-context(body.has-glass) .container::after,
         :host-context(body.has-glass) .action-button::after,
         :host-context(body.has-glass) .continue-button::after {
             display: none !important;
         }
 
-        /* Prevent background reappearing on hover/active */
         :host-context(body.has-glass) .action-button:hover,
         :host-context(body.has-glass) .continue-button:hover,
         :host-context(body.has-glass) .close-button:hover {

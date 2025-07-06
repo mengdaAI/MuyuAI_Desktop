@@ -248,6 +248,8 @@ export class ApiKeyHeader extends LitElement {
             width: 100%;
             text-align: left;
         }
+        
+        /* ────────────────[ GLASS BYPASS ]─────────────── */
         :host-context(body.has-glass) .container,
         :host-context(body.has-glass) .api-input,
         :host-context(body.has-glass) .provider-select,
@@ -260,13 +262,11 @@ export class ApiKeyHeader extends LitElement {
             backdrop-filter: none !important;
         }
 
-        /* 가상 레이어·그라데이션 테두리 제거 */
         :host-context(body.has-glass) .container::after,
         :host-context(body.has-glass) .action-button::after {
             display: none !important;
         }
 
-        /* hover/active 때 다시 생기는 배경도 차단 */
         :host-context(body.has-glass) .action-button:hover,
         :host-context(body.has-glass) .provider-select:hover,
         :host-context(body.has-glass) .close-button:hover {

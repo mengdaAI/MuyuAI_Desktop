@@ -13,8 +13,9 @@ function getRepository() {
 
 // Directly export functions for ease of use, decided by the strategy
 module.exports = {
-    addTranscript: (...args) => getRepository().addTranscript(...args),
-    saveSummary: (...args) => getRepository().saveSummary(...args),
-    getAllTranscriptsBySessionId: (...args) => getRepository().getAllTranscriptsBySessionId(...args),
-    getSummaryBySessionId: (...args) => getRepository().getSummaryBySessionId(...args),
-}; 
+    getPresets: (...args) => getRepository().getPresets(...args),
+    getPresetTemplates: (...args) => getRepository().getPresetTemplates(...args),
+    createPreset: (...args) => getRepository().createPreset(...args),
+    updatePreset: (...args) => getRepository().updatePreset(...args),
+    deletePreset: (...args) => getRepository().deletePreset(...args),
+};

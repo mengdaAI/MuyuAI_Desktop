@@ -590,6 +590,8 @@ export class AskView extends LitElement {
             color: rgba(255, 255, 255, 0.5);
             font-size: 14px;
         }
+
+        /* ────────────────[ GLASS BYPASS ]─────────────── */
         :host-context(body.has-glass) .ask-container,
         :host-context(body.has-glass) .response-header,
         :host-context(body.has-glass) .response-icon,
@@ -608,12 +610,10 @@ export class AskView extends LitElement {
             backdrop-filter: none !important;
         }
 
-        /* ask-container 의 블러·그림자 레이어 제거 */
         :host-context(body.has-glass) .ask-container::before {
             display: none !important;
         }
 
-        /* hover/active 때 다시 생기는 배경도 차단 */
         :host-context(body.has-glass) .copy-button:hover,
         :host-context(body.has-glass) .close-button:hover,
         :host-context(body.has-glass) .line-copy-button,
@@ -622,7 +622,6 @@ export class AskView extends LitElement {
             background: transparent !important;
         }
 
-        /* 스크롤바 트랙·썸 마저 투명화 (원할 경우) */
         :host-context(body.has-glass) .response-container::-webkit-scrollbar-track,
         :host-context(body.has-glass) .response-container::-webkit-scrollbar-thumb {
             background: transparent !important;
