@@ -102,8 +102,8 @@ function createFeatureWindows(header) {
     const settings = new BrowserWindow({ ...commonChildOptions, width:240, height:450, parent:undefined });
     settings.setContentProtection(isContentProtectionOn);
     settings.setVisibleOnAllWorkspaces(true,{visibleOnFullScreen:true});
-    settings.loadFile(path.join(__dirname,'../app/content.html'),{query:{view:'customize'}})
-        .catch(console.error);
+    settings.loadFile(path.join(__dirname,'../app/content.html'),{query:{view:'settings'}})
+    .catch(console.error);
     windowPool.set('settings', settings);
 }
 
@@ -1950,7 +1950,7 @@ function updateGlobalShortcuts(keybinds, mainWindow, sendToRenderer, openaiSessi
     globalShortcut.unregisterAll();
 
     if (movementManager) {
-        movementManager.destroy();
+        movementManager.destroy();nd
     }
     movementManager = new SmoothMovementManager();
 
@@ -2162,7 +2162,7 @@ function setupWindowIpcHandlers(mainWindow, sendToRenderer, openaiSessionRef) {
             if (isMainViewVisible) {
                 const viewHeights = {
                     listen: 400,
-                    customize: 600,
+                    settings: 600,
                     help: 550,
                     history: 550,
                     setup: 200,

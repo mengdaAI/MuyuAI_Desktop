@@ -24,6 +24,7 @@ const fetch = require('node-fetch');
 const { autoUpdater } = require('electron-updater');
 const { EventEmitter } = require('events');
 const askService = require('./features/ask/askService');
+const settingsService = require('./features/settings/settingsService');
 const sessionRepository = require('./common/repositories/session');
 
 const eventBridge = new EventEmitter();
@@ -110,6 +111,7 @@ app.whenReady().then(async () => {
             authService.initialize();
             listenService.setupIpcHandlers();
             askService.initialize();
+            settingsService.initialize();
             setupGeneralIpcHandlers();
         })
         .catch(err => {
@@ -276,12 +278,15 @@ function setupWebDataHandlers() {
                     break;
                 case 'create-preset':
                     result = await presetRepository.create({ ...payload, uid: currentUserId });
+                    settingsService.notifyPresetUpdate('created', result.id, payload.title);
                     break;
                 case 'update-preset':
                     result = await presetRepository.update(payload.id, payload.data, currentUserId);
+                    settingsService.notifyPresetUpdate('updated', payload.id, payload.data.title);
                     break;
                 case 'delete-preset':
                     result = await presetRepository.delete(payload, currentUserId);
+                    settingsService.notifyPresetUpdate('deleted', payload);
                     break;
                 
                 // BATCH
