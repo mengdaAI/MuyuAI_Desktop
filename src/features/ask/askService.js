@@ -66,9 +66,27 @@ async function sendMessage(userPrompt) {
         
         console.log(`[AskService] 🚀 Sending request to ${provider} AI...`);
 
+        // FIX: Proper model selection for each provider
+        let model;
+        switch (provider) {
+            case 'openai':
+                model = 'gpt-4o'; // Use a valid OpenAI model
+                break;
+            case 'gemini':
+                model = 'gemini-2.0-flash-exp'; // Use a valid Gemini model
+                break;
+            case 'anthropic':
+                model = 'claude-3-5-sonnet-20241022'; // Use a valid Claude model
+                break;
+            default:
+                model = 'gpt-4o'; // Default fallback
+        }
+
+        console.log(`[AskService] Using model: ${model} for provider: ${provider}`);
+
         const streamingLLM = createStreamingLLM(provider, {
             apiKey: API_KEY,
-            model: provider === 'openai' ? 'gpt-4.1' : 'gemini-2.5-flash',
+            model: model,
             temperature: 0.7,
             maxTokens: 2048,
             usePortkey: provider === 'openai' && isLoggedIn,
@@ -144,4 +162,4 @@ function initialize() {
 
 module.exports = {
     initialize,
-}; 
+};

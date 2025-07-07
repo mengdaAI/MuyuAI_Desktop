@@ -107,12 +107,17 @@ function createLLM({ apiKey, model = "claude-3-5-sonnet-20241022", temperature =
                 content.push({ type: "text", text: part.text })
               } else if (part.type === "image_url" && part.image_url) {
                 // Convert base64 image to Anthropic format
-                const base64Data = part.image_url.url.split(",")[1]
+                const imageUrl = part.image_url.url
+                const [mimeInfo, base64Data] = imageUrl.split(",")
+
+                // Extract the actual MIME type from the data URL
+                const mimeType = mimeInfo.match(/data:([^;]+)/)?.[1] || "image/jpeg"
+
                 content.push({
                   type: "image",
                   source: {
                     type: "base64",
-                    media_type: "image/png",
+                    media_type: mimeType,
                     data: base64Data,
                   },
                 })
@@ -185,12 +190,19 @@ function createStreamingLLM({
                 content.push({ type: "text", text: part.text })
               } else if (part.type === "image_url" && part.image_url) {
                 // Convert base64 image to Anthropic format
-                const base64Data = part.image_url.url.split(",")[1]
+                const imageUrl = part.image_url.url
+                const [mimeInfo, base64Data] = imageUrl.split(",")
+
+                // Extract the actual MIME type from the data URL
+                const mimeType = mimeInfo.match(/data:([^;]+)/)?.[1] || "image/jpeg"
+
+                console.log(`[Anthropic] Processing image with MIME type: ${mimeType}`)
+
                 content.push({
                   type: "image",
                   source: {
                     type: "base64",
-                    media_type: "image/png",
+                    media_type: mimeType,
                     data: base64Data,
                   },
                 })
