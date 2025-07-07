@@ -300,6 +300,21 @@ class SttService {
         await this.mySttSession.sendRealtimeInput(payload);
     }
 
+    async sendSystemAudioContent(data, mimeType) {
+        const provider = await this.getAiProvider();
+        const isGemini = provider === 'gemini';
+
+        if (!this.theirSttSession) {
+            throw new Error('Their STT session not active');
+        }
+
+        const payload = isGemini
+            ? { audio: { data, mimeType: mimeType || 'audio/pcm;rate=24000' } }
+            : data;
+        
+        await this.theirSttSession.sendRealtimeInput(payload);
+    }
+
     killExistingSystemAudioDump() {
         return new Promise(resolve => {
             console.log('Checking for existing SystemAudioDump processes...');

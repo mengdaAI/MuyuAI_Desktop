@@ -11,7 +11,7 @@ if (require('electron-squirrel-startup')) {
     process.exit(0);
 }
 
-const { app, BrowserWindow, shell, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, shell, ipcMain, dialog, desktopCapturer, session } = require('electron');
 const { createWindows } = require('./electron/windowManager.js');
 const ListenService = require('./features/listen/listenService');
 const { initializeFirebase } = require('./common/services/firebaseClient');
@@ -161,6 +161,17 @@ if (!gotTheLock) {
 setupProtocolHandling();
 
 app.whenReady().then(async () => {
+
+    // Setup native loopback audio capture for Windows
+    session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+        desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
+            // Grant access to the first screen found with loopback audio
+            callback({ video: sources[0], audio: 'loopback' });
+        }).catch((error) => {
+            console.error('Failed to get desktop capturer sources:', error);
+            callback({});
+        });
+    });
 
     // Initialize core services
     initializeFirebase();
