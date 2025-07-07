@@ -189,18 +189,14 @@ app.whenReady().then(async () => {
         // Clean up zombie sessions from previous runs first
         sessionRepository.endAllActiveSessions();
 
-            authService.initialize();
-            //////// after_modelStateService ////////
-            modelStateService.initialize();
-            //////// after_modelStateService ////////
-            listenService.setupIpcHandlers();
-            askService.initialize();
-            settingsService.initialize();
-            setupGeneralIpcHandlers();
-        })
-        .catch(err => {
-            console.error('>>> [index.js] Database initialization failed - some features may not work', err);
-        });
+        authService.initialize();
+        //////// after_modelStateService ////////
+        modelStateService.initialize();
+        //////// after_modelStateService ////////
+        listenService.setupIpcHandlers();
+        askService.initialize();
+        settingsService.initialize();
+        setupGeneralIpcHandlers();
 
         // Start web server and create windows ONLY after all initializations are successful
         WEB_PORT = await startWebStack();
