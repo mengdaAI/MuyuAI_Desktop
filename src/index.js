@@ -11,7 +11,7 @@ if (require('electron-squirrel-startup')) {
     process.exit(0);
 }
 
-const { app, BrowserWindow, shell, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, shell, ipcMain, dialog, desktopCapturer, session } = require('electron');
 const { createWindows } = require('./electron/windowManager.js');
 const ListenService = require('./features/listen/listenService');
 const { initializeFirebase } = require('./common/services/firebaseClient');
@@ -168,15 +168,26 @@ setupProtocolHandling();
 
 app.whenReady().then(async () => {
 
+    // Setup native loopback audio capture for Windows
+    session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+        desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
+            // Grant access to the first screen found with loopback audio
+            callback({ video: sources[0], audio: 'loopback' });
+        }).catch((error) => {
+            console.error('Failed to get desktop capturer sources:', error);
+            callback({});
+        });
+    });
+
     // Initialize core services
     initializeFirebase();
     
-    databaseInitializer.initialize()
-        .then(() => {
-            console.log('>>> [index.js] Database initialized successfully');
-            
-            // Clean up zombie sessions from previous runs first
-            sessionRepository.endAllActiveSessions();
+    try {
+        await databaseInitializer.initialize();
+        console.log('>>> [index.js] Database initialized successfully');
+        
+        // Clean up zombie sessions from previous runs first
+        sessionRepository.endAllActiveSessions();
 
             authService.initialize();
             //////// after_modelStateService ////////
@@ -191,10 +202,20 @@ app.whenReady().then(async () => {
             console.error('>>> [index.js] Database initialization failed - some features may not work', err);
         });
 
-    WEB_PORT = await startWebStack();
-    console.log('Web front-end listening on', WEB_PORT);
-    
-    createWindows();
+        // Start web server and create windows ONLY after all initializations are successful
+        WEB_PORT = await startWebStack();
+        console.log('Web front-end listening on', WEB_PORT);
+        
+        createWindows();
+
+    } catch (err) {
+        console.error('>>> [index.js] Database initialization failed - some features may not work', err);
+        // Optionally, show an error dialog to the user
+        dialog.showErrorBox(
+            'Application Error',
+            'A critical error occurred during startup. Some features might be disabled. Please restart the application.'
+        );
+    }
 
     initAutoUpdater();
 
