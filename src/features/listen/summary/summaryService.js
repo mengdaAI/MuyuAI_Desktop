@@ -174,14 +174,18 @@ Keep all points concise and build upon previous analysis if provided.`,
             const structuredData = this.parseResponseText(responseText, this.previousAnalysisResult);
 
             if (this.currentSessionId) {
-                summaryRepository.saveSummary({
-                    sessionId: this.currentSessionId,
-                    text: responseText,
-                    tldr: structuredData.summary.join('\n'),
-                    bullet_json: JSON.stringify(structuredData.topic.bullets),
-                    action_json: JSON.stringify(structuredData.actions),
-                    model: 'gpt-4.1'
-                }).catch(err => console.error('[DB] Failed to save summary:', err));
+                try {
+                    summaryRepository.saveSummary({
+                        sessionId: this.currentSessionId,
+                        text: responseText,
+                        tldr: structuredData.summary.join('\n'),
+                        bullet_json: JSON.stringify(structuredData.topic.bullets),
+                        action_json: JSON.stringify(structuredData.actions),
+                        model: 'gpt-4.1'
+                    });
+                } catch (err) {
+                    console.error('[DB] Failed to save summary:', err);
+                }
             }
 
             // 분석 결과 저장
