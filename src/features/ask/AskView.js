@@ -1287,7 +1287,7 @@ export class AskView extends LitElement {
             this.adjustWindowHeightThrottled();
         }
 
-        if (changedProperties.has('showTeextInput') && this.showTextInput) {
+        if (changedProperties.has('showTextInput') && this.showTextInput) {
             this.focusTextInput();
         }
     }
