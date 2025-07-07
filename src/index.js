@@ -25,6 +25,7 @@ const { EventEmitter } = require('events');
 const askService = require('./features/ask/askService');
 const settingsService = require('./features/settings/settingsService');
 const sessionRepository = require('./common/repositories/session');
+const ModelStateService = require('./common/services/modelStateService');
 
 const eventBridge = new EventEmitter();
 let WEB_PORT = 3000;
@@ -32,6 +33,11 @@ let WEB_PORT = 3000;
 const listenService = new ListenService();
 // Make listenService globally accessible so other modules (e.g., windowManager, askService) can reuse the same instance
 global.listenService = listenService;
+
+//////// after_modelStateService ////////
+const modelStateService = new ModelStateService(authService);
+global.modelStateService = modelStateService;
+//////// after_modelStateService ////////
 
 // Native deep link handling - cross-platform compatible
 let pendingDeepLinkUrl = null;
@@ -173,6 +179,9 @@ app.whenReady().then(async () => {
             sessionRepository.endAllActiveSessions();
 
             authService.initialize();
+            //////// after_modelStateService ////////
+            modelStateService.initialize();
+            //////// after_modelStateService ////////
             listenService.setupIpcHandlers();
             askService.initialize();
             settingsService.initialize();
