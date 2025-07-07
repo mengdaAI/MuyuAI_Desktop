@@ -236,12 +236,13 @@ function toggleAllWindowsVisibility(movementManager) {
             if (win.isVisible()) {
                 lastVisibleWindows.add(name);
                 if (name !== 'header') {
-                    win.webContents.send('window-hide-animation');
-                    setTimeout(() => {
-                        if (!win.isDestroyed()) {
-                            win.hide();
-                        }
-                    }, 200);
+                    // win.webContents.send('window-hide-animation');
+                    // setTimeout(() => {
+                    //     if (!win.isDestroyed()) {
+                    //         win.hide();
+                    //     }
+                    // }, 200);
+                    win.hide();
                 }
             }
         });
@@ -251,7 +252,7 @@ function toggleAllWindowsVisibility(movementManager) {
         movementManager.hideToEdge(nearestEdge, () => {
             header.hide();
             console.log('[Visibility] Smart hide completed');
-        });
+        }, { instant: true });
     } else {
         console.log('[Visibility] Smart showing from hidden position');
         console.log('[Visibility] Restoring windows:', Array.from(lastVisibleWindows));
@@ -372,7 +373,7 @@ function createWindows() {
     //     loadAndRegisterShortcuts();
     // });
 
-    ipcMain.handle('toggle-all-windows-visibility', toggleAllWindowsVisibility);
+    ipcMain.handle('toggle-all-windows-visibility', () => toggleAllWindowsVisibility(movementManager));
 
     ipcMain.handle('toggle-feature', async (event, featureName) => {
         if (!windowPool.get(featureName) && currentHeaderState === 'main') {
