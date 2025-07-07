@@ -91,7 +91,9 @@ function createFeatureWindows(header) {
     });
     listen.setContentProtection(isContentProtectionOn);
     listen.setVisibleOnAllWorkspaces(true,{visibleOnFullScreen:true});
-    listen.setWindowButtonVisibility(false);
+    if (process.platform === 'darwin') {
+        listen.setWindowButtonVisibility(false);
+    }
     const listenLoadOptions = { query: { view: 'listen' } };
     if (!shouldUseLiquidGlass) {
         listen.loadFile(path.join(__dirname, '../app/content.html'), listenLoadOptions);
@@ -120,7 +122,9 @@ function createFeatureWindows(header) {
     const ask = new BrowserWindow({ ...commonChildOptions, width:600 });
     ask.setContentProtection(isContentProtectionOn);
     ask.setVisibleOnAllWorkspaces(true,{visibleOnFullScreen:true});
-    ask.setWindowButtonVisibility(false);
+    if (process.platform === 'darwin') {
+        ask.setWindowButtonVisibility(false);
+    }
     const askLoadOptions = { query: { view: 'ask' } };
     if (!shouldUseLiquidGlass) {
         ask.loadFile(path.join(__dirname, '../app/content.html'), askLoadOptions);
@@ -154,7 +158,9 @@ function createFeatureWindows(header) {
     const settings = new BrowserWindow({ ...commonChildOptions, width:240, maxHeight:400, parent:undefined });
     settings.setContentProtection(isContentProtectionOn);
     settings.setVisibleOnAllWorkspaces(true,{visibleOnFullScreen:true});
-    settings.setWindowButtonVisibility(false);
+    if (process.platform === 'darwin') {
+        settings.setWindowButtonVisibility(false);
+    }
     const settingsLoadOptions = { query: { view: 'settings' } };
     if (!shouldUseLiquidGlass) {
         settings.loadFile(path.join(__dirname,'../app/content.html'), settingsLoadOptions)
@@ -315,7 +321,9 @@ function createWindows() {
             webSecurity: false,
         },
     });
-    header.setWindowButtonVisibility(false);
+    if (process.platform === 'darwin') {
+        header.setWindowButtonVisibility(false);
+    }
     const headerLoadOptions = {};
     if (!shouldUseLiquidGlass) {
         header.loadFile(path.join(__dirname, '../app/header.html'), headerLoadOptions);
