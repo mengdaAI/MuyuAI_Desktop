@@ -1,7 +1,6 @@
 const { BrowserWindow, globalShortcut, ipcMain, screen, app, shell, desktopCapturer } = require('electron');
 const WindowLayoutManager = require('./windowLayoutManager');
 const SmoothMovementManager = require('./smoothMovementManager');
-const liquidGlass = require('electron-liquid-glass');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('os');
@@ -15,6 +14,7 @@ const fetch = require('node-fetch');
 
 
 /* ────────────────[ GLASS BYPASS ]─────────────── */
+let liquidGlass;
 const isLiquidGlassSupported = () => {
     if (process.platform !== 'darwin') {
         return false;
@@ -23,7 +23,15 @@ const isLiquidGlassSupported = () => {
     // return majorVersion >= 25; // macOS 26+ (Darwin 25+)
     return majorVersion >= 26; // See you soon!
 };
-const shouldUseLiquidGlass = isLiquidGlassSupported();
+let shouldUseLiquidGlass = isLiquidGlassSupported();
+if (shouldUseLiquidGlass) {
+    try {
+        liquidGlass = require('electron-liquid-glass');
+    } catch (e) {
+        console.warn('Could not load optional dependency "electron-liquid-glass". The feature will be disabled.');
+        shouldUseLiquidGlass = false;
+    }
+}
 /* ────────────────[ GLASS BYPASS ]─────────────── */
 
 let isContentProtectionOn = true;
@@ -83,7 +91,9 @@ function createFeatureWindows(header) {
     });
     listen.setContentProtection(isContentProtectionOn);
     listen.setVisibleOnAllWorkspaces(true,{visibleOnFullScreen:true});
-    listen.setWindowButtonVisibility(false);
+    if (process.platform === 'darwin') {
+        listen.setWindowButtonVisibility(false);
+    }
     const listenLoadOptions = { query: { view: 'listen' } };
     if (!shouldUseLiquidGlass) {
         listen.loadFile(path.join(__dirname, '../app/content.html'), listenLoadOptions);
@@ -112,7 +122,9 @@ function createFeatureWindows(header) {
     const ask = new BrowserWindow({ ...commonChildOptions, width:600 });
     ask.setContentProtection(isContentProtectionOn);
     ask.setVisibleOnAllWorkspaces(true,{visibleOnFullScreen:true});
-    ask.setWindowButtonVisibility(false);
+    if (process.platform === 'darwin') {
+        ask.setWindowButtonVisibility(false);
+    }
     const askLoadOptions = { query: { view: 'ask' } };
     if (!shouldUseLiquidGlass) {
         ask.loadFile(path.join(__dirname, '../app/content.html'), askLoadOptions);
@@ -146,7 +158,9 @@ function createFeatureWindows(header) {
     const settings = new BrowserWindow({ ...commonChildOptions, width:240, maxHeight:400, parent:undefined });
     settings.setContentProtection(isContentProtectionOn);
     settings.setVisibleOnAllWorkspaces(true,{visibleOnFullScreen:true});
-    settings.setWindowButtonVisibility(false);
+    if (process.platform === 'darwin') {
+        settings.setWindowButtonVisibility(false);
+    }
     const settingsLoadOptions = { query: { view: 'settings' } };
     if (!shouldUseLiquidGlass) {
         settings.loadFile(path.join(__dirname,'../app/content.html'), settingsLoadOptions)
@@ -236,12 +250,13 @@ function toggleAllWindowsVisibility(movementManager) {
             if (win.isVisible()) {
                 lastVisibleWindows.add(name);
                 if (name !== 'header') {
-                    win.webContents.send('window-hide-animation');
-                    setTimeout(() => {
-                        if (!win.isDestroyed()) {
-                            win.hide();
-                        }
-                    }, 200);
+                    // win.webContents.send('window-hide-animation');
+                    // setTimeout(() => {
+                    //     if (!win.isDestroyed()) {
+                    //         win.hide();
+                    //     }
+                    // }, 200);
+                    win.hide();
                 }
             }
         });
@@ -251,7 +266,7 @@ function toggleAllWindowsVisibility(movementManager) {
         movementManager.hideToEdge(nearestEdge, () => {
             header.hide();
             console.log('[Visibility] Smart hide completed');
-        });
+        }, { instant: true });
     } else {
         console.log('[Visibility] Smart showing from hidden position');
         console.log('[Visibility] Restoring windows:', Array.from(lastVisibleWindows));
@@ -306,7 +321,9 @@ function createWindows() {
             webSecurity: false,
         },
     });
-    header.setWindowButtonVisibility(false);
+    if (process.platform === 'darwin') {
+        header.setWindowButtonVisibility(false);
+    }
     const headerLoadOptions = {};
     if (!shouldUseLiquidGlass) {
         header.loadFile(path.join(__dirname, '../app/header.html'), headerLoadOptions);
@@ -372,7 +389,7 @@ function createWindows() {
     //     loadAndRegisterShortcuts();
     // });
 
-    ipcMain.handle('toggle-all-windows-visibility', toggleAllWindowsVisibility);
+    ipcMain.handle('toggle-all-windows-visibility', () => toggleAllWindowsVisibility(movementManager));
 
     ipcMain.handle('toggle-feature', async (event, featureName) => {
         if (!windowPool.get(featureName) && currentHeaderState === 'main') {

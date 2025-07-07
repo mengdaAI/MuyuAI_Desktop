@@ -1,14 +1,14 @@
-import { html, css, LitElement } from '../assets/lit-core-2.7.4.min.js';
+import { html, css, LitElement } from "../assets/lit-core-2.7.4.min.js"
 
 export class ApiKeyHeader extends LitElement {
-    static properties = {
-        apiKey: { type: String },
-        isLoading: { type: Boolean },
-        errorMessage: { type: String },
-        selectedProvider: { type: String },
-    };
+  static properties = {
+    apiKey: { type: String },
+    isLoading: { type: Boolean },
+    errorMessage: { type: String },
+    selectedProvider: { type: String },
+  }
 
-    static styles = css`
+  static styles = css`
         :host {
             display: block;
             transform: translate3d(0, 0, 0);
@@ -272,304 +272,336 @@ export class ApiKeyHeader extends LitElement {
         :host-context(body.has-glass) .close-button:hover {
             background: transparent !important;
         }
-    `;
+    `
 
-    constructor() {
-        super();
-        this.dragState = null;
-        this.wasJustDragged = false;
-        this.apiKey = '';
-        this.isLoading = false;
-        this.errorMessage = '';
-        this.validatedApiKey = null;
-        this.selectedProvider = 'openai';
+  constructor() {
+    super()
+    this.dragState = null
+    this.wasJustDragged = false
+    this.apiKey = ""
+    this.isLoading = false
+    this.errorMessage = ""
+    this.validatedApiKey = null
+    this.selectedProvider = "openai"
 
-        this.handleMouseMove = this.handleMouseMove.bind(this);
-        this.handleMouseUp = this.handleMouseUp.bind(this);
-        this.handleKeyPress = this.handleKeyPress.bind(this);
-        this.handleSubmit = this.handleSubmit.bind(this);
-        this.handleInput = this.handleInput.bind(this);
-        this.handleAnimationEnd = this.handleAnimationEnd.bind(this);
-        this.handleUsePicklesKey = this.handleUsePicklesKey.bind(this);
-        this.handleProviderChange = this.handleProviderChange.bind(this);
+    this.handleMouseMove = this.handleMouseMove.bind(this)
+    this.handleMouseUp = this.handleMouseUp.bind(this)
+    this.handleKeyPress = this.handleKeyPress.bind(this)
+    this.handleSubmit = this.handleSubmit.bind(this)
+    this.handleInput = this.handleInput.bind(this)
+    this.handleAnimationEnd = this.handleAnimationEnd.bind(this)
+    this.handleUsePicklesKey = this.handleUsePicklesKey.bind(this)
+    this.handleProviderChange = this.handleProviderChange.bind(this)
+  }
+
+  reset() {
+    this.apiKey = ""
+    this.isLoading = false
+    this.errorMessage = ""
+    this.validatedApiKey = null
+    this.selectedProvider = "openai"
+    this.requestUpdate()
+  }
+
+  async handleMouseDown(e) {
+    if (e.target.tagName === "INPUT" || e.target.tagName === "BUTTON" || e.target.tagName === "SELECT") {
+      return
     }
 
-    reset() {
-        this.apiKey = '';
-        this.isLoading = false;
-        this.errorMessage = '';
-        this.validatedApiKey = null;
-        this.selectedProvider = 'openai';
-        this.requestUpdate();
+    e.preventDefault()
+
+    const { ipcRenderer } = window.require("electron")
+    const initialPosition = await ipcRenderer.invoke("get-header-position")
+
+    this.dragState = {
+      initialMouseX: e.screenX,
+      initialMouseY: e.screenY,
+      initialWindowX: initialPosition.x,
+      initialWindowY: initialPosition.y,
+      moved: false,
     }
 
-    async handleMouseDown(e) {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || e.target.tagName === 'SELECT') {
-            return;
+    window.addEventListener("mousemove", this.handleMouseMove)
+    window.addEventListener("mouseup", this.handleMouseUp, { once: true })
+  }
+
+  handleMouseMove(e) {
+    if (!this.dragState) return
+
+    const deltaX = Math.abs(e.screenX - this.dragState.initialMouseX)
+    const deltaY = Math.abs(e.screenY - this.dragState.initialMouseY)
+
+    if (deltaX > 3 || deltaY > 3) {
+      this.dragState.moved = true
+    }
+
+    const newWindowX = this.dragState.initialWindowX + (e.screenX - this.dragState.initialMouseX)
+    const newWindowY = this.dragState.initialWindowY + (e.screenY - this.dragState.initialMouseY)
+
+    const { ipcRenderer } = window.require("electron")
+    ipcRenderer.invoke("move-header-to", newWindowX, newWindowY)
+  }
+
+  handleMouseUp(e) {
+    if (!this.dragState) return
+
+    const wasDragged = this.dragState.moved
+
+    window.removeEventListener("mousemove", this.handleMouseMove)
+    this.dragState = null
+
+    if (wasDragged) {
+      this.wasJustDragged = true
+      setTimeout(() => {
+        this.wasJustDragged = false
+      }, 200)
+    }
+  }
+
+  handleInput(e) {
+    this.apiKey = e.target.value
+    this.errorMessage = ""
+    console.log("Input changed:", this.apiKey?.length || 0, "chars")
+
+    this.requestUpdate()
+    this.updateComplete.then(() => {
+      const inputField = this.shadowRoot?.querySelector(".apikey-input")
+      if (inputField && this.isInputFocused) {
+        inputField.focus()
+      }
+    })
+  }
+
+  handleProviderChange(e) {
+    this.selectedProvider = e.target.value
+    this.errorMessage = ""
+    console.log("Provider changed to:", this.selectedProvider)
+    this.requestUpdate()
+  }
+
+  handlePaste(e) {
+    e.preventDefault()
+    this.errorMessage = ""
+    const clipboardText = (e.clipboardData || window.clipboardData).getData("text")
+    console.log("Paste event detected:", clipboardText?.substring(0, 10) + "...")
+
+    if (clipboardText) {
+      this.apiKey = clipboardText.trim()
+
+      const inputElement = e.target
+      inputElement.value = this.apiKey
+    }
+
+    this.requestUpdate()
+    this.updateComplete.then(() => {
+      const inputField = this.shadowRoot?.querySelector(".apikey-input")
+      if (inputField) {
+        inputField.focus()
+        inputField.setSelectionRange(inputField.value.length, inputField.value.length)
+      }
+    })
+  }
+
+  handleKeyPress(e) {
+    if (e.key === "Enter") {
+      e.preventDefault()
+      this.handleSubmit()
+    }
+  }
+
+  async handleSubmit() {
+    if (this.wasJustDragged || this.isLoading || !this.apiKey.trim()) {
+      console.log("Submit blocked:", {
+        wasJustDragged: this.wasJustDragged,
+        isLoading: this.isLoading,
+        hasApiKey: !!this.apiKey.trim(),
+      })
+      return
+    }
+
+    console.log("Starting API key validation...")
+    this.isLoading = true
+    this.errorMessage = ""
+    this.requestUpdate()
+
+    const apiKey = this.apiKey.trim()
+    const isValid = false
+    try {
+      const isValid = await this.validateApiKey(this.apiKey.trim(), this.selectedProvider)
+
+      if (isValid) {
+        console.log("API key valid - starting slide out animation")
+        this.startSlideOutAnimation()
+        this.validatedApiKey = this.apiKey.trim()
+        this.validatedProvider = this.selectedProvider
+      } else {
+        this.errorMessage = "Invalid API key - please check and try again"
+        console.log("API key validation failed")
+      }
+    } catch (error) {
+      console.error("API key validation error:", error)
+      this.errorMessage = "Validation error - please try again"
+    } finally {
+      this.isLoading = false
+      this.requestUpdate()
+    }
+  }
+
+  async validateApiKey(apiKey, provider = "openai") {
+    if (!apiKey || apiKey.length < 15) return false
+
+    if (provider === "openai") {
+      if (!apiKey.match(/^[A-Za-z0-9_-]+$/)) return false
+
+      try {
+        console.log("Validating OpenAI API key...")
+
+        const response = await fetch("https://api.openai.com/v1/models", {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+
+          const hasGPTModels = data.data && data.data.some((m) => m.id.startsWith("gpt-"))
+          if (hasGPTModels) {
+            console.log("OpenAI API key validation successful")
+            return true
+          } else {
+            console.log("API key valid but no GPT models available")
+            return false
+          }
+        } else {
+          const errorData = await response.json().catch(() => ({}))
+          console.log("API key validation failed:", response.status, errorData.error?.message || "Unknown error")
+          return false
+        }
+      } catch (error) {
+        console.error("API key validation network error:", error)
+        return apiKey.length >= 20 // Fallback for network issues
+      }
+    } else if (provider === "gemini") {
+      // Gemini API keys typically start with 'AIza'
+      if (!apiKey.match(/^[A-Za-z0-9_-]+$/)) return false
+
+      try {
+        console.log("Validating Gemini API key...")
+
+        // Test the API key with a simple models list request
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`)
+
+        if (response.ok) {
+          const data = await response.json()
+          if (data.models && data.models.length > 0) {
+            console.log("Gemini API key validation successful")
+            return true
+          }
         }
 
-        e.preventDefault();
+        console.log("Gemini API key validation failed")
+        return false
+      } catch (error) {
+        console.error("Gemini API key validation network error:", error)
+        return apiKey.length >= 20 // Fallback
+      }
+    } else if (provider === "anthropic") {
+      // Anthropic API keys typically start with 'sk-ant-'
+      if (!apiKey.startsWith("sk-ant-") || !apiKey.match(/^[A-Za-z0-9_-]+$/)) return false
 
-        const { ipcRenderer } = window.require('electron');
-        const initialPosition = await ipcRenderer.invoke('get-header-position');
+      try {
+        console.log("Validating Anthropic API key...")
 
-        this.dragState = {
-            initialMouseX: e.screenX,
-            initialMouseY: e.screenY,
-            initialWindowX: initialPosition.x,
-            initialWindowY: initialPosition.y,
-            moved: false,
-        };
+        // Test the API key with a simple request
+        const response = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model: "claude-3-haiku-20240307",
+            max_tokens: 10,
+            messages: [{ role: "user", content: "Hi" }],
+          }),
+        })
 
-        window.addEventListener('mousemove', this.handleMouseMove);
-        window.addEventListener('mouseup', this.handleMouseUp, { once: true });
-    }
-
-    handleMouseMove(e) {
-        if (!this.dragState) return;
-
-        const deltaX = Math.abs(e.screenX - this.dragState.initialMouseX);
-        const deltaY = Math.abs(e.screenY - this.dragState.initialMouseY);
-
-        if (deltaX > 3 || deltaY > 3) {
-            this.dragState.moved = true;
+        if (response.ok || response.status === 400) {
+          // 400 is also acceptable as it means the API key is valid but request format might be wrong
+          console.log("Anthropic API key validation successful")
+          return true
         }
 
-        const newWindowX = this.dragState.initialWindowX + (e.screenX - this.dragState.initialMouseX);
-        const newWindowY = this.dragState.initialWindowY + (e.screenY - this.dragState.initialMouseY);
-
-        const { ipcRenderer } = window.require('electron');
-        ipcRenderer.invoke('move-header-to', newWindowX, newWindowY);
+        console.log("Anthropic API key validation failed:", response.status)
+        return false
+      } catch (error) {
+        console.error("Anthropic API key validation network error:", error)
+        return apiKey.length >= 20 // Fallback
+      }
     }
 
-    handleMouseUp(e) {
-        if (!this.dragState) return;
+    return false
+  }
 
-        const wasDragged = this.dragState.moved;
+  startSlideOutAnimation() {
+    this.classList.add("sliding-out")
+  }
 
-        window.removeEventListener('mousemove', this.handleMouseMove);
-        this.dragState = null;
+  handleUsePicklesKey(e) {
+    e.preventDefault()
+    if (this.wasJustDragged) return
 
-        if (wasDragged) {
-            this.wasJustDragged = true;
-            setTimeout(() => {
-                this.wasJustDragged = false;
-            }, 200);
-        }
+    console.log("Requesting Firebase authentication from main process...")
+    if (window.require) {
+      window.require("electron").ipcRenderer.invoke("start-firebase-auth")
     }
+  }
 
-    handleInput(e) {
-        this.apiKey = e.target.value;
-        this.errorMessage = '';
-        console.log('Input changed:', this.apiKey?.length || 0, 'chars');
-
-        this.requestUpdate();
-        this.updateComplete.then(() => {
-            const inputField = this.shadowRoot?.querySelector('.apikey-input');
-            if (inputField && this.isInputFocused) {
-                inputField.focus();
-            }
-        });
+  handleClose() {
+    console.log("Close button clicked")
+    if (window.require) {
+      window.require("electron").ipcRenderer.invoke("quit-application")
     }
+  }
 
-    handleProviderChange(e) {
-        this.selectedProvider = e.target.value;
-        this.errorMessage = '';
-        console.log('Provider changed to:', this.selectedProvider);
-        this.requestUpdate();
-    }
+  handleAnimationEnd(e) {
+    if (e.target !== this) return
 
-    handlePaste(e) {
-        e.preventDefault();
-        this.errorMessage = '';
-        const clipboardText = (e.clipboardData || window.clipboardData).getData('text');
-        console.log('Paste event detected:', clipboardText?.substring(0, 10) + '...');
+    if (this.classList.contains("sliding-out")) {
+      this.classList.remove("sliding-out")
+      this.classList.add("hidden")
 
-        if (clipboardText) {
-            this.apiKey = clipboardText.trim();
-
-            const inputElement = e.target;
-            inputElement.value = this.apiKey;
-        }
-
-        this.requestUpdate();
-        this.updateComplete.then(() => {
-            const inputField = this.shadowRoot?.querySelector('.apikey-input');
-            if (inputField) {
-                inputField.focus();
-                inputField.setSelectionRange(inputField.value.length, inputField.value.length);
-            }
-        });
-    }
-
-    handleKeyPress(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            this.handleSubmit();
-        }
-    }
-
-    async handleSubmit() {
-        if (this.wasJustDragged || this.isLoading || !this.apiKey.trim()) {
-            console.log('Submit blocked:', {
-                wasJustDragged: this.wasJustDragged,
-                isLoading: this.isLoading,
-                hasApiKey: !!this.apiKey.trim(),
-            });
-            return;
-        }
-
-        console.log('Starting API key validation...');
-        this.isLoading = true;
-        this.errorMessage = '';
-        this.requestUpdate();
-
-        const apiKey = this.apiKey.trim();
-        let isValid = false;
-        try {
-            const isValid = await this.validateApiKey(this.apiKey.trim(), this.selectedProvider);
-            
-            if (isValid) {
-                console.log('API key valid - starting slide out animation');
-                    this.startSlideOutAnimation();
-                    this.validatedApiKey = this.apiKey.trim();
-                this.validatedProvider = this.selectedProvider;
-            } else {
-                this.errorMessage = 'Invalid API key - please check and try again';
-                console.log('API key validation failed');
-            }
-        } catch (error) {
-            console.error('API key validation error:', error);
-            this.errorMessage = 'Validation error - please try again';
-        } finally {
-            this.isLoading = false;
-            this.requestUpdate();
-        }
-    }
-
-    async validateApiKey(apiKey, provider = 'openai') {
-        if (!apiKey || apiKey.length < 15) return false;
-        
-        if (provider === 'openai') {
-            if (!apiKey.match(/^[A-Za-z0-9_-]+$/)) return false;
-            
-            try {
-                console.log('Validating OpenAI API key...');
-
-                const response = await fetch('https://api.openai.com/v1/models', {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${apiKey}`,
-                    },
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-
-                    const hasGPTModels = data.data && data.data.some(m => m.id.startsWith('gpt-'));
-                    if (hasGPTModels) {
-                        console.log('OpenAI API key validation successful');
-                        return true;
-                    } else {
-                        console.log('API key valid but no GPT models available');
-                        return false;
-                    }
-                } else {
-                    const errorData = await response.json().catch(() => ({}));
-                    console.log('API key validation failed:', response.status, errorData.error?.message || 'Unknown error');
-                    return false;
-                }
-            } catch (error) {
-                console.error('API key validation network error:', error);
-                return apiKey.length >= 20; // Fallback for network issues
-            }
-        } else if (provider === 'gemini') {
-            // Gemini API keys typically start with 'AIza'
-            if (!apiKey.match(/^[A-Za-z0-9_-]+$/)) return false;
-            
-            try {
-                console.log('Validating Gemini API key...');
-                
-                // Test the API key with a simple models list request
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.models && data.models.length > 0) {
-                        console.log('Gemini API key validation successful');
-                        return true;
-                    }
-                }
-                
-                console.log('Gemini API key validation failed');
-                return false;
-            } catch (error) {
-                console.error('Gemini API key validation network error:', error);
-                return apiKey.length >= 20; // Fallback
-            }
-        }
-        
-        return false;
-    }
-
-    startSlideOutAnimation() {
-        this.classList.add('sliding-out');
-    }
-
-    handleUsePicklesKey(e) {
-        e.preventDefault();
-        if (this.wasJustDragged) return;
-
-        console.log('Requesting Firebase authentication from main process...');
+      if (this.validatedApiKey) {
         if (window.require) {
-            window.require('electron').ipcRenderer.invoke('start-firebase-auth');
+          window.require("electron").ipcRenderer.invoke("api-key-validated", {
+            apiKey: this.validatedApiKey,
+            provider: this.validatedProvider || "openai",
+          })
         }
+        this.validatedApiKey = null
+        this.validatedProvider = null
+      }
     }
+  }
 
-    handleClose() {
-        console.log('Close button clicked');
-        if (window.require) {
-            window.require('electron').ipcRenderer.invoke('quit-application');
-        }
-    }
+  connectedCallback() {
+    super.connectedCallback()
+    this.addEventListener("animationend", this.handleAnimationEnd)
+  }
 
-    handleAnimationEnd(e) {
-        if (e.target !== this) return;
+  disconnectedCallback() {
+    super.disconnectedCallback()
+    this.removeEventListener("animationend", this.handleAnimationEnd)
+  }
 
-        if (this.classList.contains('sliding-out')) {
-            this.classList.remove('sliding-out');
-            this.classList.add('hidden');
+  render() {
+    const isButtonDisabled = this.isLoading || !this.apiKey || !this.apiKey.trim()
+    console.log("Rendering with provider:", this.selectedProvider)
 
-            if (this.validatedApiKey) {
-                if (window.require) {
-                    window.require('electron').ipcRenderer.invoke('api-key-validated', {
-                        apiKey: this.validatedApiKey,
-                        provider: this.validatedProvider || 'openai'
-                    });
-                }
-                this.validatedApiKey = null;
-                this.validatedProvider = null;
-            }
-        }
-    }
-
-    connectedCallback() {
-        super.connectedCallback();
-        this.addEventListener('animationend', this.handleAnimationEnd);
-
-    }
-
-    disconnectedCallback() {
-        super.disconnectedCallback();
-        this.removeEventListener('animationend', this.handleAnimationEnd);
-
-    }
-
-    render() {
-        const isButtonDisabled = this.isLoading || !this.apiKey || !this.apiKey.trim();
-        console.log('Rendering with provider:', this.selectedProvider);
-
-        return html`
+    return html`
             <div class="container" @mousedown=${this.handleMouseDown}>
                 <button class="close-button" @click=${this.handleClose} title="Close application">
                     <svg width="8" height="8" viewBox="0 0 10 10" fill="currentColor">
@@ -583,23 +615,30 @@ export class ApiKeyHeader extends LitElement {
                     <div class="provider-label">Select AI Provider:</div>
                     <select
                         class="provider-select"
-                        .value=${this.selectedProvider || 'openai'}
+                        .value=${this.selectedProvider || "openai"}
                         @change=${this.handleProviderChange}
                         ?disabled=${this.isLoading}
                         tabindex="0"
                     >
-                        <option value="openai" ?selected=${this.selectedProvider === 'openai'}>OpenAI</option>
-                        <option value="gemini" ?selected=${this.selectedProvider === 'gemini'}>Google Gemini</option>
+                        <option value="openai" ?selected=${this.selectedProvider === "openai"}>OpenAI</option>
+                        <option value="gemini" ?selected=${this.selectedProvider === "gemini"}>Google Gemini</option>
+                        <option value="anthropic" ?selected=${this.selectedProvider === "anthropic"}>Anthropic</option>
                     </select>
                     <input
                         type="password"
                         class="api-input"
-                        placeholder=${this.selectedProvider === 'openai' ? "Enter your OpenAI API key" : "Enter your Gemini API key"}
-                        .value=${this.apiKey || ''}
+                        placeholder=${
+                          this.selectedProvider === "openai"
+                            ? "Enter your OpenAI API key"
+                            : this.selectedProvider === "gemini"
+                              ? "Enter your Gemini API key"
+                              : "Enter your Anthropic API key"
+                        }
+                        .value=${this.apiKey || ""}
                         @input=${this.handleInput}
                         @keypress=${this.handleKeyPress}
                         @paste=${this.handlePaste}
-                        @focus=${() => (this.errorMessage = '')}
+                        @focus=${() => (this.errorMessage = "")}
                         ?disabled=${this.isLoading}
                         autocomplete="off"
                         spellcheck="false"
@@ -607,7 +646,7 @@ export class ApiKeyHeader extends LitElement {
                     />
 
                     <button class="action-button" @click=${this.handleSubmit} ?disabled=${isButtonDisabled} tabindex="0">
-                        ${this.isLoading ? 'Validating...' : 'Confirm'}
+                        ${this.isLoading ? "Validating..." : "Confirm"}
                     </button>
 
                     <div class="or-text">or</div>
@@ -615,8 +654,8 @@ export class ApiKeyHeader extends LitElement {
                     <button class="action-button" @click=${this.handleUsePicklesKey}>Use Pickle's API Key</button>
                 </div>
             </div>
-        `;
-    }
+        `
+  }
 }
 
-customElements.define('apikey-header', ApiKeyHeader);
+customElements.define("apikey-header", ApiKeyHeader)

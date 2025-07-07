@@ -1,8 +1,9 @@
 const providers = {
-  openai: require('./providers/openai'),
-  gemini: require('./providers/gemini'),
+  openai: require("./providers/openai"),
+  gemini: require("./providers/gemini"),
+  anthropic: require("./providers/anthropic"),
   // 추가 provider는 여기에 등록
-};
+}
 
 /**
  * Creates an STT session based on provider
@@ -12,9 +13,9 @@ const providers = {
  */
 function createSTT(provider, opts) {
   if (!providers[provider]?.createSTT) {
-    throw new Error(`STT not supported for provider: ${provider}`);
+    throw new Error(`STT not supported for provider: ${provider}`)
   }
-  return providers[provider].createSTT(opts);
+  return providers[provider].createSTT(opts)
 }
 
 /**
@@ -25,9 +26,9 @@ function createSTT(provider, opts) {
  */
 function createLLM(provider, opts) {
   if (!providers[provider]?.createLLM) {
-    throw new Error(`LLM not supported for provider: ${provider}`);
+    throw new Error(`LLM not supported for provider: ${provider}`)
   }
-  return providers[provider].createLLM(opts);
+  return providers[provider].createLLM(opts)
 }
 
 /**
@@ -38,9 +39,9 @@ function createLLM(provider, opts) {
  */
 function createStreamingLLM(provider, opts) {
   if (!providers[provider]?.createStreamingLLM) {
-    throw new Error(`Streaming LLM not supported for provider: ${provider}`);
+    throw new Error(`Streaming LLM not supported for provider: ${provider}`)
   }
-  return providers[provider].createStreamingLLM(opts);
+  return providers[provider].createStreamingLLM(opts)
 }
 
 /**
@@ -48,20 +49,20 @@ function createStreamingLLM(provider, opts) {
  * @returns {object} Object with stt and llm arrays
  */
 function getAvailableProviders() {
-  const sttProviders = [];
-  const llmProviders = [];
-  
+  const sttProviders = []
+  const llmProviders = []
+
   for (const [name, provider] of Object.entries(providers)) {
-    if (provider.createSTT) sttProviders.push(name);
-    if (provider.createLLM) llmProviders.push(name);
+    if (provider.createSTT) sttProviders.push(name)
+    if (provider.createLLM) llmProviders.push(name)
   }
-  
-  return { stt: sttProviders, llm: llmProviders };
+
+  return { stt: sttProviders, llm: llmProviders }
 }
 
 module.exports = {
   createSTT,
   createLLM,
   createStreamingLLM,
-  getAvailableProviders
-}; 
+  getAvailableProviders,
+}
