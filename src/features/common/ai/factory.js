@@ -57,6 +57,14 @@ const PROVIDERS = {
       ],
       sttModels: [],
   },
+  'kimi': {
+      name: 'Kimi',
+      handler: () => require("./providers/kimi"),
+      llmModels: [
+          { id: 'kimi-k2-turbo-preview', name: 'Kimi K2 Turbo Preview' },
+      ],
+      sttModels: [],
+  },
   'deepgram': {
     name: 'Deepgram',
     handler: () => require("./providers/deepgram"),
@@ -156,6 +164,7 @@ function getProviderClass(providerId) {
         'openai': 'OpenAIProvider',
         'anthropic': 'AnthropicProvider',
         'gemini': 'GeminiProvider',
+        'kimi': 'KimiProvider',
         'deepgram': 'DeepgramProvider',
         'ollama': 'OllamaProvider',
         'whisper': 'WhisperProvider'

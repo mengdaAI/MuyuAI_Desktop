@@ -4,12 +4,12 @@ const { createClient, LiveTranscriptionEvents } = require('@deepgram/sdk');
 const WebSocket = require('ws');
 
 /**
- * Deepgram Provider 클래스. API 키 유효성 검사를 담당합니다.
+ * Deepgram Provider 类。负责对 API 密钥进行有效性验证。
  */
 class DeepgramProvider {
     /**
-     * Deepgram API 키의 유효성을 검사합니다.
-     * @param {string} key - 검사할 Deepgram API 키
+     * Deepgram API 验证 Deepgram API 密钥的有效性。
+     * @param {string} key
      * @returns {Promise<{success: boolean, error?: string}>}
      */
     static async validateApiKey(key) {
@@ -17,7 +17,7 @@ class DeepgramProvider {
             return { success: false, error: 'Invalid Deepgram API key format.' };
         }
         try {
-            // ✨ 변경점: SDK 대신 직접 fetch로 API를 호출하여 안정성 확보 (openai.js 방식)
+            // ✨ 变更点：用直接的 fetch 调用 API 替代 SDK，以确保稳定性（openai.js 方式）
             const response = await fetch('https://api.deepgram.com/v1/projects', {
                 headers: { 'Authorization': `Token ${key}` }
             });
