@@ -70,7 +70,7 @@ const PROVIDERS = {
     handler: () => require("./providers/deepgram"),
     llmModels: [],
     sttModels: [
-        { id: 'nova-3', name: 'Nova-3 (General)' },
+        { id: 'nova-2', name: 'Nova-2 (Multilingual)' },
         ],
     },
   'ollama': {
