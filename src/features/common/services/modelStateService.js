@@ -20,7 +20,7 @@ class ModelStateService extends EventEmitter {
         await this._runMigrations();
         await this._ensureLocalWhisperDefaults();
         await this._ensureDoubaoDefaults();
-        this.setupLocalAIStateSync();
+        // this.setupLocalAIStateSync(); // Disabled: not using local AI
         await this._autoSelectAvailableModels([], true);
         console.log('[ModelStateService] One-time setup complete.');
     }
@@ -173,15 +173,15 @@ class ModelStateService extends EventEmitter {
         }
     }
     
-    setupLocalAIStateSync() {
-        const localAIManager = require('./localAIManager');
-        localAIManager.on('state-changed', (service, status) => {
-            this.handleLocalAIStateChange(service, status);
-        });
-    }
+    // setupLocalAIStateSync() {
+    //     const localAIManager = require('./localAIManager');
+    //     localAIManager.on('state-changed', (service, status) => {
+    //         this.handleLocalAIStateChange(service, status);
+    //     });
+    // }
 
     async handleLocalAIStateChange(service, state) {
-        console.log(`[ModelStateService] LocalAI state changed: ${service}`, state);
+        // console.log(`[ModelStateService] LocalAI state changed: ${service}`, state);
         if (!state.installed || !state.running) {
             const types = service === 'ollama' ? ['llm'] : service === 'whisper' ? ['stt'] : [];
             await this._autoSelectAvailableModels(types);

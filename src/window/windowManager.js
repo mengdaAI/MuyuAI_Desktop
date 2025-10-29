@@ -196,7 +196,7 @@ function setupWindowController(windowPool, layoutManager, movementManager) {
         }
     });
     internalBridge.on('window:adjustWindowHeight', ({ winName, targetHeight }) => {
-        console.log(`[Layout Debug] adjustWindowHeight: targetHeight=${targetHeight}`);
+        // console.log(`[Layout Debug] adjustWindowHeight: targetHeight=${targetHeight}`);
         const senderWindow = windowPool.get(winName);
         if (senderWindow) {
             const newBounds = layoutManager.calculateWindowHeightAdjustment(senderWindow, targetHeight);
@@ -482,9 +482,10 @@ function createFeatureWindows(header, namesToCreate) {
                         }
                     });
                 }
-                if (!app.isPackaged) {
-                    listen.webContents.openDevTools({ mode: 'detach' });
-                }
+                // DevTools disabled in development to avoid auto-opening
+                // if (!app.isPackaged) {
+                //     listen.webContents.openDevTools({ mode: 'detach' });
+                // }
                 windowPool.set('listen', listen);
                 break;
             }
@@ -514,10 +515,10 @@ function createFeatureWindows(header, namesToCreate) {
                     });
                 }
                 
-                // Open DevTools in development
-                if (!app.isPackaged) {
-                    ask.webContents.openDevTools({ mode: 'detach' });
-                }
+                // DevTools disabled in development to avoid auto-opening
+                // if (!app.isPackaged) {
+                //     ask.webContents.openDevTools({ mode: 'detach' });
+                // }
                 windowPool.set('ask', ask);
                 break;
             }
@@ -550,9 +551,10 @@ function createFeatureWindows(header, namesToCreate) {
                 }
                 windowPool.set('settings', settings);  
 
-                if (!app.isPackaged) {
-                    settings.webContents.openDevTools({ mode: 'detach' });
-                }
+                // DevTools disabled in development to avoid auto-opening
+                // if (!app.isPackaged) {
+                //     settings.webContents.openDevTools({ mode: 'detach' });
+                // }
                 break;
             }
 
@@ -588,9 +590,10 @@ function createFeatureWindows(header, namesToCreate) {
                 }
 
                 windowPool.set('shortcut-settings', shortcutEditor);
-                if (!app.isPackaged) {
-                    shortcutEditor.webContents.openDevTools({ mode: 'detach' });
-                }
+                // DevTools disabled in development to avoid auto-opening
+                // if (!app.isPackaged) {
+                //     shortcutEditor.webContents.openDevTools({ mode: 'detach' });
+                // }
                 break;
             }
         }
@@ -722,10 +725,10 @@ function createWindows() {
     header.setContentProtection(isContentProtectionOn);
     header.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     
-    // Open DevTools in development
-    if (!app.isPackaged) {
-        header.webContents.openDevTools({ mode: 'detach' });
-    }
+    // DevTools disabled in development to avoid auto-opening
+    // if (!app.isPackaged) {
+    //     header.webContents.openDevTools({ mode: 'detach' });
+    // }
 
     header.on('focus', () => {
         console.log('[WindowManager] Header gained focus');

@@ -182,7 +182,7 @@ class OllamaService extends EventEmitter {
             
             return response.ok;
         } catch (error) {
-            console.log(`[OllamaService] Service health check failed: ${error.message}`);
+            // Silenced: do not log health check failures when Ollama is unused
             return false;
         }
     }
@@ -242,7 +242,7 @@ class OllamaService extends EventEmitter {
                 checks.serviceRunning = psResponse.ok;
                 checks.memoryStatus = psResponse.ok;
             } catch (error) {
-                console.log('[OllamaService] /api/ps check failed:', error.message);
+                // Silenced endpoint failure log
             }
             
             // 2. Check if API is responsive with root endpoint
@@ -250,7 +250,7 @@ class OllamaService extends EventEmitter {
                 const rootResponse = await this.makeRequest('/', { method: 'GET' });
                 checks.apiResponsive = rootResponse.ok;
             } catch (error) {
-                console.log('[OllamaService] Root endpoint check failed:', error.message);
+                // Silenced endpoint failure log
             }
             
             // 3. Check if models endpoint is accessible
@@ -258,7 +258,7 @@ class OllamaService extends EventEmitter {
                 const tagsResponse = await this.makeRequest('/api/tags', { method: 'GET' });
                 checks.modelsAccessible = tagsResponse.ok;
             } catch (error) {
-                console.log('[OllamaService] /api/tags check failed:', error.message);
+                // Silenced endpoint failure log
             }
             
             const allHealthy = Object.values(checks).every(v => v === true);

@@ -1,3 +1,8 @@
+/*
+ - SttService 是监听页（Listen）里的语音转文字总控类，负责双通道会话（我方 Me、对方 Them）的建立、消息处理、渲染端更新、节流与完成判定、会话保活与续期，以及系统音频采集的管理。
+ - 依赖关键组件： createSTT （根据提供商创建 STT 连接）、 modelStateService （读取当前 STT 模型与密钥）、 windowManager （向 Listen 窗口发 IPC）。
+ */
+
 const { BrowserWindow } = require('electron');
 const { spawn } = require('child_process');
 const { createSTT } = require('../../common/ai/factory');
@@ -53,7 +58,7 @@ class SttService {
     }
 
     sendToRenderer(channel, data) {
-        // Listen 관련 이벤트는 Listen 윈도우에만 전송 (Ask 윈도우 충돌 방지)
+        // Send Listen-related events only to the Listen window (prevents conflicts with Ask window)
         const { windowPool } = require('../../../window/windowManager');
         const listenWindow = windowPool?.get('listen');
         
@@ -399,10 +404,12 @@ class SttService {
                     text = message.channel?.alternatives?.[0]?.transcript;
                     if (!text || text.trim().length === 0) return;
                     isFinal = message.is_final;
+                    console.log(`[SttService-Them-Deepgram] Received: isFinal=${isFinal}, text="${text}"`);
                 } else {
                     text = message.text || message.transcript || message.raw?.result?.text;
                     if (!text || text.trim().length === 0) return;
                     isFinal = message.isFinal ?? false;
+                    console.log(`[SttService-Them-Doubao] Received: isFinal=${isFinal}, text="${text}"`);
                 }
 
                 if (isFinal) {
@@ -809,4 +816,4 @@ class SttService {
     }
 }
 
-module.exports = SttService; 
+module.exports = SttService;

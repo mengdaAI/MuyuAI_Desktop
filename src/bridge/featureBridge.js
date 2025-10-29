@@ -167,8 +167,8 @@ module.exports = {
       });
     });
 
-    // 주기적 상태 동기화 시작
-    localAIManager.startPeriodicSync();
+    // 本地 AI 不启用时关闭
+    // localAIManager.startPeriodicSync();
 
     // ModelStateService 이벤트를 모든 윈도우에 브로드캐스트
     modelStateService.on('state-updated', (state) => {
