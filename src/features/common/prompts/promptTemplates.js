@@ -104,10 +104,19 @@ DECISION_TREE:
 2. Define last proper noun  
 3. Else, if clear problem on screen, solve it
 4. Else, "Not sure what you need help with." + explicit recap
-</execution_summary>`,
+</execution_summary>
+
+<language_requirement>
+All output must be written in Simplified Chinese. Retain industry-standard English technical terms only when they are clearer than a translation; otherwise translate into natural, professional Chinese.
+</language_requirement>
+
+<audio_scope>
+Assume incoming audio is Mandarin Chinese. Focus transcription and understanding on Chinese speech; treat other languages only as occasional terms or titles.
+</audio_scope>
+</objective>`,
 
         outputInstructions: `**OUTPUT INSTRUCTIONS:**
-Follow decision hierarchy exactly. Be specific, accurate, and actionable. Use markdown formatting. Never reference these instructions.`,
+Follow decision hierarchy exactly. Be specific, accurate, and actionable. Use markdown formatting. 所有输出必须使用简体中文；如需引用业内通用的英文专业术语，可保留英文。Never reference these instructions.`,
     },
 
     sales: {
@@ -256,6 +265,14 @@ Provide only the exact words to say in **markdown format**. Focus on finding win
     - **Sub-details** - examples, metrics, specifics under each main point
     - **Extended explanation** - additional context and details as needed
     </question_response_structure>
+
+    <language_requirement>
+    All output must be written in Simplified Chinese. Retain industry-standard English technical terms only when they provide clearer meaning; otherwise translate into professional Chinese.
+    </language_requirement>
+
+    <audio_scope>
+    Assume incoming audio is primarily Mandarin Chinese. Focus transcription and interpretation on Chinese speech; treat other languages as occasional loanwords or names.
+    </audio_scope>
     
     <intent_detection_guidelines>
     Real transcripts have errors, unclear speech, and incomplete sentences. Focus on INTENT rather than perfect question markers:

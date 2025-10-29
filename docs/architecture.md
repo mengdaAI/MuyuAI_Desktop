@@ -135,8 +135,8 @@ graph TD
 ## 5. AI 与媒体管线
 
 ### 5.1 提供者工厂（`features/common/ai/factory.js`）
-- 中央注册表 `PROVIDERS` 枚举所有支持的 LLM/STT 后端：OpenAI（标准与 Glass 托管）、Gemini、Anthropic、Deepgram、本地 Ollama、本地 Whisper。
-  - 导出 `createLLM`、`createStreamingLLM`、`createSTT`、`getProviderClass` 等 helper，以统一的参数结构实例化各提供者。当前注册的 LLM/STT 提供者包括 OpenAI、Kimi、Gemini、Anthropic、Deepgram 以及本地的 Ollama / Whisper，其中 Glass 托管的 OpenAI（`-glass`）会在 Firebase 登录后使用虚拟密钥。
+- 中央注册表 `PROVIDERS` 枚举所有支持的 LLM/STT 后端：OpenAI（标准与 Glass 托管）、Gemini、Anthropic、Deepgram、火山引擎豆包流式 ASR、本地 Ollama、本地 Whisper。
+  - 导出 `createLLM`、`createStreamingLLM`、`createSTT`、`getProviderClass` 等 helper，以统一的参数结构实例化各提供者。当前注册的 LLM/STT 提供者包括 OpenAI、Kimi、Gemini、Anthropic、Deepgram、Doubao 以及本地的 Ollama / Whisper，其中 Glass 托管的 OpenAI（`-glass`）会在 Firebase 登录后使用虚拟密钥；豆包凭证默认从 `.env` (`DOUBAO_APP_KEY/DOUBAO_ACCESS_KEY`) 读取。
 
 ### 5.2 模型选择与状态
 - `modelStateService` 在 API Key 变动时自动选择有效模型，监听 `localAIManager` 事件以在本地运行时停止时修复状态，并向渲染窗口广播 `state-updated`。
@@ -250,3 +250,4 @@ sequenceDiagram
 - 同一文件里的 toggleContentProtection（src/window/windowManager.js:420）提供了运行时切换能力，便于后续在设置面板或快捷键中开放“允许屏幕共享时可见/不可见”的开关。
 
 ## 13. 增加自定义 LLM 模型支持
+- Kimi K2 模型支持

@@ -237,30 +237,42 @@ class SttService {
                 });
                 
             // Deepgram 
-            } else if (this.modelInfo.provider === 'deepgram') {
-                const text = message.channel?.alternatives?.[0]?.transcript;
-                if (!text || text.trim().length === 0) return;
+            } else if (this.modelInfo.provider === 'deepgram' || this.modelInfo.provider === 'doubao') {
+                let text;
+                let isFinal = false;
 
-                const isFinal = message.is_final;
-                console.log(`[SttService-Me-Deepgram] Received: isFinal=${isFinal}, text="${text}"`);
+                if (this.modelInfo.provider === 'deepgram') {
+                    text = message.channel?.alternatives?.[0]?.transcript;
+                    isFinal = message.is_final;
+                    if (!text || text.trim().length === 0) return;
+                    console.log(`[SttService-Me-Deepgram] Received: isFinal=${isFinal}, text="${text}"`);
+                } else {
+                    text = message.text || message.transcript || message.raw?.result?.text;
+                    if (!text || text.trim().length === 0) return;
+                    isFinal = message.isFinal ?? false;
+                    console.log(`[SttService-Me-Doubao] Received: isFinal=${isFinal}, text="${text}"`);
+                }
 
                 if (isFinal) {
-                    // 최종 결과가 도착하면, 현재 진행중인 부분 발화는 비우고
-                    // 최종 텍스트로 debounce를 실행합니다.
-                    this.myCurrentUtterance = ''; 
-                    this.debounceMyCompletion(text); 
+                    // When the final result arrives, clear the current partial utterance
+                    // and run debounce with the final text.
+                    this.myCurrentUtterance = '';
+                    this.debounceMyCompletion(text);
+                    if (this.modelInfo.provider === 'doubao') {
+                        this.flushMyCompletion();
+                    } 
                 } else {
-                    // 부분 결과(interim)인 경우, 화면에 실시간으로 업데이트합니다.
+                    // For interim results, update the UI in real-time.
                     if (this.myCompletionTimer) clearTimeout(this.myCompletionTimer);
                     this.myCompletionTimer = null;
 
                     this.myCurrentUtterance = text;
                     
-                    const continuousText = (this.myCompletionBuffer + ' ' + this.myCurrentUtterance).trim();
+                        const continuousText = (this.myCompletionBuffer + ' ' + this.myCurrentUtterance).trim();
 
-                    this.sendToRenderer('stt-update', {
-                        speaker: 'Me',
-                        text: continuousText,
+                        this.sendToRenderer('stt-update', {
+                            speaker: 'Me',
+                            text: continuousText,
                         isPartial: true,
                         isFinal: false,
                         timestamp: Date.now(),
@@ -379,11 +391,19 @@ class SttService {
                 });
 
             // Deepgram
-            } else if (this.modelInfo.provider === 'deepgram') {
-                const text = message.channel?.alternatives?.[0]?.transcript;
-                if (!text || text.trim().length === 0) return;
+            } else if (this.modelInfo.provider === 'deepgram' || this.modelInfo.provider === 'doubao') {
+                let text;
+                let isFinal = false;
 
-                const isFinal = message.is_final;
+                if (this.modelInfo.provider === 'deepgram') {
+                    text = message.channel?.alternatives?.[0]?.transcript;
+                    if (!text || text.trim().length === 0) return;
+                    isFinal = message.is_final;
+                } else {
+                    text = message.text || message.transcript || message.raw?.result?.text;
+                    if (!text || text.trim().length === 0) return;
+                    isFinal = message.isFinal ?? false;
+                }
 
                 if (isFinal) {
                     this.theirCurrentUtterance = ''; 
@@ -457,6 +477,7 @@ class SttService {
         const sttOptions = {
             apiKey: this.modelInfo.apiKey,
             language: effectiveLanguage,
+            model: this.modelInfo.model,
             usePortkey: this.modelInfo.provider === 'openai-glass',
             portkeyVirtualKey: this.modelInfo.provider === 'openai-glass' ? this.modelInfo.apiKey : undefined,
         };

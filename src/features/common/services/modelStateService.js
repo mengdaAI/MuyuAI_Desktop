@@ -18,6 +18,8 @@ class ModelStateService extends EventEmitter {
         console.log('[ModelStateService] Initializing one-time setup...');
         await this._initializeEncryption();
         await this._runMigrations();
+        await this._ensureLocalWhisperDefaults();
+        await this._ensureDoubaoDefaults();
         this.setupLocalAIStateSync();
         await this._autoSelectAvailableModels([], true);
         console.log('[ModelStateService] One-time setup complete.');
@@ -35,6 +37,83 @@ class ModelStateService extends EventEmitter {
             }
         } catch (err) {
             console.warn('[ModelStateService] Error while checking encrypted keys:', err.message);
+        }
+    }
+
+    async _ensureLocalWhisperDefaults() {
+        try {
+            const DEFAULT_WHISPER_MODEL = 'whisper-base';
+            let whisperSettings = await providerSettingsRepository.getByProvider('whisper');
+            const updates = {};
+            if (!whisperSettings) {
+                await providerSettingsRepository.upsert('whisper', {
+                    api_key: 'local',
+                    selected_stt_model: DEFAULT_WHISPER_MODEL,
+                    is_active_stt: 1,
+                });
+                whisperSettings = await providerSettingsRepository.getByProvider('whisper');
+            } else {
+                if (!whisperSettings.api_key) {
+                    updates.api_key = 'local';
+                }
+                if (!whisperSettings.selected_stt_model || whisperSettings.selected_stt_model !== DEFAULT_WHISPER_MODEL) {
+                    updates.selected_stt_model = DEFAULT_WHISPER_MODEL;
+                }
+                if (Object.keys(updates).length > 0) {
+                    await providerSettingsRepository.upsert('whisper', {
+                        ...whisperSettings,
+                        ...updates,
+                    });
+                    whisperSettings = { ...whisperSettings, ...updates };
+                }
+            }
+
+            const activeStt = await providerSettingsRepository.getActiveProvider('stt');
+            if (!activeStt || !activeStt.provider) {
+                await providerSettingsRepository.setActiveProvider('whisper', 'stt');
+            }
+        } catch (error) {
+            console.warn('[ModelStateService] Failed to ensure Whisper defaults:', error.message);
+        }
+    }
+
+    async _ensureDoubaoDefaults() {
+        if (!process.env.DOUBAO_APP_KEY || !process.env.DOUBAO_ACCESS_KEY) {
+            return;
+        }
+
+        try {
+            const DEFAULT_DOUBAO_MODEL = 'doubao-bigmodel';
+            let doubaoSettings = await providerSettingsRepository.getByProvider('doubao');
+            const updates = {};
+
+            if (!doubaoSettings) {
+                await providerSettingsRepository.upsert('doubao', {
+                    api_key: 'env',
+                    selected_stt_model: DEFAULT_DOUBAO_MODEL,
+                    is_active_stt: 1
+                });
+            } else {
+                if (doubaoSettings.api_key !== 'env') {
+                    updates.api_key = 'env';
+                }
+                if (doubaoSettings.selected_stt_model !== DEFAULT_DOUBAO_MODEL) {
+                    updates.selected_stt_model = DEFAULT_DOUBAO_MODEL;
+                }
+                if (Object.keys(updates).length > 0) {
+                    await providerSettingsRepository.upsert('doubao', {
+                        ...doubaoSettings,
+                        ...updates
+                    });
+                }
+            }
+
+            const activeStt = await providerSettingsRepository.getActiveProvider('stt');
+            if (!activeStt || activeStt.provider === 'whisper') {
+                await providerSettingsRepository.setActiveProvider('doubao', 'stt');
+            }
+        } catch (error) {
+            console.warn('[ModelStateService] Failed to ensure Doubao defaults:', error.message);
         }
     }
 
@@ -149,11 +228,28 @@ class ModelStateService extends EventEmitter {
                 console.log(`[ModelStateService] No valid ${type.toUpperCase()} model selected or selection forced. Finding an alternative...`);
                 const availableModels = await this.getAvailableModels(type);
                 if (availableModels.length > 0) {
+                    let preferredModel = null;
+                    if (type === 'stt') {
+                        preferredModel = availableModels.find(model => this.getProviderForModel(model.id, type) === 'doubao');
+                        if (!preferredModel) {
+                            const whisperPriority = ['whisper-base', 'whisper-small', 'whisper-medium', 'whisper-tiny'];
+                            for (const target of whisperPriority) {
+                                const candidate = availableModels.find(model => model.id === target);
+                                if (candidate) {
+                                    preferredModel = candidate;
+                                    break;
+                                }
+                            }
+                            if (!preferredModel) {
+                                preferredModel = availableModels.find(model => this.getProviderForModel(model.id, type) === 'whisper');
+                            }
+                        }
+                    }
                     const apiModel = availableModels.find(model => {
                         const provider = this.getProviderForModel(model.id, type);
                         return provider && provider !== 'ollama' && provider !== 'whisper';
                     });
-                    const newModel = apiModel || availableModels[0];
+                    const newModel = preferredModel || apiModel || availableModels[0];
                     await this.setSelectedModel(type, newModel.id);
                     console.log(`[ModelStateService] Auto-selected ${type.toUpperCase()} model: ${newModel.id}`);
                 } else {

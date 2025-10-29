@@ -101,6 +101,14 @@ const PROVIDERS = {
           { id: 'whisper-medium', name: 'Whisper Medium (769M)' },
       ],
   },
+  'doubao': {
+      name: 'Doubao Streaming ASR',
+      handler: () => require("./providers/doubao"),
+      llmModels: [],
+      sttModels: [
+          { id: 'doubao-bigmodel', name: 'Doubao Bigmodel Streaming' },
+      ],
+  },
 };
 
 function sanitizeModelId(model) {

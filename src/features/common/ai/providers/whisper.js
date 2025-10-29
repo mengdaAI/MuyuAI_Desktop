@@ -14,7 +14,7 @@ if (typeof window === 'undefined') {
 }
 
 class WhisperSTTSession extends EventEmitter {
-    constructor(model, whisperService, sessionId) {
+    constructor(model, whisperService, sessionId, options = {}) {
         super();
         this.model = model;
         this.whisperService = whisperService;
@@ -24,6 +24,7 @@ class WhisperSTTSession extends EventEmitter {
         this.audioBuffer = Buffer.alloc(0);
         this.processingInterval = null;
         this.lastTranscription = '';
+        this.language = options.language || 'zh';
     }
 
     async initialize() {
@@ -71,13 +72,14 @@ class WhisperSTTSession extends EventEmitter {
                 return;
             }
 
+            const languageArg = this.language || this.whisperService.defaultLanguage || 'zh';
             this.process = spawn(whisperPath, [
                 '-m', modelPath,
                 '-f', tempFile,
                 '--no-timestamps',
                 '--output-txt',
                 '--output-json',
-                '--language', 'auto',
+                '--language', languageArg,
                 '--threads', '4',
                 '--print-progress', 'false'
             ]);
@@ -200,7 +202,7 @@ class WhisperProvider {
         
         // Create unique session ID based on type
         const sessionId = `${sessionType}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-        const session = new WhisperSTTSession(model, this.whisperService, sessionId);
+        const session = new WhisperSTTSession(model, this.whisperService, sessionId, { language: config.language });
         
         // Log session creation
         console.log(`[WhisperProvider] Created session: ${sessionId}`);
