@@ -8,7 +8,7 @@ const { spawn } = require('child_process');
 const { createSTT } = require('../../common/ai/factory');
 const modelStateService = require('../../common/services/modelStateService');
 
-const COMPLETION_DEBOUNCE_MS = 2000;
+const COMPLETION_DEBOUNCE_MS = 2000; // 2 seconds
 
 // ── New heartbeat / renewal constants ────────────────────────────────────────────
 // Interval to send low-cost keep-alive messages so the remote service does not
@@ -55,6 +55,12 @@ class SttService {
     setCallbacks({ onTranscriptionComplete, onStatusUpdate }) {
         this.onTranscriptionComplete = onTranscriptionComplete;
         this.onStatusUpdate = onStatusUpdate;
+        try {
+            console.log('[SttService] Callbacks set:', {
+                onTranscriptionComplete: typeof onTranscriptionComplete,
+                onStatusUpdate: typeof onStatusUpdate,
+            });
+        } catch (e) {}
     }
 
     sendToRenderer(channel, data) {
@@ -107,10 +113,29 @@ class SttService {
 
     flushTheirCompletion() {
         const finalText = (this.theirCompletionBuffer + this.theirCurrentUtterance).trim();
-        if (!this.modelInfo || !finalText) return;
+        try {
+            console.log('[SttService-Them] flushTheirCompletion invoked', {
+                provider: this.modelInfo?.provider,
+                bufferLen: (this.theirCompletionBuffer || '').length,
+                currentLen: (this.theirCurrentUtterance || '').length,
+                finalLen: (finalText || '').length,
+            });
+        } catch (e) {}
+        if (!this.modelInfo || !finalText) {
+            try {
+                console.log('[SttService-Them] flushTheirCompletion skipped', {
+                    hasModelInfo: !!this.modelInfo,
+                    finalTextEmpty: !finalText,
+                });
+            } catch (e) {}
+            return;
+        }
         
         // Notify completion callback
         if (this.onTranscriptionComplete) {
+            try {
+                console.log('[SttService-Them] onTranscriptionComplete firing', { finalText });
+            } catch (e) {}
             this.onTranscriptionComplete('Them', finalText);
         }
         
@@ -122,10 +147,12 @@ class SttService {
             isFinal: true,
             timestamp: Date.now(),
         });
+        try { console.log('[SttService-Them] stt-update final dispatched'); } catch (e) {}
 
         this.theirCompletionBuffer = '';
         this.theirCompletionTimer = null;
         this.theirCurrentUtterance = '';
+        try { console.log('[SttService-Them] completion buffers reset'); } catch (e) {}
         
         if (this.onStatusUpdate) {
             this.onStatusUpdate('Listening...');
@@ -150,8 +177,23 @@ class SttService {
             this.theirCompletionBuffer += (this.theirCompletionBuffer ? ' ' : '') + text;
         }
 
-        if (this.theirCompletionTimer) clearTimeout(this.theirCompletionTimer);
-        this.theirCompletionTimer = setTimeout(() => this.flushTheirCompletion(), COMPLETION_DEBOUNCE_MS);
+        try {
+            console.log('[SttService-Them] debounceTheirCompletion called', {
+                provider: this.modelInfo?.provider,
+                textLen: (text || '').length,
+                bufferLen: (this.theirCompletionBuffer || '').length,
+            });
+        } catch (e) {}
+
+        if (this.theirCompletionTimer) {
+            try { console.log('[SttService-Them] clearing previous completion timer'); } catch (e) {}
+            clearTimeout(this.theirCompletionTimer);
+        }
+        try { console.log(`[SttService-Them] setting completion timer ${COMPLETION_DEBOUNCE_MS}ms`); } catch (e) {}
+        this.theirCompletionTimer = setTimeout(() => {
+            try { console.log('[SttService-Them] completion timer fired'); } catch (e) {}
+            this.flushTheirCompletion();
+        }, COMPLETION_DEBOUNCE_MS);
     }
 
     async initializeSttSessions(language = 'zh') {
@@ -317,6 +359,7 @@ class SttService {
         };
 
         const handleTheirMessage = message => {
+            console.log('------------------- handleTheirMessage message.text:', message.text);
             if (!message || typeof message !== 'object') return;
 
             if (!this.modelInfo) {
@@ -413,15 +456,25 @@ class SttService {
                 }
 
                 if (isFinal) {
+                    try { console.log('[SttService-Them-Doubao] Final received; scheduling debounce completion'); } catch (e) {}
                     this.theirCurrentUtterance = ''; 
                     this.debounceTheirCompletion(text); 
                 } else {
-                    if (this.theirCompletionTimer) clearTimeout(this.theirCompletionTimer);
-                    this.theirCompletionTimer = null;
+                    if (this.theirCompletionTimer) {
+                        try { console.log('[SttService-Them-Doubao] Partial received; clearing previous completion timer'); } catch (e) {}
+                        clearTimeout(this.theirCompletionTimer);
+                    }
 
                     this.theirCurrentUtterance = text;
+                    try {
+                        console.log('[SttService-Them-Doubao] Partial path: updating utterance and resetting debounce', {
+                            utteranceLen: (this.theirCurrentUtterance || '').length,
+                            bufferLen: (this.theirCompletionBuffer || '').length,
+                        });
+                    } catch (e) {}
                     
                     const continuousText = (this.theirCompletionBuffer + ' ' + this.theirCurrentUtterance).trim();
+                    try { console.log('[SttService-Them-Doubao] Partial path: continuousText computed', { continuousLen: (continuousText || '').length }); } catch (e) {}
 
                     this.sendToRenderer('stt-update', {
                         speaker: 'Them',
@@ -430,6 +483,14 @@ class SttService {
                         isFinal: false,
                         timestamp: Date.now(),
                     });
+                    try { console.log('[SttService-Them-Doubao] stt-update partial dispatched (debounce reset on partial)'); } catch (e) {}
+
+                    // Reset the completion debounce on partial to enable pause-based auto completion
+                    try { console.log(`[SttService-Them-Doubao] setting completion timer ${COMPLETION_DEBOUNCE_MS}ms (partial)`); } catch (e) {}
+                    this.theirCompletionTimer = setTimeout(() => {
+                        try { console.log('[SttService-Them-Doubao] completion timer fired (partial path)'); } catch (e) {}
+                        this.flushTheirCompletion();
+                    }, COMPLETION_DEBOUNCE_MS);
                 }
 
             } else {
