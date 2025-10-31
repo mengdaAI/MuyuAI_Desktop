@@ -1,6 +1,7 @@
 import { html, css, LitElement } from '../assets/lit-core-2.7.4.min.js';
 import './stt/SttView.js';
 import './summary/SummaryView.js';
+import './live/LiveAnswerView.js';
 
 export class ListenView extends LitElement {
     static styles = css`
@@ -193,6 +194,34 @@ export class ListenView extends LitElement {
 
         .bar-left-text-content.slide-in {
             animation: slideIn 0.3s ease forwards;
+        }
+
+        .insight-mode-toggle {
+            display: flex;
+            gap: 6px;
+            margin-left: 12px;
+            align-items: center;
+        }
+
+        .mode-button {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid transparent;
+            color: rgba(255, 255, 255, 0.75);
+            padding: 4px 10px;
+            font-size: 11px;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .mode-button:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .mode-button.active {
+            background: rgba(0, 122, 255, 0.18);
+            border-color: rgba(0, 122, 255, 0.55);
+            color: rgba(255, 255, 255, 0.95);
         }
 
         .bar-controls {
@@ -420,6 +449,7 @@ export class ListenView extends LitElement {
 
     static properties = {
         viewMode: { type: String },
+        insightsMode: { type: String },
         isHovering: { type: Boolean },
         isAnimating: { type: Boolean },
         copyState: { type: String },
@@ -434,6 +464,7 @@ export class ListenView extends LitElement {
         this.isSessionActive = false;
         this.hasCompletedRecording = false;
         this.viewMode = 'insights';
+        this.insightsMode = 'live';
         this.isHovering = false;
         this.isAnimating = false;
         this.elapsedTime = '00:00';
@@ -461,6 +492,7 @@ export class ListenView extends LitElement {
                 if (!wasActive && isActive) {
                     this.hasCompletedRecording = false;
                     this.startTimer();
+                    this.insightsMode = 'live';
                     // Reset child components
                     this.updateComplete.then(() => {
                         const sttView = this.shadowRoot.querySelector('stt-view');
@@ -476,6 +508,27 @@ export class ListenView extends LitElement {
                     this.requestUpdate();
                 }
             });
+            this._setViewListener = (event, payload) => {
+                if (!payload) return;
+                const { view, insightsMode } = payload;
+                if (view === 'transcript') {
+                    this.viewMode = 'transcript';
+                } else if (view === 'summary') {
+                    this.viewMode = 'insights';
+                    this.insightsMode = 'summary';
+                } else if (view === 'live') {
+                    this.viewMode = 'insights';
+                    this.insightsMode = 'live';
+                } else if (view === 'insights') {
+                    this.viewMode = 'insights';
+                    if (insightsMode) {
+                        this.insightsMode = insightsMode;
+                    }
+                }
+                this.requestUpdate();
+                this.adjustWindowHeightThrottled();
+            };
+            window.api.listenView.onSetView?.(this._setViewListener);
         }
     }
 
@@ -489,6 +542,10 @@ export class ListenView extends LitElement {
         }
         if (this.copyTimeout) {
             clearTimeout(this.copyTimeout);
+        }
+        if (window.api && this._setViewListener) {
+            window.api.listenView.removeOnSetView?.(this._setViewListener);
+            this._setViewListener = null;
         }
     }
 
@@ -518,16 +575,19 @@ export class ListenView extends LitElement {
         this.updateComplete
             .then(() => {
                 const topBar = this.shadowRoot.querySelector('.top-bar');
-                const activeContent = this.viewMode === 'transcript'
-                    ? this.shadowRoot.querySelector('stt-view')
-                    : this.shadowRoot.querySelector('summary-view');
+                let activeContent;
+                if (this.viewMode === 'transcript') {
+                    activeContent = this.shadowRoot.querySelector('stt-view');
+                } else if (this.insightsMode === 'live') {
+                    activeContent = this.shadowRoot.querySelector('live-answer-view');
+                } else {
+                    activeContent = this.shadowRoot.querySelector('summary-view');
+                }
 
                 if (!topBar || !activeContent) return;
 
                 const topBarHeight = topBar.offsetHeight;
-
                 const contentHeight = activeContent.scrollHeight;
-
                 const idealHeight = topBarHeight + contentHeight;
 
                 const targetHeight = Math.min(700, idealHeight);
@@ -543,9 +603,23 @@ export class ListenView extends LitElement {
             });
     }
 
+    setInsightsMode(mode) {
+        if (this.insightsMode === mode) return;
+        this.insightsMode = mode;
+        if (this.viewMode !== 'insights') {
+            this.viewMode = 'insights';
+        }
+        this.requestUpdate();
+        this.adjustWindowHeightThrottled();
+    }
+
     toggleViewMode() {
         this.viewMode = this.viewMode === 'insights' ? 'transcript' : 'insights';
+        if (this.viewMode === 'insights' && !this.insightsMode) {
+            this.insightsMode = 'live';
+        }
         this.requestUpdate();
+        this.adjustWindowHeightThrottled();
     }
 
     handleCopyHover(isHovering) {
@@ -566,9 +640,12 @@ export class ListenView extends LitElement {
         if (this.viewMode === 'transcript') {
             const sttView = this.shadowRoot.querySelector('stt-view');
             textToCopy = sttView ? sttView.getTranscriptText() : '';
-        } else {
+        } else if (this.insightsMode === 'summary') {
             const summaryView = this.shadowRoot.querySelector('summary-view');
             textToCopy = summaryView ? summaryView.getSummaryText() : '';
+        } else {
+            const liveView = this.shadowRoot.querySelector('live-answer-view');
+            textToCopy = liveView ? liveView.getAnswersText() : '';
         }
 
         try {
@@ -608,13 +685,17 @@ export class ListenView extends LitElement {
     updated(changedProperties) {
         super.updated(changedProperties);
 
-        if (changedProperties.has('viewMode')) {
+        if (changedProperties.has('viewMode') || changedProperties.has('insightsMode')) {
             this.adjustWindowHeight();
         }
     }
 
     handleSttMessagesUpdated(event) {
         // Handle messages update from SttView if needed
+        this.adjustWindowHeightThrottled();
+    }
+
+    handleLiveAnswerUpdated() {
         this.adjustWindowHeightThrottled();
     }
 
@@ -627,10 +708,14 @@ export class ListenView extends LitElement {
         const displayText = this.isHovering
             ? this.viewMode === 'transcript'
                 ? 'Copy Transcript'
-                : 'Copy Glass Analysis'
-            : this.viewMode === 'insights'
-            ? `Live insights`
-            : `小抄 is Listening ${this.elapsedTime}`;
+                : this.insightsMode === 'summary'
+                ? 'Copy Glass Analysis'
+                : 'Copy Live Answer'
+            : this.viewMode === 'transcript'
+            ? `小抄 is Listening ${this.elapsedTime}`
+            : this.insightsMode === 'summary'
+            ? 'Glass Summary'
+            : 'Live Answers';
 
         return html`
             <div class="assistant-container">
@@ -638,6 +723,24 @@ export class ListenView extends LitElement {
                     <div class="bar-left-text">
                         <span class="bar-left-text-content ${this.isAnimating ? 'slide-in' : ''}">${displayText}</span>
                     </div>
+                    ${this.viewMode === 'insights'
+                        ? html`
+                              <div class="insight-mode-toggle">
+                                  <button
+                                      class="mode-button ${this.insightsMode === 'live' ? 'active' : ''}"
+                                      @click=${() => this.setInsightsMode('live')}
+                                  >
+                                      Live
+                                  </button>
+                                  <button
+                                      class="mode-button ${this.insightsMode === 'summary' ? 'active' : ''}"
+                                      @click=${() => this.setInsightsMode('summary')}
+                                  >
+                                      Summary
+                                  </button>
+                              </div>
+                          `
+                        : ''}
                     <div class="bar-controls">
                         <button class="toggle-button" @click=${this.toggleViewMode}>
                             ${this.viewMode === 'insights'
@@ -653,7 +756,7 @@ export class ListenView extends LitElement {
                                           <path d="M9 11l3 3L22 4" />
                                           <path d="M22 12v7a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h11" />
                                       </svg>
-                                      <span>Show Insights</span>
+                                      <span>Show ${this.insightsMode === 'summary' ? 'Summary' : 'Live'}</span>
                                   `}
                         </button>
                         <button
@@ -678,8 +781,14 @@ export class ListenView extends LitElement {
                     @stt-messages-updated=${this.handleSttMessagesUpdated}
                 ></stt-view>
 
+                <live-answer-view
+                    .isVisible=${this.viewMode === 'insights' && this.insightsMode === 'live'}
+                    ?hidden=${!(this.viewMode === 'insights' && this.insightsMode === 'live')}
+                    @live-answer-updated=${this.handleLiveAnswerUpdated}
+                ></live-answer-view>
+
                 <summary-view 
-                    .isVisible=${this.viewMode === 'insights'}
+                    .isVisible=${this.viewMode === 'insights' && this.insightsMode === 'summary'}
                     .hasCompletedRecording=${this.hasCompletedRecording}
                 ></summary-view>
             </div>

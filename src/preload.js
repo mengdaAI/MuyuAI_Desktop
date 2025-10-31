@@ -1,3 +1,14 @@
+/**
+ * 作用：Electron 预加载脚本（preload）。
+ * - 在启用 contextIsolation 的情况下，通过 contextBridge 将一组安全、白名单的 API 暴露到渲染进程的 `window.api`。
+ * - 负责封装与主进程的 IPC 通信（`invoke`/`send`/`on`/`remove`），避免在渲染进程直接使用 Node/Electron 原生对象。
+ * - 按功能模块组织命名空间，便于 UI 组件调用：
+ *   `platform`, `common`, `apiKeyHeader`, `headerController`, `mainHeader`, `permissionHeader`,
+ *   `pickleGlassApp`, `askView`, `listenView`, `sttView`, `liveInsights`, `summaryView`,
+ *   `settingsView`, `shortcutSettingsView`, `content`, `listenCapture`, `renderer`。
+ * - 提供跨组件的常用能力：用户与认证、窗口管理、模型配置与安装、快捷键、实时 Live Insights 流式回答、音频采集等。
+ * - 安全性：仅暴露白名单方法；渲染进程无法访问 Node/Electron 全局，降低 XSS 与提权风险。
+ */
 // src/preload.js
 const { contextBridge, ipcRenderer } = require('electron');
 
@@ -18,12 +29,12 @@ contextBridge.exposeInMainWorld('api', {
     firebaseLogout: () => ipcRenderer.invoke('firebase-logout'),
     
     // App Control
-      quitApplication: () => ipcRenderer.invoke('quit-application'),
-      openExternal: (url) => ipcRenderer.invoke('open-external', url),
+    quitApplication: () => ipcRenderer.invoke('quit-application'),
+    openExternal: (url) => ipcRenderer.invoke('open-external', url),
 
     // User state listener (used by multiple components)
-      onUserStateChanged: (callback) => ipcRenderer.on('user-state-changed', callback),
-      removeOnUserStateChanged: (callback) => ipcRenderer.removeListener('user-state-changed', callback),
+    onUserStateChanged: (callback) => ipcRenderer.on('user-state-changed', callback),
+    removeOnUserStateChanged: (callback) => ipcRenderer.removeListener('user-state-changed', callback),
   },
 
   // UI Component specific namespaces
@@ -31,7 +42,7 @@ contextBridge.exposeInMainWorld('api', {
   apiKeyHeader: {
     // Model & Provider Management
     getProviderConfig: () => ipcRenderer.invoke('model:get-provider-config'),
-    // LocalAI 통합 API
+    // LocalAI integration API
     getLocalAIStatus: (service) => ipcRenderer.invoke('localai:get-status', service),
     installLocalAI: (service, options) => ipcRenderer.invoke('localai:install', { service, options }),
     startLocalAIService: (service) => ipcRenderer.invoke('localai:start-service', service),
@@ -39,7 +50,7 @@ contextBridge.exposeInMainWorld('api', {
     installLocalAIModel: (service, modelId, options) => ipcRenderer.invoke('localai:install-model', { service, modelId, options }),
     getInstalledModels: (service) => ipcRenderer.invoke('localai:get-installed-models', service),
     
-    // Legacy support (호환성 위해 유지)
+    // Legacy support (kept for compatibility)
     getOllamaStatus: () => ipcRenderer.invoke('localai:get-status', 'ollama'),
     getModelSuggestions: () => ipcRenderer.invoke('ollama:get-model-suggestions'),
     ensureOllamaReady: () => ipcRenderer.invoke('ollama:ensure-ready'),
@@ -116,6 +127,7 @@ contextBridge.exposeInMainWorld('api', {
     // invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
     sendListenButtonClick: (listenButtonText) => ipcRenderer.invoke('listen:changeSession', listenButtonText),
     sendAskButtonClick: () => ipcRenderer.invoke('ask:toggleAskButton'),
+    openLiveInsightsView: () => ipcRenderer.invoke('listen:showLiveView'),
     sendToggleAllWindowsVisibility: () => ipcRenderer.invoke('shortcut:toggleAllWindowsVisibility'),
     
     // Listeners
@@ -177,7 +189,9 @@ contextBridge.exposeInMainWorld('api', {
     
     // Listeners
     onSessionStateChanged: (callback) => ipcRenderer.on('session-state-changed', callback),
-    removeOnSessionStateChanged: (callback) => ipcRenderer.removeListener('session-state-changed', callback)
+    removeOnSessionStateChanged: (callback) => ipcRenderer.removeListener('session-state-changed', callback),
+    onSetView: (callback) => ipcRenderer.on('listen:set-view', callback),
+    removeOnSetView: (callback) => ipcRenderer.removeListener('listen:set-view', callback)
   },
 
   // src/ui/listen/stt/SttView.js
@@ -185,6 +199,19 @@ contextBridge.exposeInMainWorld('api', {
     // Listeners
     onSttUpdate: (callback) => ipcRenderer.on('stt-update', callback),
     removeOnSttUpdate: (callback) => ipcRenderer.removeListener('stt-update', callback)
+  },
+
+  // Live Insights (Listen realtime assistant)
+  liveInsights: {
+    onPartialTranscript: (callback) => ipcRenderer.on('listen:partial-transcript', callback),
+    removeOnPartialTranscript: (callback) => ipcRenderer.removeListener('listen:partial-transcript', callback),
+    onTurnUpdate: (callback) => ipcRenderer.on('listen:turn-update', callback),
+    removeOnTurnUpdate: (callback) => ipcRenderer.removeListener('listen:turn-update', callback),
+    onTurnStateReset: (callback) => ipcRenderer.on('listen:turn-state-reset', callback),
+    removeOnTurnStateReset: (callback) => ipcRenderer.removeListener('listen:turn-state-reset', callback),
+    onLiveAnswer: (callback) => ipcRenderer.on('listen:live-answer', callback),
+    removeOnLiveAnswer: (callback) => ipcRenderer.removeListener('listen:live-answer', callback),
+    getTurnState: () => ipcRenderer.invoke('listen:getTurnState')
   },
 
   // src/ui/listen/summary/SummaryView.js

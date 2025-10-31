@@ -209,6 +209,10 @@ export class MainHeader extends LitElement {
             margin-left: 4px;
         }
 
+        .live-action {
+            margin-right: 6px;
+        }
+
         .action-button,
         .action-text {
             padding-bottom: 1px;
@@ -562,6 +566,15 @@ export class MainHeader extends LitElement {
         }
     }
 
+    async _handleLiveInsightsClick() {
+        if (this.wasJustDragged) return;
+        try {
+            await window.api?.mainHeader.openLiveInsightsView();
+        } catch (error) {
+            console.error('IPC invoke for live insights failed:', error);
+        }
+    }
+
     async _handleToggleAllWindowsVisibility() {
         if (this.wasJustDragged) return;
 
@@ -609,6 +622,17 @@ export class MainHeader extends LitElement {
 
         return html`
             <div class="header" @mousedown=${this.handleMouseDown}>
+                <div class="header-actions live-action" @click=${() => this._handleLiveInsightsClick()}>
+                    <div class="action-text">
+                        <div class="action-text-content">Live</div>
+                    </div>
+                    <div class="icon-container">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 12a8 8 0 0116 0 8 8 0 01-16 0z" />
+                            <path d="M9 12a3 3 0 016 0 3 3 0 01-6 0z" />
+                        </svg>
+                    </div>
+                </div>
                 <button 
                     class="listen-button ${Object.keys(buttonClasses).filter(k => buttonClasses[k]).join(' ')}"
                     @click=${this._handleListenClick}
