@@ -48,19 +48,44 @@ class SttService {
         // Callbacks
         this.onTranscriptionComplete = null;
         this.onStatusUpdate = null;
+        this.onPartialTranscript = null;
 
         this.modelInfo = null; 
     }
 
-    setCallbacks({ onTranscriptionComplete, onStatusUpdate }) {
+    setCallbacks({ onTranscriptionComplete, onStatusUpdate, onPartialTranscript }) {
         this.onTranscriptionComplete = onTranscriptionComplete;
         this.onStatusUpdate = onStatusUpdate;
+        this.onPartialTranscript = onPartialTranscript;
         try {
             console.log('[SttService] Callbacks set:', {
                 onTranscriptionComplete: typeof onTranscriptionComplete,
                 onStatusUpdate: typeof onStatusUpdate,
+                onPartialTranscript: typeof onPartialTranscript,
             });
         } catch (e) {}
+    }
+
+    emitPartialTranscript(speaker, text, extra = {}) {
+        const payload = typeof text === 'object' ? text : { text };
+        const normalizedText = payload?.text;
+
+        if (!normalizedText || !normalizedText.trim()) return;
+
+        if (this.onPartialTranscript) {
+            try {
+                this.onPartialTranscript({
+                    speaker,
+                    text: normalizedText,
+                    timestamp: Date.now(),
+                    isPartial: true,
+                    isFinal: false,
+                    ...extra,
+                });
+            } catch (err) {
+                console.error('[SttService] Failed to emit partial transcript', err);
+            }
+        }
     }
 
     sendToRenderer(channel, data) {
@@ -283,6 +308,11 @@ class SttService {
                     timestamp: Date.now(),
                 });
                 
+                this.emitPartialTranscript('Me', {
+                    text: this.myCompletionBuffer,
+                    provider: this.modelInfo?.provider,
+                });
+                
             // Deepgram 
             } else if (this.modelInfo.provider === 'deepgram' || this.modelInfo.provider === 'doubao') {
                 let text;
@@ -315,14 +345,19 @@ class SttService {
 
                     this.myCurrentUtterance = text;
                     
-                        const continuousText = (this.myCompletionBuffer + ' ' + this.myCurrentUtterance).trim();
+                    const continuousText = (this.myCompletionBuffer + ' ' + this.myCurrentUtterance).trim();
 
-                        this.sendToRenderer('stt-update', {
-                            speaker: 'Me',
-                            text: continuousText,
+                    this.sendToRenderer('stt-update', {
+                        speaker: 'Me',
+                        text: continuousText,
                         isPartial: true,
                         isFinal: false,
                         timestamp: Date.now(),
+                    });
+                    
+                    this.emitPartialTranscript('Me', {
+                        text: continuousText,
+                        provider: this.modelInfo?.provider,
                     });
                 }
                 
@@ -344,6 +379,10 @@ class SttService {
                             timestamp: Date.now(),
                         });
                     }
+                    this.emitPartialTranscript('Me', {
+                        text: continuousText,
+                        provider: this.modelInfo?.provider,
+                    });
                 } else if (type === 'conversation.item.input_audio_transcription.completed') {
                     if (text && text.trim()) {
                         const finalUtteranceText = text.trim();
@@ -437,6 +476,11 @@ class SttService {
                     isFinal: false,
                     timestamp: Date.now(),
                 });
+                
+                this.emitPartialTranscript('Them', {
+                    text: this.theirCompletionBuffer,
+                    provider: this.modelInfo?.provider,
+                });
 
             // Deepgram
             } else if (this.modelInfo.provider === 'deepgram' || this.modelInfo.provider === 'doubao') {
@@ -485,6 +529,11 @@ class SttService {
                     });
                     try { console.log('[SttService-Them-Doubao] stt-update partial dispatched (debounce reset on partial)'); } catch (e) {}
 
+                    this.emitPartialTranscript('Them', {
+                        text: continuousText,
+                        provider: this.modelInfo?.provider,
+                    });
+
                     // Reset the completion debounce on partial to enable pause-based auto completion
                     try { console.log(`[SttService-Them-Doubao] setting completion timer ${COMPLETION_DEBOUNCE_MS}ms (partial)`); } catch (e) {}
                     this.theirCompletionTimer = setTimeout(() => {
@@ -510,6 +559,10 @@ class SttService {
                             timestamp: Date.now(),
                         });
                     }
+                    this.emitPartialTranscript('Them', {
+                        text: continuousText,
+                        provider: this.modelInfo?.provider,
+                    });
                 } else if (type === 'conversation.item.input_audio_transcription.completed') {
                     if (text && text.trim()) {
                         const finalUtteranceText = text.trim();

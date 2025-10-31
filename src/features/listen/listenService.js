@@ -1,6 +1,7 @@
 const { BrowserWindow } = require('electron');
 const SttService = require('./stt/sttService');
 const SummaryService = require('./summary/summaryService');
+const LiveInsightsService = require('./liveInsightsService');
 const authService = require('../common/services/authService');
 const sessionRepository = require('../common/repositories/session');
 const sttRepository = require('./stt/repositories');
@@ -10,8 +11,15 @@ class ListenService {
     constructor() {
         this.sttService = new SttService();
         this.summaryService = new SummaryService();
+        this.liveInsightsService = new LiveInsightsService({
+            sendToRenderer: (channel, payload) => this.sendToRenderer(channel, payload),
+        });
         this.currentSessionId = null;
         this.isInitializingSession = false;
+        this.turnSequence = 0;
+        this.activeTurns = {};
+        this.turnHistory = [];
+        this.lastCompletedText = { Me: '', Them: '' };
 
         this.setupServiceCallbacks();
         console.log('[ListenService] Service instance created.');
@@ -25,7 +33,10 @@ class ListenService {
             },
             onStatusUpdate: (status) => {
                 this.sendToRenderer('update-status', status);
-            }
+            },
+            onPartialTranscript: (partial) => {
+                this.handlePartialTranscript(partial);
+            },
         });
 
         // Summary service callbacks
@@ -37,6 +48,198 @@ class ListenService {
                 this.sendToRenderer('update-status', status);
             }
         });
+    }
+
+    resetTurnState() {
+        this.turnSequence = 0;
+        this.activeTurns = {};
+        this.turnHistory = [];
+        this.lastCompletedText = { Me: '', Them: '' };
+        if (this.liveInsightsService) {
+            this.liveInsightsService.reset();
+        }
+        try {
+            console.log('[ListenService] Live insights turn state reset');
+        } catch (e) {}
+        this.sendToRenderer('listen:turn-state-reset', {});
+    }
+
+    showLiveInsightsView() {
+        const { windowPool } = require('../../window/windowManager');
+        const listenWindow = windowPool?.get('listen');
+        if (!listenWindow || listenWindow.isDestroyed()) {
+            internalBridge.emit('window:requestVisibility', { name: 'listen', visible: true });
+        } else if (!listenWindow.isVisible()) {
+            internalBridge.emit('window:requestVisibility', { name: 'listen', visible: true });
+        }
+        this.sendToRenderer('listen:set-view', { view: 'live', insightsMode: 'live' });
+    }
+
+    serializeTurn(turn) {
+        if (!turn) return null;
+        return {
+            id: turn.id,
+            speaker: turn.speaker,
+            partialText: turn.partialText || '',
+            finalText: turn.finalText || '',
+            status: turn.status,
+            startedAt: turn.startedAt,
+            updatedAt: turn.updatedAt,
+            completedAt: turn.completedAt || null,
+            provider: turn.provider || null,
+        };
+    }
+
+    startNewTurn(speaker) {
+        const normalizedSpeaker = speaker === 'Me' ? 'Me' : 'Them';
+        const turn = {
+            id: `turn-${++this.turnSequence}`,
+            speaker: normalizedSpeaker,
+            partialText: '',
+            finalText: '',
+            status: 'in_progress',
+            startedAt: Date.now(),
+            updatedAt: Date.now(),
+            completedAt: null,
+            provider: null,
+            trimPrefix: this.lastCompletedText[normalizedSpeaker] || '',
+        };
+        this.activeTurns[normalizedSpeaker] = turn;
+        this.emitTurnUpdate(turn, {
+            event: 'started',
+            emitTranscript: false,
+            timestamp: turn.startedAt,
+        });
+        return turn;
+    }
+
+    getOrCreateActiveTurn(speaker) {
+        const normalizedSpeaker = speaker === 'Me' ? 'Me' : 'Them';
+        let turn = this.activeTurns[normalizedSpeaker];
+        if (!turn || turn.status === 'completed') {
+            turn = this.startNewTurn(normalizedSpeaker);
+        }
+        return turn;
+    }
+
+    normalizeTextForSpeaker(speaker, rawText, turn) {
+        if (rawText === null || typeof rawText === 'undefined') return '';
+        const text = typeof rawText === 'string' ? rawText : String(rawText);
+        const normalizedSpeaker = speaker === 'Me' ? 'Me' : 'Them';
+        const prefix = (turn && turn.trimPrefix) || this.lastCompletedText[normalizedSpeaker] || '';
+
+        if (!prefix) return text;
+        if (text === prefix) return '';
+
+        if (text.startsWith(prefix)) {
+            const trimmed = text.slice(prefix.length).replace(/^[\s,，。、。！？!?.-]+/, '');
+            return trimmed;
+        }
+
+        return text;
+    }
+
+    emitTurnUpdate(turn, extras = {}) {
+        if (!turn) return;
+
+        const timestamp = extras.timestamp || Date.now();
+        const text = typeof extras.text === 'string'
+            ? extras.text
+            : ((turn.status === 'completed' ? turn.finalText : turn.partialText) || '');
+        const provider = extras.provider || turn.provider || null;
+        const isFinal = extras.isFinal ?? (turn.status === 'completed');
+        const isPartial = extras.isPartial ?? !isFinal;
+        const event = extras.event || (isFinal ? 'finalized' : 'partial');
+        const emitTranscript = extras.emitTranscript !== false;
+        const hasText = typeof text === 'string' && text.trim().length > 0;
+
+        const serializedTurn = this.serializeTurn(turn);
+        if (!serializedTurn) return;
+
+        const turnPayload = {
+            ...serializedTurn,
+            text,
+            event,
+            timestamp,
+        };
+
+        this.sendToRenderer('listen:turn-update', turnPayload);
+
+        if (emitTranscript && hasText) {
+            const transcriptPayload = {
+                speaker: turn.speaker,
+                turnId: turn.id,
+                text,
+                timestamp,
+                isPartial,
+                isFinal,
+                provider,
+                event,
+            };
+            this.sendToRenderer('listen:partial-transcript', transcriptPayload);
+        }
+    }
+
+    finalizeTurn(speaker, text, meta = {}) {
+        if (!text || text.trim() === '') return null;
+
+        const normalizedSpeaker = speaker === 'Me' ? 'Me' : 'Them';
+        let turn = this.activeTurns[normalizedSpeaker];
+        if (!turn) {
+            turn = this.startNewTurn(normalizedSpeaker);
+        }
+
+        const timestamp = meta.timestamp || Date.now();
+        const provider = meta.provider || turn.provider || null;
+
+        turn.partialText = text;
+        turn.finalText = text;
+        turn.status = 'completed';
+        turn.updatedAt = timestamp;
+        turn.completedAt = timestamp;
+        if (provider) {
+            turn.provider = provider;
+        }
+
+        this.turnHistory.push(this.serializeTurn(turn));
+        if (this.turnHistory.length > 100) {
+            this.turnHistory.shift();
+        }
+
+        delete this.activeTurns[normalizedSpeaker];
+
+        this.emitTurnUpdate(turn, {
+            text,
+            timestamp,
+            isPartial: false,
+            isFinal: true,
+            provider,
+            event: 'finalized',
+        });
+
+        this.lastCompletedText[normalizedSpeaker] = text;
+
+        if (normalizedSpeaker === 'Them' && this.liveInsightsService) {
+            this.liveInsightsService.handleTurnFinalized({
+                id: turn.id,
+                speaker: normalizedSpeaker,
+                text,
+                timestamp,
+            });
+        }
+
+        return turn;
+    }
+
+    getTurnState() {
+        const activeTurns = Object.values(this.activeTurns || {})
+            .map(turn => this.serializeTurn(turn))
+            .filter(Boolean);
+        const turnHistory = (this.turnHistory || []).map(item => ({ ...item }));
+        return {
+            activeTurns,
+            turnHistory,
+        };
     }
 
     sendToRenderer(channel, data) {
@@ -98,12 +301,77 @@ class ListenService {
 
     async handleTranscriptionComplete(speaker, text) {
         console.log(`[ListenService] Transcription complete: ${speaker} - ${text}`);
+
+        const normalizedSpeaker = speaker === 'Me' ? 'Me' : 'Them';
+        const activeTurn = this.activeTurns[normalizedSpeaker];
+        const cleanedText = this.normalizeTextForSpeaker(speaker, text, activeTurn);
+
+        this.finalizeTurn(speaker, cleanedText, {
+            timestamp: Date.now(),
+            provider: this.sttService?.modelInfo?.provider || null,
+        });
         
         // Save to database
         await this.saveConversationTurn(speaker, text);
         
         // Add to summary service for analysis
         this.summaryService.addConversationTurn(speaker, text);
+    }
+
+    handlePartialTranscript(partial) {
+        if (!partial || !partial.text) return;
+
+        const speaker = partial.speaker === 'Me' ? 'Me' : 'Them';
+        const timestamp = partial.timestamp || Date.now();
+        const provider = partial.provider || this.sttService?.modelInfo?.provider || null;
+
+        const turn = this.getOrCreateActiveTurn(speaker);
+        const normalizedText = this.normalizeTextForSpeaker(speaker, partial.text, turn);
+        const hasMeaningfulText = normalizedText && normalizedText.trim().length > 0;
+        const partialChanged = normalizedText !== turn.partialText;
+
+        if (!partialChanged && !partial.isFinal) {
+            return;
+        }
+
+        turn.partialText = normalizedText;
+        turn.updatedAt = timestamp;
+        if (provider) {
+            turn.provider = provider;
+        }
+
+        if (!hasMeaningfulText && !partial.isFinal) {
+            return;
+        }
+
+        try {
+            console.log('[ListenService] Updating partial transcript', {
+                speaker,
+                text: normalizedText.slice(0, 120),
+                turnId: turn.id,
+            });
+        } catch (e) {}
+
+        this.emitTurnUpdate(turn, {
+            text: normalizedText,
+            timestamp,
+            isPartial: partial.isPartial ?? true,
+            isFinal: partial.isFinal ?? false,
+            provider,
+            event: partial.isFinal ? 'finalized' : 'partial',
+        });
+
+        if (speaker === 'Them' && this.liveInsightsService) {
+            this.liveInsightsService.handleTranscriptUpdate({
+                id: turn.id,
+                speaker,
+                text: normalizedText,
+                timestamp,
+                isFinal: partial.isFinal ?? false,
+            }).catch(err => {
+                console.error('[ListenService] Live insights update failed:', err);
+            });
+        }
     }
 
     async saveConversationTurn(speaker, transcription) {
@@ -144,6 +412,7 @@ class ListenService {
             
             // Reset conversation history
             this.summaryService.resetConversationHistory();
+            this.resetTurnState();
 
             console.log('New conversation session started:', this.currentSessionId);
             return true;
@@ -245,6 +514,7 @@ class ListenService {
             // Reset state
             this.currentSessionId = null;
             this.summaryService.resetConversationHistory();
+            this.resetTurnState();
 
             console.log('Listen service session closed.');
             return { success: true };

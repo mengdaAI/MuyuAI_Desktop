@@ -483,9 +483,9 @@ function createFeatureWindows(header, namesToCreate) {
                     });
                 }
                 // DevTools disabled in development to avoid auto-opening
-                // if (!app.isPackaged) {
-                //     listen.webContents.openDevTools({ mode: 'detach' });
-                // }
+                if (!app.isPackaged) {
+                    listen.webContents.openDevTools({ mode: 'detach' });
+                }
                 windowPool.set('listen', listen);
                 break;
             }
@@ -516,9 +516,9 @@ function createFeatureWindows(header, namesToCreate) {
                 }
                 
                 // DevTools disabled in development to avoid auto-opening
-                // if (!app.isPackaged) {
-                //     ask.webContents.openDevTools({ mode: 'detach' });
-                // }
+                if (!app.isPackaged) {
+                    ask.webContents.openDevTools({ mode: 'detach' });
+                }
                 windowPool.set('ask', ask);
                 break;
             }
@@ -552,9 +552,9 @@ function createFeatureWindows(header, namesToCreate) {
                 windowPool.set('settings', settings);  
 
                 // DevTools disabled in development to avoid auto-opening
-                // if (!app.isPackaged) {
-                //     settings.webContents.openDevTools({ mode: 'detach' });
-                // }
+                if (!app.isPackaged) {
+                    settings.webContents.openDevTools({ mode: 'detach' });
+                }
                 break;
             }
 
@@ -591,9 +591,9 @@ function createFeatureWindows(header, namesToCreate) {
 
                 windowPool.set('shortcut-settings', shortcutEditor);
                 // DevTools disabled in development to avoid auto-opening
-                // if (!app.isPackaged) {
-                //     shortcutEditor.webContents.openDevTools({ mode: 'detach' });
-                // }
+                if (!app.isPackaged) {
+                    shortcutEditor.webContents.openDevTools({ mode: 'detach' });
+                }
                 break;
             }
         }
@@ -726,9 +726,9 @@ function createWindows() {
     header.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     
     // DevTools disabled in development to avoid auto-opening
-    // if (!app.isPackaged) {
-    //     header.webContents.openDevTools({ mode: 'detach' });
-    // }
+    if (!app.isPackaged) {
+        header.webContents.openDevTools({ mode: 'detach' });
+    }
 
     header.on('focus', () => {
         console.log('[WindowManager] Header gained focus');
