@@ -93,7 +93,7 @@ function createSTT({
     });
   }
 
-// ... (LLM 관련 Placeholder 함수들은 그대로 유지) ...
+// ... (Keep LLM-related placeholder functions as is) ...
 function createLLM(opts) {
   console.warn("[Deepgram] LLM not supported.");
   return { generateContent: async () => { throw new Error("Deepgram does not support LLM functionality."); } };

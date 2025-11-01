@@ -487,7 +487,7 @@ export class MainHeader extends LitElement {
                 } else {
                     this.listenSessionStatus = 'beforeSession';
                 }
-                this.isTogglingSession = false; // ✨ 로딩 상태만 해제
+        this.isTogglingSession = false; // ✨ Only clear loading state
             };
             window.api.mainHeader.onListenChangeSessionResult(this._sessionStateTextListener);
 

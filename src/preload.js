@@ -67,7 +67,7 @@ contextBridge.exposeInMainWorld('api', {
     moveHeaderTo: (x, y) => ipcRenderer.invoke('move-header-to', x, y),
     
     // Listeners
-    // LocalAI 통합 이벤트 리스너
+    // LocalAI unified event listeners
     onLocalAIProgress: (callback) => ipcRenderer.on('localai:install-progress', callback),
     removeOnLocalAIProgress: (callback) => ipcRenderer.removeListener('localai:install-progress', callback),
     onLocalAIComplete: (callback) => ipcRenderer.on('localai:installation-complete', callback),
@@ -80,7 +80,7 @@ contextBridge.exposeInMainWorld('api', {
 
     // Remove all listeners (for cleanup)
     removeAllListeners: () => {
-      // LocalAI 통합 이벤트
+    // LocalAI unified events
       ipcRenderer.removeAllListeners('localai:install-progress');
       ipcRenderer.removeAllListeners('localai:installation-complete');
       ipcRenderer.removeAllListeners('localai:error-notification');
@@ -282,7 +282,7 @@ contextBridge.exposeInMainWorld('api', {
     removeOnPresetsUpdated: (callback) => ipcRenderer.removeListener('presets-updated', callback),
     onShortcutsUpdated: (callback) => ipcRenderer.on('shortcuts-updated', callback),
     removeOnShortcutsUpdated: (callback) => ipcRenderer.removeListener('shortcuts-updated', callback),
-    // 통합 LocalAI 이벤트 사용
+    // Use unified LocalAI events
     onLocalAIInstallProgress: (callback) => ipcRenderer.on('localai:install-progress', callback),
     removeOnLocalAIInstallProgress: (callback) => ipcRenderer.removeListener('localai:install-progress', callback),
     onLocalAIInstallationComplete: (callback) => ipcRenderer.on('localai:installation-complete', callback),

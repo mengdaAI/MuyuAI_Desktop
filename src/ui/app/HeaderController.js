@@ -71,7 +71,7 @@ class HeaderTransitionManager {
 
         console.log('[HeaderController] Manager initialized');
 
-        // WelcomeHeader 콜백 메서드들
+        // WelcomeHeader callback methods
         this.handleLoginOption = this.handleLoginOption.bind(this);
         this.handleApiKeyOption = this.handleApiKeyOption.bind(this);
 
@@ -144,7 +144,7 @@ class HeaderTransitionManager {
         }
     }
 
-    // WelcomeHeader 콜백 메서드들
+    // WelcomeHeader callback methods
     async handleLoginOption() {
         console.log('[HeaderController] Login option selected');
         if (window.api) {
@@ -156,7 +156,7 @@ class HeaderTransitionManager {
         console.log('[HeaderController] API key option selected');
         await this._resizeForApiKey(400);
         this.ensureHeader('apikey');
-        // ApiKeyHeader에 뒤로가기 콜백 설정
+        // Set back callback on ApiKeyHeader
         if (this.apiKeyHeader) {
             this.apiKeyHeader.backCallback = () => this.transitionToWelcomeHeader();
         }

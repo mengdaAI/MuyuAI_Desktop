@@ -14,7 +14,7 @@ const permissionService = require('../features/common/services/permissionService
 const encryptionService = require('../features/common/services/encryptionService');
 
 module.exports = {
-  // Renderer로부터의 요청을 수신하고 서비스로 전달
+  // Receive requests from the renderer and forward them to services
   initialize() {
     // Settings Service
     ipcMain.handle('settings:getPresets', async () => await settingsService.getPresets());
@@ -125,7 +125,7 @@ module.exports = {
     ipcMain.handle('model:get-provider-config', () => modelStateService.getProviderConfig());
     ipcMain.handle('model:re-initialize-state', async () => await modelStateService.initialize());
 
-    // LocalAIManager 이벤트를 모든 윈도우에 브로드캐스트
+    // Broadcast LocalAIManager events to all windows
     localAIManager.on('install-progress', (service, data) => {
       const event = { service, ...data };
       BrowserWindow.getAllWindows().forEach(win => {
@@ -175,7 +175,7 @@ module.exports = {
     // 本地 AI 不启用时关闭
     // localAIManager.startPeriodicSync();
 
-    // ModelStateService 이벤트를 모든 윈도우에 브로드캐스트
+    // Broadcast ModelStateService events to all windows
     modelStateService.on('state-updated', (state) => {
       BrowserWindow.getAllWindows().forEach(win => {
         if (win && !win.isDestroyed()) {
@@ -198,7 +198,7 @@ module.exports = {
       });
     });
 
-    // LocalAI 통합 핸들러 추가
+    // Add LocalAI integration handlers
     ipcMain.handle('localai:install', async (event, { service, options }) => {
       return await localAIManager.installService(service, options);
     });
@@ -224,12 +224,12 @@ module.exports = {
       return await localAIManager.repairService(service);
     });
     
-    // 에러 처리 핸들러
+    // Error handling handlers
     ipcMain.handle('localai:handle-error', async (event, { service, errorType, details }) => {
       return await localAIManager.handleError(service, errorType, details);
     });
     
-    // 전체 상태 조회
+    // Retrieve all service states
     ipcMain.handle('localai:get-all-states', async (event) => {
       return await localAIManager.getAllServiceStates();
     });
@@ -237,7 +237,7 @@ module.exports = {
     console.log('[FeatureBridge] Initialized with all feature handlers.');
   },
 
-  // Renderer로 상태를 전송
+  // Send state to the renderer
   sendAskProgress(win, progress) {
     win.webContents.send('feature:ask:progress', progress);
   },

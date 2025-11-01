@@ -195,7 +195,7 @@ let initializationPromise: Promise<void> | null = null;
 const initializeApiUrl = async () => {
   if (apiUrlInitialized) return;
   
-  // Electron IPC 관련 코드를 모두 제거하고 runtime-config.json 또는 fallback에만 의존합니다.
+    // Remove all Electron IPC code and rely only on runtime-config.json or fallback.
   const runtimeUrl = await loadRuntimeConfig();
   if (runtimeUrl) {
     API_ORIGIN = runtimeUrl;
@@ -586,4 +586,4 @@ export const logout = async () => {
   localStorage.removeItem('user_info');
   
   window.location.href = '/login';
-}; 
+};

@@ -41,7 +41,7 @@ export class ListenView extends LitElement {
     cursor: text !important;
 }
 
-/* highlight.js 스타일 추가 */
+/* Add highlight.js styles */
 .insights-container pre {
     background: rgba(0, 0, 0, 0.4) !important;
     border-radius: 8px !important;
@@ -380,7 +380,7 @@ export class ListenView extends LitElement {
         :host-context(body.has-glass) ::-webkit-scrollbar-track,
         :host-context(body.has-glass) ::-webkit-scrollbar-thumb {
             background: transparent !important;
-            width: 0 !important;      /* 스크롤바 자체 숨기기 */
+            width: 0 !important;      /* Hide scrollbar itself */
         }
         :host-context(body.has-glass) .assistant-container,
         :host-context(body.has-glass) .top-bar,

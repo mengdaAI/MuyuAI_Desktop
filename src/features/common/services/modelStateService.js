@@ -10,7 +10,7 @@ class ModelStateService extends EventEmitter {
     constructor() {
         super();
         this.authService = authService;
-        // electron-store는 오직 레거시 데이터 마이그레이션 용도로만 사용됩니다.
+// electron-store is used only for legacy data migration.
         this.store = new Store({ name: 'pickle-glass-model-state' });
     }
 
@@ -265,15 +265,15 @@ class ModelStateService extends EventEmitter {
     async setFirebaseVirtualKey(virtualKey) {
         console.log(`[ModelStateService] Setting Firebase virtual key.`);
 
-        // 키를 설정하기 전에, 이전에 openai-glass 키가 있었는지 확인합니다.
+// Before setting a key, check whether an openai-glass key existed previously.
         const previousSettings = await providerSettingsRepository.getByProvider('openai-glass');
         const wasPreviouslyConfigured = !!previousSettings?.api_key;
 
-        // 항상 새로운 가상 키로 업데이트합니다.
+// Always update with a new virtual key.
         await this.setApiKey('openai-glass', virtualKey);
 
         if (virtualKey) {
-            // 이전에 설정된 적이 없는 경우 (최초 로그인)에만 모델을 강제로 변경합니다.
+// Force model change only if not previously set (initial login).
             if (!wasPreviouslyConfigured) {
                 console.log('[ModelStateService] First-time setup for openai-glass, setting default models.');
                 const llmModel = PROVIDERS['openai-glass']?.llmModels[0];
@@ -284,7 +284,7 @@ class ModelStateService extends EventEmitter {
                 console.log('[ModelStateService] openai-glass key updated, but respecting user\'s existing model selection.');
             }
         } else {
-            // 로그아웃 시, 현재 활성화된 모델이 openai-glass인 경우에만 다른 모델로 전환합니다.
+// On logout, switch models only if openai-glass is the active model.
             const selected = await this.getSelectedModels();
             const llmProvider = this.getProviderForModel(selected.llm, 'llm');
             const sttProvider = this.getProviderForModel(selected.stt, 'stt');
@@ -306,7 +306,7 @@ class ModelStateService extends EventEmitter {
             throw new Error('Provider is required');
         }
 
-        // 'openai-glass'는 자체 인증 키를 사용하므로 유효성 검사를 건너뜁니다.
+// 'openai-glass' uses its own auth key, so skip validation.
         if (provider !== 'openai-glass') {
             const validationResult = await this.validateApiKey(provider, key);
             if (!validationResult.success) {
@@ -319,7 +319,7 @@ class ModelStateService extends EventEmitter {
         const existingSettings = await providerSettingsRepository.getByProvider(provider) || {};
         await providerSettingsRepository.upsert(provider, { ...existingSettings, api_key: finalKey });
         
-        // 키가 추가/변경되었으므로, 해당 provider의 모델을 자동 선택할 수 있는지 확인
+// Since a key was added/changed, check if the provider's model can be auto-selected
         await this._autoSelectAvailableModels([]);
         
         this.emit('state-updated', await this.getLiveState());
@@ -351,14 +351,14 @@ class ModelStateService extends EventEmitter {
     }
 
     /**
-     * 사용자가 Firebase에 로그인했는지 확인합니다.
+* Check if the user is logged in to Firebase.
      */
     isLoggedInWithFirebase() {
         return this.authService.getCurrentUser().isLoggedIn;
     }
 
     /**
-     * 유효한 API 키가 하나라도 설정되어 있는지 확인합니다.
+* Check whether at least one valid API key is set.
      */
     async hasValidApiKey() {
         if (this.isLoggedInWithFirebase()) return true;
@@ -462,7 +462,7 @@ class ModelStateService extends EventEmitter {
         };
     }
 
-    // --- 핸들러 및 유틸리티 메서드 ---
+// --- Handlers and utility methods ---
 
     async validateApiKey(provider, key) {
         if (!key || (key.trim() === '' && provider !== 'ollama' && provider !== 'whisper')) {
@@ -516,13 +516,13 @@ class ModelStateService extends EventEmitter {
         // LLM
         const hasLlmKey = Object.entries(apiKeyMap).some(([provider, key]) => {
             if (!key) return false;
-            if (provider === 'whisper') return false; // whisper는 LLM 없음
+if (provider === 'whisper') return false; // Whisper has no LLM
             return PROVIDERS[provider]?.llmModels?.length > 0;
         });
         // STT
         const hasSttKey = Object.entries(apiKeyMap).some(([provider, key]) => {
             if (!key) return false;
-            if (provider === 'ollama') return false; // ollama는 STT 없음
+if (provider === 'ollama') return false; // Ollama has no STT
             return PROVIDERS[provider]?.sttModels?.length > 0 || provider === 'whisper';
         });
         return hasLlmKey && hasSttKey;
