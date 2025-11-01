@@ -172,6 +172,7 @@ export class ListenView extends LitElement {
             box-sizing: border-box;
             flex-shrink: 0;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            gap: 8px;
         }
 
         .bar-left-text {
@@ -184,7 +185,7 @@ export class ListenView extends LitElement {
             white-space: nowrap;
             flex: 1;
             min-width: 0;
-            max-width: 200px;
+            max-width: 180px;
         }
 
         .bar-left-text-content {
@@ -201,6 +202,8 @@ export class ListenView extends LitElement {
             gap: 6px;
             margin-left: 12px;
             align-items: center;
+            margin-right: 8px;
+            flex-shrink: 0;
         }
 
         .mode-button {
@@ -228,8 +231,8 @@ export class ListenView extends LitElement {
             display: flex;
             gap: 4px;
             align-items: center;
-            flex-shrink: 0;
-            width: 120px;
+            flex-shrink: 1;
+            width: auto;
             justify-content: flex-end;
             box-sizing: border-box;
             padding: 4px;
@@ -731,12 +734,6 @@ export class ListenView extends LitElement {
                                       @click=${() => this.setInsightsMode('live')}
                                   >
                                       Live
-                                  </button>
-                                  <button
-                                      class="mode-button ${this.insightsMode === 'summary' ? 'active' : ''}"
-                                      @click=${() => this.setInsightsMode('summary')}
-                                  >
-                                      Summary
                                   </button>
                               </div>
                           `

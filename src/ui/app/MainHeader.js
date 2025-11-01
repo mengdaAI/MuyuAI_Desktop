@@ -204,6 +204,10 @@ export class MainHeader extends LitElement {
         .header-actions:hover {
             background: rgba(255, 255, 255, 0.1);
         }
+        /* Prevent native drag on the interactive actions container */
+        .header-actions {
+            -webkit-app-region: no-drag;
+        }
 
         .ask-action {
             margin-left: 4px;
@@ -371,6 +375,12 @@ export class MainHeader extends LitElement {
     }
 
     async handleMouseDown(e) {
+        // Ignore mousedown originating from interactive controls to prevent accidental drag
+        const interactiveSelector = '.listen-button, .settings-button, .header-actions, .action-button, .action-text, .icon-container, .settings-icon';
+        if (e.target.closest(interactiveSelector) || ['BUTTON','INPUT','SELECT','A','SVG'].includes(e.target.tagName)) {
+            return;
+        }
+
         e.preventDefault();
 
         const initialPosition = await window.api.mainHeader.getHeaderPosition();
@@ -622,17 +632,6 @@ export class MainHeader extends LitElement {
 
         return html`
             <div class="header" @mousedown=${this.handleMouseDown}>
-                <div class="header-actions live-action" @click=${() => this._handleLiveInsightsClick()}>
-                    <div class="action-text">
-                        <div class="action-text-content">Live</div>
-                    </div>
-                    <div class="icon-container">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M4 12a8 8 0 0116 0 8 8 0 01-16 0z" />
-                            <path d="M9 12a3 3 0 016 0 3 3 0 01-6 0z" />
-                        </svg>
-                    </div>
-                </div>
                 <button 
                     class="listen-button ${Object.keys(buttonClasses).filter(k => buttonClasses[k]).join(' ')}"
                     @click=${this._handleListenClick}
