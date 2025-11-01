@@ -1,5 +1,5 @@
 import { html, css, LitElement } from '../assets/lit-core-2.7.4.min.js';
-// import { getOllamaProgressTracker } from '../../features/common/services/localProgressTracker.js'; // 제거됨
+// import { getOllamaProgressTracker } from '../../features/common/services/localProgressTracker.js'; // removed
 
 export class SettingsView extends LitElement {
     static styles = css`
@@ -744,7 +744,7 @@ export class SettingsView extends LitElement {
             this.saving = false;
         }
 
-        // 데이터 새로고침 후, 목록의 표시 상태를 토글합니다.
+// After data refresh, toggle list visibility.
         this[visibilityProp] = !this[visibilityProp];
         this.requestUpdate();
     }
@@ -792,11 +792,11 @@ export class SettingsView extends LitElement {
     
     async installOllamaModel(modelName) {
         try {
-            // Ollama 모델 다운로드 시작
+// Start Ollama model download
             this.installingModels = { ...this.installingModels, [modelName]: 0 };
             this.requestUpdate();
 
-            // 진행률 이벤트 리스너 설정 - 통합 LocalAI 이벤트 사용
+// Set up progress listener - using unified LocalAI events
             const progressHandler = (event, data) => {
                 if (data.service === 'ollama' && data.model === modelName) {
                     this.installingModels = { ...this.installingModels, [modelName]: data.progress || 0 };
@@ -804,7 +804,7 @@ export class SettingsView extends LitElement {
                 }
             };
 
-            // 통합 LocalAI 이벤트 리스너 등록
+// Register unified LocalAI event listeners
             window.api.settingsView.onLocalAIInstallProgress(progressHandler);
 
             try {
@@ -815,14 +815,14 @@ export class SettingsView extends LitElement {
                     delete this.installingModels[modelName];
                     this.requestUpdate();
                     
-                    // 상태 새로고침
+// Refresh state
                     await this.refreshOllamaStatus();
                     await this.refreshModelData();
                 } else {
                     throw new Error(result.error || 'Installation failed');
                 }
             } finally {
-                // 통합 LocalAI 이벤트 리스너 제거
+// Remove unified LocalAI event listeners
                 window.api.settingsView.removeOnLocalAIInstallProgress(progressHandler);
             }
         } catch (error) {
@@ -838,7 +838,7 @@ export class SettingsView extends LitElement {
         this.requestUpdate();
         
         try {
-            // Set up progress listener - 통합 LocalAI 이벤트 사용
+// Set up progress listener - using unified LocalAI events
             const progressHandler = (event, data) => {
                 if (data.service === 'whisper' && data.model === modelId) {
                     this.installingModels = { ...this.installingModels, [modelId]: data.progress || 0 };
@@ -968,14 +968,14 @@ export class SettingsView extends LitElement {
             this.requestUpdate();
         };
 
-        // 프리셋 업데이트 리스너 추가
+// Add preset update listener
         this._presetsUpdatedListener = async (event) => {
             console.log('[SettingsView] Received presets-updated, refreshing presets');
             try {
                 const presets = await window.api.settingsView.getPresets();
                 this.presets = presets || [];
                 
-                // 현재 선택된 프리셋이 삭제되었는지 확인 (사용자 프리셋만 고려)
+// Check whether the selected preset was deleted (user presets only)
                 const userPresets = this.presets.filter(p => p.is_default === 0);
                 if (this.selectedPreset && !userPresets.find(p => p.id === this.selectedPreset.id)) {
                     this.selectedPreset = userPresets.length > 0 ? userPresets[0] : null;
@@ -1032,9 +1032,9 @@ export class SettingsView extends LitElement {
     }
 
     updateScrollHeight() {
-        // Electron 일부 시점에서 window.innerHeight 가 0 으로 보고되는 버그 보호
+// Guard against Electron bug where window.innerHeight reports 0 at times
         const rawHeight = window.innerHeight || (window.screen ? window.screen.height : 0);
-        const MIN_HEIGHT = 300; // 최소 보장 높이
+const MIN_HEIGHT = 300; // Minimum guaranteed height
         const maxHeight = Math.max(MIN_HEIGHT, rawHeight);
 
         this.style.maxHeight = `${maxHeight}px`;
@@ -1073,7 +1073,7 @@ export class SettingsView extends LitElement {
             'Up': '↑', 'Down': '↓', 'Left': '←', 'Right': '→'
         };
 
-        // scrollDown/scrollUp의 특수 처리
+// Special handling for scrollDown/scrollUp
         if (accelerator.includes('↕')) {
             const keys = accelerator.replace('↕','').split('+');
             keys.push('↕');

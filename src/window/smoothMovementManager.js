@@ -21,7 +21,7 @@ class SmoothMovementManager {
      */
     _isWindowValid(win) {
         if (!win || win.isDestroyed()) {
-            // 해당 창의 타이머가 있으면 정리
+    // Clear the existing timer for this window if present
             if (this.animationTimers.has(win)) {
                 clearTimeout(this.animationTimers.get(win));
                 this.animationTimers.delete(win);

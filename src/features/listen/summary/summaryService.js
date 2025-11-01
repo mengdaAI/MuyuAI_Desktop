@@ -77,7 +77,7 @@ class SummaryService {
 
         const recentConversation = this.formatConversationForPrompt(conversationTexts, maxTurns);
 
-        // 이전 분석 결과를 프롬프트에 포함
+// Include previous analysis results in the prompt
         let contextualPrompt = '';
         if (this.previousAnalysisResult) {
             contextualPrompt = `
@@ -167,7 +167,7 @@ Keep all points concise and build upon previous analysis if provided.`,
                 }
             }
 
-            // 분석 결과 저장
+// Save analysis results
             this.previousAnalysisResult = structuredData;
             this.analysisHistory.push({
                 timestamp: Date.now(),
@@ -182,7 +182,7 @@ Keep all points concise and build upon previous analysis if provided.`,
             return structuredData;
         } catch (error) {
             console.error('❌ Error during analysis generation:', error.message);
-            return this.previousAnalysisResult; // 에러 시 이전 결과 반환
+return this.previousAnalysisResult; // On error, return previous result
         }
     }
 
@@ -194,7 +194,7 @@ Keep all points concise and build upon previous analysis if provided.`,
             followUps: ['✉️ Draft a follow-up email', '✅ Generate action items', '📝 Show summary'],
         };
 
-        // 이전 결과가 있으면 기본값으로 사용
+// Use previous results as defaults when available
         if (previousResult) {
             structuredData.topic.header = previousResult.topic.header;
             structuredData.summary = [...previousResult.summary];
@@ -209,7 +209,7 @@ Keep all points concise and build upon previous analysis if provided.`,
             for (const line of lines) {
                 const trimmedLine = line.trim();
 
-                // 섹션 헤더 감지
+// Detect section headers
                 if (trimmedLine.startsWith('**Summary Overview**')) {
                     currentSection = 'summary-overview';
                     continue;
@@ -229,11 +229,11 @@ Keep all points concise and build upon previous analysis if provided.`,
                     continue;
                 }
 
-                // 컨텐츠 파싱
+// Parse content
                 if (trimmedLine.startsWith('-') && currentSection === 'summary-overview') {
                     const summaryPoint = trimmedLine.substring(1).trim();
                     if (summaryPoint && !structuredData.summary.includes(summaryPoint)) {
-                        // 기존 summary 업데이트 (최대 5개 유지)
+// Update existing summary (keep up to 5 items)
                         structuredData.summary.unshift(summaryPoint);
                         if (structuredData.summary.length > 5) {
                             structuredData.summary.pop();
@@ -245,7 +245,7 @@ Keep all points concise and build upon previous analysis if provided.`,
                         structuredData.topic.bullets.push(bullet);
                     }
                 } else if (currentSection === 'explanation' && trimmedLine) {
-                    // explanation을 topic bullets에 추가 (문장 단위로)
+// Add explanation to topic bullets (by sentences)
                     const sentences = trimmedLine
                         .split(/\.\s+/)
                         .filter(s => s.trim().length > 0)
@@ -264,7 +264,7 @@ Keep all points concise and build upon previous analysis if provided.`,
                 }
             }
 
-            // 기본 액션 추가
+// Add default action items
             const defaultActions = ['✨ What should I say next?', '💬 Suggest follow-up questions'];
             defaultActions.forEach(action => {
                 if (!structuredData.actions.includes(action)) {
@@ -272,10 +272,10 @@ Keep all points concise and build upon previous analysis if provided.`,
                 }
             });
 
-            // 액션 개수 제한
+// Limit number of actions
             structuredData.actions = structuredData.actions.slice(0, 5);
 
-            // 유효성 검증 및 이전 데이터 병합
+// Validate and merge with previous data
             if (structuredData.summary.length === 0 && previousResult) {
                 structuredData.summary = previousResult.summary;
             }
@@ -284,7 +284,7 @@ Keep all points concise and build upon previous analysis if provided.`,
             }
         } catch (error) {
             console.error('❌ Error parsing response text:', error);
-            // 에러 시 이전 결과 반환
+// On error, return previous result
             return (
                 previousResult || {
                     summary: [],
@@ -330,4 +330,4 @@ Keep all points concise and build upon previous analysis if provided.`,
     }
 }
 
-module.exports = SummaryService; 
+module.exports = SummaryService;

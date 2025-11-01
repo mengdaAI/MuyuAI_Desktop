@@ -9,7 +9,7 @@ export class SummaryView extends LitElement {
 
         /* Inherit font styles from parent */
 
-        /* highlight.js 스타일 추가 */
+/* Add highlight.js styles */
         .insights-container pre {
             background: rgba(0, 0, 0, 0.4) !important;
             border-radius: 8px !important;
@@ -170,7 +170,7 @@ export class SummaryView extends LitElement {
             transform: translateX(2px);
         }
 
-        /* 마크다운 렌더링된 콘텐츠 스타일 */
+/* Styles for rendered Markdown content */
         .markdown-content {
             color: #ffffff;
             font-size: 11px;
@@ -250,7 +250,7 @@ export class SummaryView extends LitElement {
         this.isVisible = true;
         this.hasCompletedRecording = false;
 
-        // 마크다운 라이브러리 초기화
+// Initialize the Markdown library
         this.marked = null;
         this.hljs = null;
         this.isLibrariesLoaded = false;
@@ -545,4 +545,4 @@ export class SummaryView extends LitElement {
     }
 }
 
-customElements.define('summary-view', SummaryView); 
+customElements.define('summary-view', SummaryView);

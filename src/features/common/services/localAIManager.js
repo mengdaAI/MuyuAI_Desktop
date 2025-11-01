@@ -58,7 +58,7 @@ class LocalAIManager extends EventEmitter {
             this.emit('state-changed', 'ollama', state);
         });
         
-        // Whisper 이벤트
+// Whisper events
         whisperService.on('install-progress', (data) => {
             this.emit('install-progress', 'whisper', data);
         });
@@ -79,7 +79,7 @@ class LocalAIManager extends EventEmitter {
     }
     
     /**
-     * 서비스 설치
+* Service installation
      */
     async installService(serviceName, options = {}) {
         const service = this.services[serviceName];
@@ -91,7 +91,7 @@ class LocalAIManager extends EventEmitter {
             if (serviceName === 'ollama') {
                 return await service.handleInstall();
             } else if (serviceName === 'whisper') {
-                // Whisper는 자동 설치
+// Whisper installs automatically
                 await service.initialize();
                 return { success: true };
             }
@@ -106,7 +106,7 @@ class LocalAIManager extends EventEmitter {
     }
     
     /**
-     * 서비스 상태 조회
+* Get service status
      */
     async getServiceStatus(serviceName) {
         const service = this.services[serviceName];
@@ -130,7 +130,7 @@ class LocalAIManager extends EventEmitter {
     }
     
     /**
-     * 서비스 시작
+* Start service
      */
     async startService(serviceName) {
         const service = this.services[serviceName];
@@ -144,7 +144,7 @@ class LocalAIManager extends EventEmitter {
     }
     
     /**
-     * 서비스 중지
+* Stop service
      */
     async stopService(serviceName) {
         const service = this.services[serviceName];
@@ -159,14 +159,14 @@ class LocalAIManager extends EventEmitter {
             result = await service.stopService();
         }
         
-        // 서비스 중지 후 상태 업데이트
+// Update state after service stop
         await this.updateServiceState(serviceName);
         
         return result;
     }
     
     /**
-     * 모델 설치/다운로드
+* Install/download model
      */
     async installModel(serviceName, modelId, options = {}) {
         const service = this.services[serviceName];
@@ -182,7 +182,7 @@ class LocalAIManager extends EventEmitter {
     }
     
     /**
-     * 설치된 모델 목록 조회
+* Get installed model list
      */
     async getInstalledModels(serviceName) {
         const service = this.services[serviceName];
@@ -198,21 +198,21 @@ class LocalAIManager extends EventEmitter {
     }
     
     /**
-     * 모델 워밍업 (Ollama 전용)
+* Model warm-up (Ollama only)
      */
     async warmUpModel(modelName, forceRefresh = false) {
         return await ollamaService.warmUpModel(modelName, forceRefresh);
     }
     
     /**
-     * 자동 워밍업 (Ollama 전용)
+* Auto warm-up (Ollama only)
      */
     async autoWarmUp() {
         return await ollamaService.autoWarmUpSelectedModel();
     }
     
     /**
-     * 진단 실행
+* Run diagnostics
      */
     async runDiagnostics(serviceName) {
         const service = this.services[serviceName];
@@ -227,21 +227,21 @@ class LocalAIManager extends EventEmitter {
         };
         
         try {
-            // 1. 설치 상태 확인
+// 1. Check installation status
             diagnostics.checks.installation = {
                 check: 'Installation',
                 status: await service.isInstalled() ? 'pass' : 'fail',
                 details: {}
             };
             
-            // 2. 서비스 실행 상태
+// 2. Service running state
             diagnostics.checks.running = {
                 check: 'Service Running',
                 status: await service.isServiceRunning() ? 'pass' : 'fail',
                 details: {}
             };
             
-            // 3. 포트 연결 테스트 및 상세 health check (Ollama)
+// 3. Port connection test and detailed health check (Ollama)
             if (serviceName === 'ollama') {
                 try {
                     // Use comprehensive health check
@@ -271,7 +271,7 @@ class LocalAIManager extends EventEmitter {
                     };
                 }
                 
-                // 4. 모델 목록
+// 4. Model list
                 if (diagnostics.checks.running.status === 'pass') {
                     try {
                         const models = await service.getInstalledModels();
@@ -281,7 +281,7 @@ class LocalAIManager extends EventEmitter {
                             details: { count: models.length, models: models.map(m => m.name) }
                         };
                         
-                        // 5. 워밍업 상태
+// 5. Warm-up state
                         const warmupStatus = await service.getWarmUpStatus();
                         diagnostics.checks.warmup = {
                             check: 'Model Warm-up',
@@ -298,16 +298,16 @@ class LocalAIManager extends EventEmitter {
                 }
             }
             
-            // 4. Whisper 특화 진단
+// 4. Whisper-specific diagnostics
             if (serviceName === 'whisper') {
-                // 바이너리 확인
+// Verify binary
                 diagnostics.checks.binary = {
                     check: 'Whisper Binary',
                     status: service.whisperPath ? 'pass' : 'fail',
                     details: { path: service.whisperPath }
                 };
                 
-                // 모델 디렉토리
+// Model directory
                 diagnostics.checks.modelDir = {
                     check: 'Model Directory',
                     status: service.modelsDir ? 'pass' : 'fail',
@@ -315,7 +315,7 @@ class LocalAIManager extends EventEmitter {
                 };
             }
             
-            // 전체 진단 결과
+// Aggregate diagnostic result
             const allChecks = Object.values(diagnostics.checks);
             diagnostics.summary = {
                 total: allChecks.length,
@@ -335,7 +335,7 @@ class LocalAIManager extends EventEmitter {
     }
     
     /**
-     * 서비스 복구
+* Service recovery
      */
     async repairService(serviceName) {
         const service = this.services[serviceName];
@@ -347,7 +347,7 @@ class LocalAIManager extends EventEmitter {
         const repairLog = [];
         
         try {
-            // 1. 진단 실행
+// 1. Run diagnostics
             repairLog.push('Running diagnostics...');
             const diagnostics = await this.runDiagnostics(serviceName);
             
@@ -360,7 +360,7 @@ class LocalAIManager extends EventEmitter {
                 };
             }
             
-            // 2. 설치 문제 해결
+// 2. Fix installation issues
             if (diagnostics.checks.installation?.status === 'fail') {
                 repairLog.push('Installation missing, attempting to install...');
                 try {
@@ -372,11 +372,11 @@ class LocalAIManager extends EventEmitter {
                 }
             }
             
-            // 3. 서비스 재시작
+// 3. Restart service
             if (diagnostics.checks.running?.status === 'fail') {
                 repairLog.push('Service not running, attempting to start...');
                 
-                // 종료 시도
+// Attempt shutdown
                 try {
                     await this.stopService(serviceName);
                     repairLog.push('Stopped existing service');
@@ -384,10 +384,10 @@ class LocalAIManager extends EventEmitter {
                     repairLog.push('Service was not running');
                 }
                 
-                // 잠시 대기
+// Wait briefly
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 
-                // 시작
+// Start
                 try {
                     await this.startService(serviceName);
                     repairLog.push('Service started successfully');
@@ -397,11 +397,11 @@ class LocalAIManager extends EventEmitter {
                 }
             }
             
-            // 4. 포트 문제 해결 (Ollama)
+// 4. Resolve port issues (Ollama)
             if (serviceName === 'ollama' && diagnostics.checks.port?.status === 'fail') {
                 repairLog.push('Port connectivity issue detected');
                 
-                // 프로세스 강제 종료
+// Force kill process
                 if (process.platform === 'darwin') {
                     try {
                         const { exec } = require('child_process');
@@ -438,21 +438,21 @@ class LocalAIManager extends EventEmitter {
                 
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 
-                // 재시작
+// Restart
                 await this.startService(serviceName);
                 repairLog.push('Restarted service after port cleanup');
             }
             
-            // 5. Whisper 특화 복구
+// 5. Whisper-specific recovery
             if (serviceName === 'whisper') {
-                // 세션 정리
+// Clean up sessions
                 if (diagnostics.checks.running?.status === 'pass') {
                     repairLog.push('Cleaning up Whisper sessions...');
                     await service.cleanup();
                     repairLog.push('Sessions cleaned up');
                 }
                 
-                // 초기화
+// Initialize
                 if (!service.installState.isInitialized) {
                     repairLog.push('Re-initializing Whisper...');
                     await service.initialize();
@@ -460,14 +460,14 @@ class LocalAIManager extends EventEmitter {
                 }
             }
             
-            // 6. 최종 상태 확인
+// 6. Final state check
             repairLog.push('Verifying repair...');
             const finalDiagnostics = await this.runDiagnostics(serviceName);
             
             const success = finalDiagnostics.summary.overallStatus === 'healthy';
             repairLog.push(success ? 'Repair successful!' : 'Repair failed - manual intervention may be required');
             
-            // 성공 시 상태 업데이트
+// Update state on success
             if (success) {
                 await this.updateServiceState(serviceName);
             }
@@ -489,14 +489,14 @@ class LocalAIManager extends EventEmitter {
     }
     
     /**
-     * 상태 업데이트
+* State update
      */
     async updateServiceState(serviceName) {
         try {
             const status = await this.getServiceStatus(serviceName);
             this.state[serviceName] = status;
             
-            // 상태 변경 이벤트 발행
+// Emit state change event
             this.emit('state-changed', serviceName, status);
         } catch (error) {
             console.error(`[LocalAIManager] Failed to update ${serviceName} state:`, error);
@@ -504,7 +504,7 @@ class LocalAIManager extends EventEmitter {
     }
     
     /**
-     * 전체 상태 조회
+* Get overall state
      */
     async getAllServiceStates() {
         const states = {};
@@ -524,7 +524,7 @@ class LocalAIManager extends EventEmitter {
     }
     
     /**
-     * 주기적 상태 동기화 시작
+* Start periodic state sync
      */
     startPeriodicSync(interval = 30000) {
         if (this.syncInterval) {
@@ -537,12 +537,12 @@ class LocalAIManager extends EventEmitter {
             }
         }, interval);
         
-        // 각 서비스의 주기적 동기화도 시작
+// Start periodic sync for each service
         ollamaService.startPeriodicSync();
     }
     
     /**
-     * 주기적 상태 동기화 중지
+* Stop periodic state sync
      */
     stopPeriodicSync() {
         if (this.syncInterval) {
@@ -550,12 +550,12 @@ class LocalAIManager extends EventEmitter {
             this.syncInterval = null;
         }
         
-        // 각 서비스의 주기적 동기화도 중지
+// Stop periodic sync for each service
         ollamaService.stopPeriodicSync();
     }
     
     /**
-     * 전체 종료
+* Shutdown all
      */
     async shutdown() {
         this.stopPeriodicSync();
@@ -579,15 +579,15 @@ class LocalAIManager extends EventEmitter {
     }
     
     /**
-     * 에러 처리
+* Error handling
      */
     async handleError(serviceName, errorType, details = {}) {
         console.error(`[LocalAIManager] Error in ${serviceName}: ${errorType}`, details);
         
-        // 서비스별 에러 처리
+// Per-service error handling
         switch(errorType) {
             case 'installation-failed':
-                // 설치 실패 시 이벤트 발생
+// Emit event on installation failure
                 this.emit('error-occurred', {
                     service: serviceName,
                     errorType,
@@ -598,7 +598,7 @@ class LocalAIManager extends EventEmitter {
                 
             case 'model-pull-failed':
             case 'model-download-failed':
-                // 모델 다운로드 실패
+// Model download failed
                 this.emit('error-occurred', {
                     service: serviceName,
                     errorType,
@@ -609,7 +609,7 @@ class LocalAIManager extends EventEmitter {
                 break;
                 
             case 'service-not-responding':
-                // 서비스 반응 없음
+// Service unresponsive
                 console.log(`[LocalAIManager] Attempting to repair ${serviceName}...`);
                 const repairResult = await this.repairService(serviceName);
                 
@@ -623,7 +623,7 @@ class LocalAIManager extends EventEmitter {
                 break;
                 
             default:
-                // 기타 에러
+// Other errors
                 this.emit('error-occurred', {
                     service: serviceName,
                     errorType,
@@ -634,6 +634,6 @@ class LocalAIManager extends EventEmitter {
     }
 }
 
-// 싱글톤
+// Singleton
 const localAIManager = new LocalAIManager();
 module.exports = localAIManager;

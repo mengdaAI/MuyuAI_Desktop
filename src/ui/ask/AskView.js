@@ -750,7 +750,7 @@ export class AskView extends LitElement {
     connectedCallback() {
         super.connectedCallback();
 
-        console.log('📱 AskView connectedCallback - IPC 이벤트 리스너 설정');
+console.log('📱 AskView connectedCallback - Set up IPC event listeners');
 
         document.addEventListener('keydown', this.handleEscKey);
 
@@ -803,7 +803,7 @@ export class AskView extends LitElement {
                   }
                 }
               });
-            console.log('AskView: IPC 이벤트 리스너 등록 완료');
+console.log('AskView: IPC event listeners registered');
         }
     }
 
@@ -811,7 +811,7 @@ export class AskView extends LitElement {
         super.disconnectedCallback();
         this.resizeObserver?.disconnect();
 
-        console.log('📱 AskView disconnectedCallback - IPC 이벤트 리스너 제거');
+console.log('📱 AskView disconnectedCallback - Remove IPC event listeners');
 
         document.removeEventListener('keydown', this.handleEscKey);
 
@@ -834,7 +834,7 @@ export class AskView extends LitElement {
             window.api.askView.removeOnShowTextInput(this.handleShowTextInput);
             window.api.askView.removeOnScrollResponseUp(this.handleScroll);
             window.api.askView.removeOnScrollResponseDown(this.handleScroll);
-            console.log('✅ AskView: IPC 이벤트 리스너 제거 필요');
+console.log('✅ AskView: IPC event listener removal needed');
         }
     }
 
@@ -980,7 +980,7 @@ export class AskView extends LitElement {
     handleScroll(direction) {
         const scrollableElement = this.shadowRoot.querySelector('#responseContainer');
         if (scrollableElement) {
-            const scrollAmount = 100; // 한 번에 스크롤할 양 (px)
+            const scrollAmount = 100; // Scroll amount per action (px)
             if (direction === 'up') {
                 scrollableElement.scrollTop -= scrollAmount;
             } else {
@@ -1028,33 +1028,33 @@ export class AskView extends LitElement {
 
     renderStreamingMarkdown(responseContainer) {
         try {
-            // 파서가 없거나 컨테이너가 변경되었으면 새로 생성
+            // Create a new parser if none exists or the container changed
             if (!this.smdParser || this.smdContainer !== responseContainer) {
                 this.smdContainer = responseContainer;
                 this.smdContainer.innerHTML = '';
                 
-                // smd.js의 default_renderer 사용
+                // Use smd.js default_renderer
                 const renderer = default_renderer(this.smdContainer);
                 this.smdParser = parser(renderer);
                 this.lastProcessedLength = 0;
             }
 
-            // 새로운 텍스트만 처리 (스트리밍 최적화)
+            // Process only new text (streaming optimization)
             const currentText = this.currentResponse;
             const newText = currentText.slice(this.lastProcessedLength);
             
             if (newText.length > 0) {
-                // 새로운 텍스트 청크를 파서에 전달
+                // Send the new text chunk to the parser
                 parser_write(this.smdParser, newText);
                 this.lastProcessedLength = currentText.length;
             }
 
-            // 스트리밍이 완료되면 파서 종료
+            // End the parser when streaming is complete
             if (!this.isStreaming && !this.isLoading) {
                 parser_end(this.smdParser);
             }
 
-            // 코드 하이라이팅 적용
+            // Apply code highlighting
             if (this.hljs) {
                 responseContainer.querySelectorAll('pre code').forEach(block => {
                     if (!block.hasAttribute('data-highlighted')) {
@@ -1064,12 +1064,12 @@ export class AskView extends LitElement {
                 });
             }
 
-            // 스크롤을 맨 아래로
+            // Scroll to the bottom
             responseContainer.scrollTop = responseContainer.scrollHeight;
             
         } catch (error) {
             console.error('Error rendering streaming markdown:', error);
-            // 에러 발생 시 기본 텍스트 렌더링으로 폴백
+            // Fallback to basic text rendering on error
             this.renderFallbackContent(responseContainer);
         }
     }
@@ -1079,10 +1079,10 @@ export class AskView extends LitElement {
         
         if (this.isLibrariesLoaded && this.marked && this.DOMPurify) {
             try {
-                // 마크다운 파싱
+                // Parse Markdown
                 const parsedHtml = this.marked.parse(textToRender);
 
-                // DOMPurify로 정제
+                // Sanitize with DOMPurify
                 const cleanHtml = this.DOMPurify.sanitize(parsedHtml, {
                     ALLOWED_TAGS: [
                         'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'br', 'strong', 'b', 'em', 'i',
@@ -1094,7 +1094,7 @@ export class AskView extends LitElement {
 
                 responseContainer.innerHTML = cleanHtml;
 
-                // 코드 하이라이팅 적용
+                // Apply code highlighting
                 if (this.hljs) {
                     responseContainer.querySelectorAll('pre code').forEach(block => {
                         this.hljs.highlightElement(block);
@@ -1105,7 +1105,7 @@ export class AskView extends LitElement {
                 responseContainer.textContent = textToRender;
             }
         } else {
-            // 라이브러리가 로드되지 않았을 때 기본 렌더링
+            // Basic rendering when libraries are not loaded
             const basicHtml = textToRender
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
@@ -1166,25 +1166,25 @@ export class AskView extends LitElement {
     fixIncompleteMarkdown(text) {
         if (!text) return text;
 
-        // 불완전한 볼드체 처리
+        // Fix incomplete bold markers
         const boldCount = (text.match(/\*\*/g) || []).length;
         if (boldCount % 2 === 1) {
             text += '**';
         }
 
-        // 불완전한 이탤릭체 처리
+        // Fix incomplete italic markers
         const italicCount = (text.match(/(?<!\*)\*(?!\*)/g) || []).length;
         if (italicCount % 2 === 1) {
             text += '*';
         }
 
-        // 불완전한 인라인 코드 처리
+        // Fix incomplete inline code markers
         const inlineCodeCount = (text.match(/`/g) || []).length;
         if (inlineCodeCount % 2 === 1) {
             text += '`';
         }
 
-        // 불완전한 링크 처리
+        // Fix incomplete link markers
         const openBrackets = (text.match(/\[/g) || []).length;
         const closeBrackets = (text.match(/\]/g) || []).length;
         if (openBrackets > closeBrackets) {
@@ -1248,21 +1248,21 @@ export class AskView extends LitElement {
             await navigator.clipboard.writeText(lineToCopy);
             console.log('Line copied to clipboard');
 
-            // '복사됨' 상태로 UI 즉시 업데이트
+            // Immediately update UI to the 'copied' state
             this.lineCopyState = { ...this.lineCopyState, [lineIndex]: true };
-            this.requestUpdate(); // LitElement에 UI 업데이트 요청
+            this.requestUpdate(); // Request a UI update from LitElement
 
-            // 기존 타임아웃이 있다면 초기화
+            // Clear existing timeout if present
             if (this.lineCopyTimeouts && this.lineCopyTimeouts[lineIndex]) {
                 clearTimeout(this.lineCopyTimeouts[lineIndex]);
             }
 
-            // ✨ 수정된 타임아웃: 1.5초 후 '복사됨' 상태 해제
+            // Updated timeout: clear the 'copied' state after 1.5 seconds
             this.lineCopyTimeouts[lineIndex] = setTimeout(() => {
                 const updatedState = { ...this.lineCopyState };
                 delete updatedState[lineIndex];
                 this.lineCopyState = updatedState;
-                this.requestUpdate(); // UI 업데이트 요청
+                this.requestUpdate(); // Request UI update
             }, 1500);
         } catch (err) {
             console.error('Failed to copy line:', err);
@@ -1301,7 +1301,7 @@ export class AskView extends LitElement {
     updated(changedProperties) {
         super.updated(changedProperties);
     
-        // ✨ isLoading 또는 currentResponse가 변경될 때마다 뷰를 다시 그립니다.
+        // ✨ Redraw the view whenever isLoading or currentResponse changes.
         if (changedProperties.has('isLoading') || changedProperties.has('currentResponse')) {
             this.renderContent();
         }

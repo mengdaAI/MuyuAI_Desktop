@@ -542,9 +542,9 @@ class ListenService {
             try {
                 const result = await asyncFn.apply(this, args);
                 if (successMessage) console.log(successMessage);
-                // `startMacOSAudioCapture`는 성공 시 { success, error } 객체를 반환하지 않으므로,
-                // 핸들러가 일관된 응답을 보내도록 여기서 success 객체를 반환합니다.
-                // 다른 함수들은 이미 success 객체를 반환합니다.
+        // `startMacOSAudioCapture` does not return a { success, error } object on success,
+        // so we return a success object here for consistent handler responses.
+        // Other functions already return a success object.
                 return result && typeof result.success !== 'undefined' ? result : { success: true };
             } catch (e) {
                 console.error(errorMessage, e);
@@ -553,7 +553,7 @@ class ListenService {
         };
     }
 
-    // `_createHandler`를 사용하여 핸들러들을 동적으로 생성합니다.
+    // Use `_createHandler` to dynamically create handlers.
     handleSendMicAudioContent = this._createHandler(
         this.sendMicAudioContent,
         null,
