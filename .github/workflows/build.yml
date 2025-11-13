@@ -2,12 +2,28 @@ name: Build & Verify
 
 on:
   push:
-    branches: [ "main" ] # Runs on every push to main branch
+    branches: ["main"]
+  workflow_dispatch:
 
 jobs:
   build:
-    # Currently runs on macOS only, can add windows-latest later
-    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            buildArgs: "--mac dmg"
+            artifactName: mac-dmg
+            artifactPath: "dist/*.dmg"
+          - os: windows-latest
+            buildArgs: "--win nsis"
+            artifactName: windows-exe
+            artifactPath: "dist/*.exe"
+          - os: ubuntu-latest
+            buildArgs: "--linux AppImage"
+            artifactName: linux-appimage
+            artifactPath: "dist/*.AppImage"
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: 🚚 Checkout code
@@ -16,30 +32,26 @@ jobs:
       - name: ⚙️ Setup Node.js environment
         uses: actions/setup-node@v4
         with:
-          node-version: '20.x' # Node.js version compatible with project
-          cache: 'npm' # npm dependency caching for speed improvement
+          node-version: '20.x'
+          cache: 'npm'
 
       - name: 📦 Install root dependencies
         run: npm install
 
       - name: 🌐 Install and build web (Renderer) part
-        # Move to pickleglass_web directory and run commands
         working-directory: ./pickleglass_web
         run: |
           npm install
           npm run build
 
-      - name: 🖥️ Build Electron app
-        # Run Electron build script from root directory
-        run: npm run build
+      - name: 🧱 Build Electron target
+        run: |
+          npm run build:renderer
+          npx electron-builder ${{ matrix.buildArgs }} --publish never
 
-      - name: 🚨 Send failure notification to Slack
-        if: failure()
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_CHANNEL: general
-          SLACK_TITLE: "🚨 Build Failed"
-          SLACK_MESSAGE: "😭 Build failed for `${{ github.repository }}` repo on main branch."
-          SLACK_COLOR: 'danger'
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-
+      - name: 📤 Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifactName }}
+          path: ${{ matrix.artifactPath }}
+          if-no-files-found: error
