@@ -12,6 +12,7 @@ const askService = require('../features/ask/askService');
 const listenService = require('../features/listen/listenService');
 const permissionService = require('../features/common/services/permissionService');
 const encryptionService = require('../features/common/services/encryptionService');
+const passcodeService = require('../features/common/services/passcodeService');
 
 module.exports = {
   // Receive requests from the renderer and forward them to services
@@ -52,6 +53,8 @@ module.exports = {
     ipcMain.handle('get-current-user', () => authService.getCurrentUser());
     ipcMain.handle('start-firebase-auth', async () => await authService.startFirebaseAuthFlow());
     ipcMain.handle('firebase-logout', async () => await authService.signOut());
+    ipcMain.handle('passcode:get-status', () => passcodeService.getStatus());
+    ipcMain.handle('passcode:verify', (event, input) => passcodeService.verify(input));
 
     // App
     ipcMain.handle('quit-application', () => app.quit());

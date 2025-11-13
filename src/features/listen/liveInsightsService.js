@@ -1,4 +1,4 @@
-const { createStreamingLLM } = require('../common/ai/factory');
+const { createStreamingLLM, isVirtualOpenAIProvider } = require('../common/ai/factory');
 const modelStateService = require('../common/services/modelStateService');
 const { LIVE_INSIGHTS_SYSTEM_PROMPT, liveInsightsUserPrompt } = require('../common/prompts');
 const { TextDecoder } = require('util');
@@ -86,13 +86,14 @@ class LiveInsightsService {
             ];
 
             this.abortController = new AbortController();
+            const isVirtualProvider = isVirtualOpenAIProvider(modelInfo.provider);
             const streamingLLM = createStreamingLLM(modelInfo.provider, {
                 apiKey: modelInfo.apiKey,
                 model: modelInfo.model,
                 temperature: 0.4,
                 maxTokens: 1024,
-                usePortkey: modelInfo.provider === 'openai-glass',
-                portkeyVirtualKey: modelInfo.provider === 'openai-glass' ? modelInfo.apiKey : undefined,
+                usePortkey: isVirtualProvider,
+                portkeyVirtualKey: isVirtualProvider ? modelInfo.apiKey : undefined,
             });
 
             const response = await streamingLLM.streamChat(messages);

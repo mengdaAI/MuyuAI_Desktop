@@ -11,6 +11,11 @@ class HeaderTransitionManager {
         this.apiKeyHeader         = null;
         this.mainHeader            = null;
         this.permissionHeader      = null;
+        this.passcodeUnlocked      = false;
+        this.passcodeStatusChecked = false;
+        this.pendingUserState      = null;
+        this.lastKnownUserState    = null;
+        this._onPasscodeVerified   = this._handlePasscodeVerified.bind(this);
 
         /**
          * only one header window is allowed
@@ -29,13 +34,12 @@ class HeaderTransitionManager {
             this.apiKeyHeader = null;
             this.mainHeader = null;
             this.permissionHeader = null;
-
             // Create new header element
             if (type === 'welcome') {
                 this.welcomeHeader = document.createElement('welcome-header');
-                this.welcomeHeader.loginCallback = () => this.handleLoginOption();
-                this.welcomeHeader.apiKeyCallback = () => this.handleApiKeyOption();
+                this.welcomeHeader.addEventListener('passcode-verified', this._onPasscodeVerified);
                 this.headerContainer.appendChild(this.welcomeHeader);
+                this._syncWelcomePasscodeState();
                 console.log('[HeaderController] ensureHeader: Header of type:', type, 'created.');
             } else if (type === 'apikey') {
                 this.apiKeyHeader = document.createElement('apikey-header');
@@ -92,6 +96,10 @@ class HeaderTransitionManager {
             });
             window.api.headerController.onForceShowApiKeyHeader(async () => {
                 console.log('[HeaderController] Received broadcast to show apikey header. Switching now.');
+                if (!(await this._ensurePasscodeUnlocked())) {
+                    console.log('[HeaderController] Passcode gate active. Ignoring forced switch.');
+                    return;
+                }
                 const isConfigured = await window.api.apiKeyHeader.areProvidersConfigured();
                 if (!isConfigured) {
                     await this._resizeForWelcome();
@@ -106,9 +114,16 @@ class HeaderTransitionManager {
 
     notifyHeaderState(stateOverride) {
         const state = stateOverride || this.currentHeaderType || 'apikey';
+        const normalizedState = (state === 'permission') ? 'apikey' : state;
         if (window.api) {
-            window.api.headerController.sendHeaderStateChanged(state);
+            window.api.headerController.sendHeaderStateChanged(normalizedState);
         }
+    }
+
+    _syncWelcomePasscodeState() {
+        if (!this.welcomeHeader) return;
+        this.welcomeHeader.passcodeRequired = !this.passcodeUnlocked;
+        this.welcomeHeader.passcodeVerified = this.passcodeUnlocked;
     }
 
     async _bootstrap() {
@@ -127,20 +142,30 @@ class HeaderTransitionManager {
 
     //////// after_modelStateService ////////
     async handleStateUpdate(userState) {
-        const isConfigured = await window.api.apiKeyHeader.areProvidersConfigured();
+        this.lastKnownUserState = userState;
+        this.pendingUserState = userState;
 
-        if (isConfigured) {
-            // If providers are configured, always check permissions regardless of login state.
-            const permissionResult = await this.checkPermissions();
-            if (permissionResult.success) {
-                this.transitionToMainHeader();
-            } else {
-                this.transitionToPermissionHeader();
-            }
-        } else {
-            // If no providers are configured, show the welcome header to prompt for setup.
-            await this._resizeForWelcome();
+        const passcodeReady = await this._ensurePasscodeUnlocked();
+        if (!passcodeReady) {
+            return;
+        }
+
+        this.pendingUserState = null;
+        await this._applyUserState(userState);
+    }
+
+    async _applyUserState(userState) {
+        if (!window.api?.apiKeyHeader) {
             this.ensureHeader('welcome');
+            return;
+        }
+
+        // 默认使用内置模型配置，只需检查系统权限即可。
+        const permissionResult = await this.checkPermissions();
+        if (permissionResult.success) {
+            this.transitionToMainHeader();
+        } else {
+            this.transitionToPermissionHeader();
         }
     }
 
@@ -224,6 +249,63 @@ class HeaderTransitionManager {
 
         await this._resizeForMain();
         this.ensureHeader('main');
+    }
+
+    async _ensurePasscodeUnlocked() {
+        if (!window.api?.passcode) {
+            this.passcodeUnlocked = true;
+            return true;
+        }
+
+        if (this.passcodeUnlocked) {
+            return true;
+        }
+
+        if (this.passcodeStatusChecked && !this.passcodeUnlocked) {
+            return false;
+        }
+
+        try {
+            const status = await window.api.passcode.getStatus();
+            this.passcodeStatusChecked = true;
+            this.passcodeUnlocked = !status?.required || !!status?.verified;
+        } catch (error) {
+            console.error('[HeaderController] Failed to check passcode status:', error);
+            this.passcodeUnlocked = true;
+        }
+
+        if (!this.passcodeUnlocked) {
+            await this._resizeForWelcome();
+            this.ensureHeader('welcome');
+        } else {
+            this._syncWelcomePasscodeState();
+        }
+
+        return this.passcodeUnlocked;
+    }
+
+    async _handlePasscodeVerified() {
+        console.log('[HeaderController] Passcode verified, resuming normal flow.');
+        this.passcodeUnlocked = true;
+        this.passcodeStatusChecked = true;
+        if (this.welcomeHeader) {
+            this.welcomeHeader.passcodeRequired = false;
+            this.welcomeHeader.passcodeVerified = true;
+        }
+
+        const nextState = this.pendingUserState || this.lastKnownUserState;
+        if (nextState) {
+            this.pendingUserState = null;
+            await this.handleStateUpdate(nextState);
+            return;
+        }
+
+        if (window.api) {
+            const userState = await window.api.common.getCurrentUser();
+            await this.handleStateUpdate(userState);
+        } else {
+            this.ensureHeader('welcome');
+        }
     }
 
     async _resizeForMain() {

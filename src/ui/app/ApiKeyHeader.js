@@ -437,7 +437,7 @@ this.providers = { llm: [], stt: [] }; // Initialization
 
             for (const id in config) {
                 // Do not show virtual providers like 'openai-glass' in the UI
-                if (id.includes('-glass')) continue;
+                if (id.includes('-glass') || id === 'openai_muyu') continue;
                 const hasLlmModels = config[id].llmModels.length > 0 || id === 'ollama';
                 const hasSttModels = config[id].sttModels.length > 0 || id === 'whisper';
 

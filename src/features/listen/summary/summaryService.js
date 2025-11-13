@@ -1,6 +1,6 @@
 const { BrowserWindow } = require('electron');
 const { getSystemPrompt } = require('../../common/prompts/promptBuilder.js');
-const { createLLM } = require('../../common/ai/factory');
+const { createLLM, isVirtualOpenAIProvider } = require('../../common/ai/factory');
 const sessionRepository = require('../../common/repositories/session');
 const summaryRepository = require('./repositories');
 const modelStateService = require('../../common/services/modelStateService');
@@ -137,13 +137,14 @@ Keep all points concise and build upon previous analysis if provided.`,
 
             console.log('🤖 Sending analysis request to AI...');
 
+            const isVirtualProvider = isVirtualOpenAIProvider(modelInfo.provider);
             const llm = createLLM(modelInfo.provider, {
                 apiKey: modelInfo.apiKey,
                 model: modelInfo.model,
                 temperature: 0.7,
                 maxTokens: 1024,
-                usePortkey: modelInfo.provider === 'openai-glass',
-                portkeyVirtualKey: modelInfo.provider === 'openai-glass' ? modelInfo.apiKey : undefined,
+                usePortkey: isVirtualProvider,
+                portkeyVirtualKey: isVirtualProvider ? modelInfo.apiKey : undefined,
             });
 
             const completion = await llm.chat(messages);

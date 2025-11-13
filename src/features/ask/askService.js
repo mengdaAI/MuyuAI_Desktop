@@ -1,5 +1,5 @@
 const { BrowserWindow } = require('electron');
-const { createStreamingLLM } = require('../common/ai/factory');
+const { createStreamingLLM, isVirtualOpenAIProvider } = require('../common/ai/factory');
 // Lazy require helper to avoid circular dependency issues
 const getWindowManager = () => require('../../window/windowManager');
 const internalBridge = require('../../bridge/internalBridge');
@@ -273,13 +273,14 @@ class AskService {
                 });
             }
             
+            const isVirtualProvider = isVirtualOpenAIProvider(modelInfo.provider);
             const streamingLLM = createStreamingLLM(modelInfo.provider, {
                 apiKey: modelInfo.apiKey,
                 model: modelInfo.model,
                 temperature: 0.7,
                 maxTokens: 2048,
-                usePortkey: modelInfo.provider === 'openai-glass',
-                portkeyVirtualKey: modelInfo.provider === 'openai-glass' ? modelInfo.apiKey : undefined,
+                usePortkey: isVirtualProvider,
+                portkeyVirtualKey: isVirtualProvider ? modelInfo.apiKey : undefined,
             });
 
             try {

@@ -37,6 +37,12 @@ contextBridge.exposeInMainWorld('api', {
     removeOnUserStateChanged: (callback) => ipcRenderer.removeListener('user-state-changed', callback),
   },
 
+  // Interview passcode gate
+  passcode: {
+    getStatus: () => ipcRenderer.invoke('passcode:get-status'),
+    verify: (code) => ipcRenderer.invoke('passcode:verify', code),
+  },
+
   // UI Component specific namespaces
   // src/ui/app/ApiKeyHeader.js
   apiKeyHeader: {

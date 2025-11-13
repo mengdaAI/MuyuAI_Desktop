@@ -82,10 +82,8 @@ class AuthService {
                         const idToken = await user.getIdToken(true);
                         const virtualKey = await getVirtualKeyByEmail(user.email, idToken);
 
-                        if (global.modelStateService) {
-                            // The model state service now writes directly to the DB, no in-memory state.
-                            await global.modelStateService.setFirebaseVirtualKey(virtualKey);
-                        }
+                        // 登录成功后不再触发模型或密钥切换，让 AI 配置保持在默认值
+                        void virtualKey; // 仍然拉取，便于后续扩展或日志分析
                         console.log(`[AuthService] Virtual key for ${user.email} has been processed and state updated.`);
 
                     } catch (error) {
@@ -98,10 +96,7 @@ class AuthService {
                     console.log(`[AuthService] No Firebase user.`);
                     if (previousUser) {
                         console.log(`[AuthService] Clearing API key for logged-out user: ${previousUser.uid}`);
-                        if (global.modelStateService) {
-                            // The model state service now writes directly to the DB.
-                            await global.modelStateService.setFirebaseVirtualKey(null);
-                        }
+                        // 登出时同样不再自动切换模型或清除虚拟 key
                     }
                     this.currentUser = null;
                     this.currentUserId = 'default_user';

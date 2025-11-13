@@ -6,12 +6,42 @@ const providerSettingsRepository = require('../repositories/providerSettings');
 const authService = require('./authService');
 const ollamaModelRepository = require('../repositories/ollamaModel');
 
+const MANAGED_PROVIDER_IDS = new Set(['openai-glass', 'openai_muyu']);
+const DEFAULT_MANAGED_PROVIDER = (() => {
+    const envProvider = process.env.MUYU_MANAGED_PROVIDER_ID;
+    if (envProvider && MANAGED_PROVIDER_IDS.has(envProvider)) {
+        return envProvider;
+    }
+    return MANAGED_PROVIDER_IDS.has('openai-glass') ? 'openai-glass' : Array.from(MANAGED_PROVIDER_IDS)[0];
+})();
+
+function resolveManagedProviderId(providerId) {
+    if (providerId && MANAGED_PROVIDER_IDS.has(providerId)) {
+        return providerId;
+    }
+    return DEFAULT_MANAGED_PROVIDER;
+}
+
+function isManagedProvider(providerId) {
+    return MANAGED_PROVIDER_IDS.has(providerId);
+}
+
 class ModelStateService extends EventEmitter {
     constructor() {
         super();
         this.authService = authService;
 // electron-store is used only for legacy data migration.
-        this.store = new Store({ name: 'pickle-glass-model-state' });
+        try {
+            this.store = new Store({ name: 'pickle-glass-model-state' });
+        } catch (error) {
+            console.warn('[ModelStateService] ElectronStore unavailable, falling back to in-memory store:', error.message);
+            const memoryStore = new Map();
+            this.store = {
+                get: (key) => memoryStore.get(key),
+                set: (key, value) => memoryStore.set(key, value),
+                delete: (key) => memoryStore.delete(key)
+            };
+        }
     }
 
     async initialize() {
@@ -262,42 +292,43 @@ class ModelStateService extends EventEmitter {
         }
     }
     
-    async setFirebaseVirtualKey(virtualKey) {
-        console.log(`[ModelStateService] Setting Firebase virtual key.`);
+    async setManagedVirtualKey(providerId, virtualKey) {
+        const targetProvider = resolveManagedProviderId(providerId);
+        console.log(`[ModelStateService] Setting managed virtual key for ${targetProvider}.`);
 
-// Before setting a key, check whether an openai-glass key existed previously.
-        const previousSettings = await providerSettingsRepository.getByProvider('openai-glass');
+        const previousSettings = await providerSettingsRepository.getByProvider(targetProvider);
         const wasPreviouslyConfigured = !!previousSettings?.api_key;
 
-// Always update with a new virtual key.
-        await this.setApiKey('openai-glass', virtualKey);
+        await this.setApiKey(targetProvider, virtualKey);
 
         if (virtualKey) {
-// Force model change only if not previously set (initial login).
             if (!wasPreviouslyConfigured) {
-                console.log('[ModelStateService] First-time setup for openai-glass, setting default models.');
-                const llmModel = PROVIDERS['openai-glass']?.llmModels[0];
-                const sttModel = PROVIDERS['openai-glass']?.sttModels[0];
+                console.log(`[ModelStateService] First-time setup for ${targetProvider}, setting default models.`);
+                const llmModel = PROVIDERS[targetProvider]?.llmModels?.[0];
+                const sttModel = PROVIDERS[targetProvider]?.sttModels?.[0];
                 if (llmModel) await this.setSelectedModel('llm', llmModel.id);
                 if (sttModel) await this.setSelectedModel('stt', sttModel.id);
             } else {
-                console.log('[ModelStateService] openai-glass key updated, but respecting user\'s existing model selection.');
+                console.log(`[ModelStateService] ${targetProvider} key updated, existing selections preserved.`);
             }
         } else {
-// On logout, switch models only if openai-glass is the active model.
             const selected = await this.getSelectedModels();
-            const llmProvider = this.getProviderForModel(selected.llm, 'llm');
-            const sttProvider = this.getProviderForModel(selected.stt, 'stt');
+            const llmProvider = selected?.llm ? this.getProviderForModel(selected.llm, 'llm') : null;
+            const sttProvider = selected?.stt ? this.getProviderForModel(selected.stt, 'stt') : null;
             
             const typesToReselect = [];
-            if (llmProvider === 'openai-glass') typesToReselect.push('llm');
-            if (sttProvider === 'openai-glass') typesToReselect.push('stt');
+            if (llmProvider === targetProvider) typesToReselect.push('llm');
+            if (sttProvider === targetProvider) typesToReselect.push('stt');
 
             if (typesToReselect.length > 0) {
-                console.log('[ModelStateService] Logged out, re-selecting models for:', typesToReselect.join(', '));
+                console.log('[ModelStateService] Managed provider token removed, re-selecting models for:', typesToReselect.join(', '));
                 await this._autoSelectAvailableModels(typesToReselect);
             }
         }
+    }
+
+    async setFirebaseVirtualKey(virtualKey) {
+        return this.setManagedVirtualKey('openai-glass', virtualKey);
     }
 
     async setApiKey(provider, key) {
@@ -306,8 +337,8 @@ class ModelStateService extends EventEmitter {
             throw new Error('Provider is required');
         }
 
-// 'openai-glass' uses its own auth key, so skip validation.
-        if (provider !== 'openai-glass') {
+// Managed providers use their own auth keys, so skip validation.
+        if (!isManagedProvider(provider)) {
             const validationResult = await this.validateApiKey(provider, key);
             if (!validationResult.success) {
                 console.warn(`[ModelStateService] API key validation failed for ${provider}: ${validationResult.error}`);
@@ -331,7 +362,7 @@ class ModelStateService extends EventEmitter {
         const allSettings = await providerSettingsRepository.getAll();
         const apiKeys = {};
         allSettings.forEach(s => {
-            if (s.provider !== 'openai-glass') {
+            if (!isManagedProvider(s.provider)) {
                 apiKeys[s.provider] = s.api_key;
             }
         });
