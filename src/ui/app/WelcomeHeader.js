@@ -278,10 +278,6 @@ export class WelcomeHeader extends LitElement {
                 ${!this.passcodeGateActive && this.passcodeVerified
                     ? html`<div class="passcode-success">Passcode verified. Loading header bar…</div>`
                     : null}
-                <div class="footer">
-                    Glass does not collect your personal data —
-                    <span class="footer-link" @click=${this.openPrivacyPolicy}>See details</span>
-                </div>
             </div>
         `;
     }
