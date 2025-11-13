@@ -49,8 +49,8 @@ win:
     signAndEditExecutable: true
     cscLink: build\certs\glass-dev.pfx
     cscKeyPassword: "${env.CSC_KEY_PASSWORD}"
-    signtoolOptions:
-      certificateSubjectName: "Glass Dev Code Signing"
+    # signtoolOptions:
+      # certificateSubjectName: "Glass Dev Code Signing"
 
 # NSIS installer configuration for Windows
 nsis:
