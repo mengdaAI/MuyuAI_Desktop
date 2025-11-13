@@ -47,8 +47,9 @@ win:
           arch: x64
     requestedExecutionLevel: asInvoker
     signAndEditExecutable: true
-    cscLink: build\certs\glass-dev.pfx
-    cscKeyPassword: "${env.CSC_KEY_PASSWORD}"
+    forceCodeSigning: false
+    # cscLink: build\certs\glass-dev.pfx
+    # cscKeyPassword: "${env.CSC_KEY_PASSWORD}"
     # signtoolOptions:
       # certificateSubjectName: "Glass Dev Code Signing"
 
