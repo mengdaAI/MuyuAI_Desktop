@@ -1,23 +1,23 @@
 # electron-builder.yml
 
 # The unique application ID
-appId: com.pickle.glass
+appId: com.muyu.ai
 
 # The user-facing application name
-productName: Glass
+productName: MuyuAI
 
 # Publish configuration for GitHub releases
 publish:
     provider: github
-    owner: pickle-com
-    repo: glass
+    owner: muyu-ai
+    repo: muyu-ai-desktop
     releaseType: draft
 
 # Protocols configuration for deep linking
 protocols:
-    name: PickleGlass Protocol
+    name: MuyuAI Protocol
     schemes: 
-        - pickleglass
+        - muyuai
 
 # List of files to be included in the app package
 files:

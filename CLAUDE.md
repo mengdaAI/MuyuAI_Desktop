@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Glass by Pickle is a desktop AI assistant application built with Electron that provides real-time screen monitoring, audio transcription, and AI-powered insights. The project consists of three main components:
+MuyuAI is a desktop AI assistant application built with Electron that provides real-time screen monitoring, audio transcription, and AI-powered insights. The project consists of three main components:
 - **Electron Desktop App** (main application) - `src/`
 - **Next.js Web Dashboard** (user account management) - `pickleglass_web/`
 - **Firebase Cloud Services** (data synchronization) - `functions/`
@@ -79,6 +79,20 @@ pickleglass_web/
 ├── components/        # React components
 └── utils/             # Utility functions
 ```
+
+### src Directory Breakdown
+
+- `src/bridge/`: Centralized IPC layer for the main process. `featureBridge.js` wires renderer invocations to feature services (settings, ask, listen, auth, LocalAI, permissions), `windowBridge.js` exposes window management commands to preload/UI, and `internalBridge.js` is an EventEmitter bus letting main-process modules communicate without IPC.
+- `src/features/`: Business logic organized per capability.
+  - `common/`: Cross-cutting infrastructure such as `services/` (auth, Firebase/sqlite initialization, LocalAI + Ollama orchestration, model state), `repositories/` (session, provider settings, presets, permissions, whisper/ollama models), `ai/` provider abstractions, `config/` (SQLite schema + migrations), and `prompts/` resources shared across features.
+  - `ask/`: Streaming Q&A service (`askService.js`) plus repositories that dynamically pick SQLite vs Firebase storage through `repositories/index.js`.
+  - `listen/`: Real-time meeting capture (`listenService.js`), speech-to-text (`stt/`), summarization, and live insights pipelines that push window/renderer updates through `internalBridge`.
+  - `settings/`: Persists provider credentials, preset selections, auto-update preferences, and device permission state. Offers repositories for both local and cloud-backed storage.
+  - `shortcuts/`: Manages global keyboard shortcuts, persistence, and IPC hooks so windows can be shown/hidden consistently.
+- `src/ui/`: Renderer-side views bundled with esbuild. `app/` holds the floating header shell, `ask/`, `listen/`, and `settings/` contain feature-specific HTML/JS controllers, `styles/` stores shared CSS, and `assets/` provides icons/media used by multiple windows.
+- `src/window/`: Main-process window orchestration. `windowManager.js` bootstraps BrowserWindows, wires shortcut-driven visibility, and coordinates with `windowLayoutManager.js` (calculates positioning) plus `smoothMovementManager.js` (animates transitions and snap-to-edge behaviors).
+- `src/index.js`: Electron main entry point that initializes services, registers protocol/deep-link handlers, creates windows, and owns lifecycle hooks.
+- `src/preload.js`: Context-isolated preload script that exposes a curated `window.api` namespace for every renderer view, wrapping all IPC calls for auth, LocalAI, ask/listen controls, permissions, and window management.
 
 ### Critical Implementation Patterns
 
