@@ -1,8 +1,8 @@
 {
-    "name": "pickle-glass",
-    "productName": "Glass",
+    "name": "muyu-ai-desktop",
+    "productName": "Muyu",
     "version": "0.2.4",
-    "description": "Cl*ely for Free",
+    "description": "幕语实时语音字幕",
     "main": "src/index.js",
     "scripts": {
         "setup": "npm install && cd pickleglass_web && npm install && npm run build && cd .. && npm start",
@@ -20,15 +20,15 @@
         "watch:renderer": "node build.js --watch"
     },
     "keywords": [
-        "glass",
-        "pickle glass",
+        "muyu",
+        "cluely",
         "ai assistant",
         "real-time",
         "live summary",
         "contextual ai"
     ],
     "author": {
-        "name": "Pickle Team"
+        "name": "Muyu Team"
     },
     "license": "GPL-3.0",
     "dependencies": {

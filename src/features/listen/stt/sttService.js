@@ -5,7 +5,7 @@
 
 const { BrowserWindow } = require('electron');
 const { spawn } = require('child_process');
-const { createSTT } = require('../../common/ai/factory');
+const { createSTT, isVirtualOpenAIProvider } = require('../../common/ai/factory');
 const modelStateService = require('../../common/services/modelStateService');
 
 const COMPLETION_DEBOUNCE_MS = 2000; // 2 seconds
@@ -595,12 +595,13 @@ class SttService {
             },
         };
         
+        const isVirtualProvider = isVirtualOpenAIProvider(this.modelInfo.provider);
         const sttOptions = {
             apiKey: this.modelInfo.apiKey,
             language: effectiveLanguage,
             model: this.modelInfo.model,
-            usePortkey: this.modelInfo.provider === 'openai-glass',
-            portkeyVirtualKey: this.modelInfo.provider === 'openai-glass' ? this.modelInfo.apiKey : undefined,
+            usePortkey: isVirtualProvider,
+            portkeyVirtualKey: isVirtualProvider ? this.modelInfo.apiKey : undefined,
         };
 
         // Add sessionType for Whisper to distinguish between My and Their sessions

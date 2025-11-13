@@ -14,6 +14,8 @@
  * @property {ModelOption[]} sttModels
  */
 
+const VIRTUAL_OPENAI_PROVIDERS = new Set(['openai-glass', 'openai_muyu']);
+
 /**
  * @type {Object.<string, Provider>}
  */
@@ -37,6 +39,16 @@ const PROVIDERS = {
       ],
       sttModels: [
           { id: 'gpt-4o-mini-transcribe-glass', name: 'GPT-4o Mini Transcribe (glass)' }
+      ],
+  },
+  'openai_muyu': {
+      name: 'OpenAI (Muyu Cloud)',
+      handler: () => require("./providers/openai"),
+      llmModels: [
+          { id: 'gpt-4.1-muyu', name: 'GPT-4.1 (Muyu Cloud)' },
+      ],
+      sttModels: [
+          { id: 'gpt-4o-mini-transcribe-muyu', name: 'GPT-4o Mini Transcribe (Muyu Cloud)' }
       ],
   },
   'gemini': {
@@ -112,11 +124,20 @@ const PROVIDERS = {
 };
 
 function sanitizeModelId(model) {
-  return (typeof model === 'string') ? model.replace(/-glass$/, '') : model;
+  return (typeof model === 'string') ? model.replace(/-(glass|muyu)$/, '') : model;
+}
+
+function normalizeProviderId(provider) {
+  if (VIRTUAL_OPENAI_PROVIDERS.has(provider)) return 'openai';
+  return provider;
+}
+
+function isVirtualOpenAIProvider(provider) {
+  return VIRTUAL_OPENAI_PROVIDERS.has(provider);
 }
 
 function createSTT(provider, opts) {
-  if (provider === 'openai-glass') provider = 'openai';
+  provider = normalizeProviderId(provider);
   
   const handler = PROVIDERS[provider]?.handler();
   if (!handler?.createSTT) {
@@ -129,7 +150,7 @@ function createSTT(provider, opts) {
 }
 
 function createLLM(provider, opts) {
-  if (provider === 'openai-glass') provider = 'openai';
+  provider = normalizeProviderId(provider);
 
   const handler = PROVIDERS[provider]?.handler();
   if (!handler?.createLLM) {
@@ -142,7 +163,7 @@ function createLLM(provider, opts) {
 }
 
 function createStreamingLLM(provider, opts) {
-  if (provider === 'openai-glass') provider = 'openai';
+  provider = normalizeProviderId(provider);
   
   const handler = PROVIDERS[provider]?.handler();
   if (!handler?.createStreamingLLM) {
@@ -160,7 +181,7 @@ function getProviderClass(providerId) {
     
     // Handle special cases for glass providers
     let actualProviderId = providerId;
-    if (providerId === 'openai-glass') {
+    if (VIRTUAL_OPENAI_PROVIDERS.has(providerId)) {
         actualProviderId = 'openai';
     }
     
@@ -199,4 +220,6 @@ module.exports = {
   createStreamingLLM,
   getProviderClass,
   getAvailableProviders,
+  isVirtualOpenAIProvider,
+  VIRTUAL_OPENAI_PROVIDERS,
 };

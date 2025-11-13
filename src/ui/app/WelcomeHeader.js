@@ -12,21 +12,20 @@ export class WelcomeHeader extends LitElement {
                 Roboto,
                 sans-serif;
         }
+
         .container {
             width: 100%;
             box-sizing: border-box;
-            height: auto;
-            padding: 24px 16px;
-            background: rgba(0, 0, 0, 0.64);
-            box-shadow: 0px 0px 0px 1.5px rgba(255, 255, 255, 0.64) inset;
-            border-radius: 16px;
+            padding: 28px 20px 30px;
+            border-radius: 18px;
+            background: rgba(0, 0, 0, 0.72);
+            box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.5) inset;
+            display: flex;
             flex-direction: column;
-            justify-content: flex-start;
-            align-items: flex-start;
-            gap: 32px;
-            display: inline-flex;
-            -webkit-app-region: drag;
+            gap: 18px;
+            -webkit-app-region: no-drag;
         }
+
         .close-button {
             -webkit-app-region: no-drag;
             position: absolute;
@@ -34,126 +33,130 @@ export class WelcomeHeader extends LitElement {
             right: 16px;
             width: 20px;
             height: 20px;
-            background: rgba(255, 255, 255, 0.1);
             border: none;
-            border-radius: 5px;
-            color: rgba(255, 255, 255, 0.7);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.12);
+            color: rgba(255, 255, 255, 0.75);
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.15s ease;
-            z-index: 10;
-            font-size: 16px;
-            line-height: 1;
-            padding: 0;
+            transition: background 0.15s ease;
         }
         .close-button:hover {
-            background: rgba(255, 255, 255, 0.2);
-            color: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.22);
         }
-        .header-section {
-            flex-direction: column;
-            justify-content: flex-start;
-            align-items: flex-start;
-            gap: 4px;
+
+        .drag-area {
+            -webkit-app-region: drag;
+            cursor: move;
             display: flex;
+            flex-direction: column;
+            gap: 6px;
         }
+
         .title {
-            color: white;
+            margin: 0;
+            color: #ffffff;
             font-size: 18px;
             font-weight: 700;
         }
+
         .subtitle {
-            color: white;
-            font-size: 14px;
-            font-weight: 500;
+            margin: 0;
+            color: rgba(255, 255, 255, 0.82);
+            font-size: 13px;
+            line-height: 20px;
         }
-        .option-card {
-            width: 100%;
-            justify-content: flex-start;
-            align-items: flex-start;
-            gap: 8px;
-            display: inline-flex;
-        }
-        .divider {
-            width: 1px;
-            align-self: stretch;
-            position: relative;
-            background: #bebebe;
-            border-radius: 2px;
-        }
-        .option-content {
-            flex: 1 1 0;
-            flex-direction: column;
-            justify-content: flex-start;
-            align-items: flex-start;
-            gap: 8px;
-            display: inline-flex;
-            min-width: 0;
-        }
-        .option-title {
-            color: white;
-            font-size: 14px;
-            font-weight: 700;
-        }
-        .option-description {
-            color: #dcdcdc;
-            font-size: 12px;
-            font-weight: 400;
-            line-height: 18px;
-            letter-spacing: 0.12px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .action-button {
+
+        .passcode-form {
             -webkit-app-region: no-drag;
-            padding: 8px 10px;
-            background: rgba(132.6, 132.6, 132.6, 0.8);
-            box-shadow: 0px 2px 2px rgba(0, 0, 0, 0.16);
-            border-radius: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.5);
-            justify-content: center;
-            align-items: center;
-            gap: 6px;
             display: flex;
-            cursor: pointer;
-            transition: background-color 0.2s;
+            flex-direction: column;
+            gap: 10px;
+            padding: 18px 16px;
+            border-radius: 14px;
+            background: rgba(12, 12, 12, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.28);
         }
-        .action-button:hover {
-            background: rgba(150, 150, 150, 0.9);
+
+        .passcode-form.success {
+            border-color: rgba(116, 255, 203, 0.6);
         }
-        .button-text {
-            color: white;
-            font-size: 12px;
+
+        .passcode-input {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            background: transparent;
+            color: #fff;
+            font-size: 16px;
+            letter-spacing: 0.24em;
+            text-transform: uppercase;
+            box-sizing: border-box;
+        }
+
+        .passcode-input::placeholder {
+            color: rgba(255, 255, 255, 0.32);
+            letter-spacing: normal;
+        }
+
+        .passcode-input:focus {
+            outline: none;
+            border-color: rgba(255, 255, 255, 0.75);
+        }
+
+        .passcode-button {
+            margin-top: 4px;
+            padding: 12px;
+            border-radius: 999px;
+            border: none;
+            background: rgba(255, 255, 255, 0.92);
+            color: #0f0f0f;
+            font-size: 14px;
             font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s ease, background 0.15s ease;
         }
-        .button-icon {
-            width: 12px;
-            height: 12px;
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+
+        .passcode-button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
         }
-        .arrow-icon {
-            border: solid white;
-            border-width: 0 1.2px 1.2px 0;
-            display: inline-block;
-            padding: 3px;
-            transform: rotate(-45deg);
-            -webkit-transform: rotate(-45deg);
+
+        .passcode-button:not(:disabled):hover {
+            transform: translateY(-1px);
+            background: rgba(255, 255, 255, 0.98);
         }
-        .footer {
-            align-self: stretch;
-            text-align: center;
-            color: #dcdcdc;
+
+        .passcode-error {
+            min-height: 16px;
+            color: #ff8a8a;
             font-size: 12px;
-            font-weight: 500;
-            line-height: 19.2px;
         }
+
+        .passcode-success {
+            width: 100%;
+            padding: 13px 15px;
+            border-radius: 12px;
+            background: rgba(6, 53, 34, 0.85);
+            border: 1px solid rgba(116, 255, 203, 0.55);
+            color: #74ffcb;
+            font-size: 13px;
+            line-height: 19px;
+            box-sizing: border-box;
+        }
+
+        .footer {
+            margin-top: 6px;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+        }
+
         .footer-link {
+            color: #ffffff;
             text-decoration: underline;
             cursor: pointer;
             -webkit-app-region: no-drag;
@@ -161,62 +164,120 @@ export class WelcomeHeader extends LitElement {
     `;
 
     static properties = {
-        loginCallback: { type: Function },
-        apiKeyCallback: { type: Function },
+        passcodeRequired: { type: Boolean, attribute: 'passcode-required' },
+        passcodeVerified: { type: Boolean, attribute: 'passcode-verified' },
+        passcodeValue: { type: String, state: true },
+        passcodeError: { type: String, state: true },
+        isVerifyingPasscode: { type: Boolean, state: true },
     };
 
     constructor() {
         super();
-        this.loginCallback = () => {};
-        this.apiKeyCallback = () => {};
+        this.passcodeRequired = false;
+        this.passcodeVerified = false;
+        this.passcodeValue = '';
+        this.passcodeError = '';
+        this.isVerifyingPasscode = false;
+        this.handlePasscodeSubmit = this.handlePasscodeSubmit.bind(this);
+        this.handlePasscodeInput = this.handlePasscodeInput.bind(this);
         this.handleClose = this.handleClose.bind(this);
     }
 
-    updated(changedProperties) {
-        super.updated(changedProperties);
+    updated(changed) {
+        super.updated(changed);
         this.dispatchEvent(new CustomEvent('content-changed', { bubbles: true, composed: true }));
     }
 
     handleClose() {
-        if (window.api?.common) {
-            window.api.common.quitApplication();
+        window.api?.common?.quitApplication();
+    }
+
+    get passcodeGateActive() {
+        return this.passcodeRequired && !this.passcodeVerified;
+    }
+
+    async handlePasscodeSubmit(event) {
+        event.preventDefault();
+
+        if (!this.passcodeGateActive) {
+            this.dispatchEvent(new CustomEvent('passcode-verified', { bubbles: true, composed: true }));
+            return;
+        }
+
+        const code = (this.passcodeValue || '').trim();
+        if (!/^[A-Za-z0-9]{8}$/.test(code)) {
+            this.passcodeError = 'Enter the 8-character interview passcode';
+            return;
+        }
+
+        if (!window.api?.passcode) {
+            this.passcodeRequired = false;
+            this.passcodeVerified = true;
+            this.dispatchEvent(new CustomEvent('passcode-verified', { bubbles: true, composed: true }));
+            return;
+        }
+
+        this.isVerifyingPasscode = true;
+        this.passcodeError = '';
+        try {
+            const result = await window.api.passcode.verify(code);
+            if (result?.success) {
+                this.passcodeValue = '';
+                this.passcodeRequired = false;
+                this.passcodeVerified = true;
+                this.dispatchEvent(new CustomEvent('passcode-verified', { bubbles: true, composed: true }));
+            } else {
+                this.passcodeError = result?.error || 'Passcode verification failed';
+            }
+        } catch (error) {
+            this.passcodeError = error?.message || 'Passcode verification failed';
+        } finally {
+            this.isVerifyingPasscode = false;
         }
     }
 
+    handlePasscodeInput(event) {
+        const sanitized = (event.target.value || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 8);
+        this.passcodeValue = sanitized;
+        if (event.target.value !== sanitized) {
+            event.target.value = sanitized;
+        }
+        this.passcodeError = '';
+    }
+
     render() {
+        const buttonDisabled = !this.passcodeGateActive || this.passcodeValue.length !== 8 || this.isVerifyingPasscode;
+
         return html`
             <div class="container">
                 <button class="close-button" @click=${this.handleClose}>×</button>
-                <div class="header-section">
-                    <div class="title">Welcome to Glass</div>
-                    <div class="subtitle">Choose how to connect your AI model</div>
+                <div class="drag-area">
+                    <p class="title">Enter Interview Passcode</p>
+                    <p class="subtitle">
+                        Input the 8-character alphanumeric code you received. Once verified, the main header bar
+                        will open automatically.
+                    </p>
                 </div>
-                <div class="option-card">
-                    <div class="divider"></div>
-                    <div class="option-content">
-                        <div class="option-title">Quick start with default API key</div>
-                        <div class="option-description">
-                            100% free with Pickle's OpenAI key<br/>No personal data collected<br/>Sign up with Google in seconds
-                        </div>
-                    </div>
-                    <button class="action-button" @click=${this.loginCallback}>
-                        <div class="button-text">Open Browser to Log in</div>
-                        <div class="button-icon"><div class="arrow-icon"></div></div>
+                <form class="passcode-form ${this.passcodeVerified ? 'success' : ''}" @submit=${this.handlePasscodeSubmit}>
+                    <input
+                        class="passcode-input"
+                        maxlength="8"
+                        placeholder="XXXXXXXX"
+                        .value=${this.passcodeValue}
+                        @input=${this.handlePasscodeInput}
+                        autocomplete="off"
+                        autocapitalize="characters"
+                        spellcheck="false"
+                        ?disabled=${!this.passcodeGateActive}
+                    />
+                    <button class="passcode-button" type="submit" ?disabled=${buttonDisabled}>
+                        ${this.isVerifyingPasscode ? 'Verifying…' : 'Enter'}
                     </button>
-                </div>
-                <div class="option-card">
-                    <div class="divider"></div>
-                    <div class="option-content">
-                        <div class="option-title">Use Personal API keys</div>
-                        <div class="option-description">
-                            Costs may apply based on your API usage<br/>No personal data collected<br/>Use your own API keys (OpenAI, Gemini, etc.)
-                        </div>
-                    </div>
-                    <button class="action-button" @click=${this.apiKeyCallback}>
-                        <div class="button-text">Enter Your API Key</div>
-                        <div class="button-icon"><div class="arrow-icon"></div></div>
-                    </button>
-                </div>
+                    <div class="passcode-error">${this.passcodeError}</div>
+                </form>
+                ${!this.passcodeGateActive && this.passcodeVerified
+                    ? html`<div class="passcode-success">Passcode verified. Loading header bar…</div>`
+                    : null}
                 <div class="footer">
                     Glass does not collect your personal data —
                     <span class="footer-link" @click=${this.openPrivacyPolicy}>See details</span>
@@ -226,10 +287,7 @@ export class WelcomeHeader extends LitElement {
     }
 
     openPrivacyPolicy() {
-        console.log('🔊 openPrivacyPolicy WelcomeHeader');
-        if (window.api?.common) {
-            window.api.common.openExternal('https://pickle.com/privacy-policy');
-        }
+        window.api?.common?.openExternal?.('https://pickle.com/privacy-policy');
     }
 }
 
