@@ -4,7 +4,7 @@
 appId: com.muyu.ai
 
 # The user-facing application name
-productName: MuyuAI
+productName: muyu
 
 # Publish configuration for GitHub releases
 publish:
