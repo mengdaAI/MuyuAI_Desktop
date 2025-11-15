@@ -1,38 +1,29 @@
-const sqliteRepository = require('./sqlite.repository');
-const firebaseRepository = require('./firebase.repository');
+const repository = require('./sqlite.repository');
 const authService = require('../../services/authService');
-
-function getBaseRepository() {
-    const user = authService.getCurrentUser();
-    if (user && user.isLoggedIn) {
-        return firebaseRepository;
-    }
-    return sqliteRepository;
-}
 
 const presetRepositoryAdapter = {
     getPresets: () => {
         const uid = authService.getCurrentUserId();
-        return getBaseRepository().getPresets(uid);
+        return repository.getPresets(uid);
     },
 
     getPresetTemplates: () => {
-        return getBaseRepository().getPresetTemplates();
+        return repository.getPresetTemplates();
     },
 
     create: (options) => {
         const uid = authService.getCurrentUserId();
-        return getBaseRepository().create({ uid, ...options });
+        return repository.create({ uid, ...options });
     },
 
     update: (id, options) => {
         const uid = authService.getCurrentUserId();
-        return getBaseRepository().update(id, options, uid);
+        return repository.update(id, options, uid);
     },
 
     delete: (id) => {
         const uid = authService.getCurrentUserId();
-        return getBaseRepository().delete(id, uid);
+        return repository.delete(id, uid);
     },
 };
 

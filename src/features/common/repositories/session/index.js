@@ -1,5 +1,4 @@
-const sqliteRepository = require('./sqlite.repository');
-const firebaseRepository = require('./firebase.repository');
+const repository = require('./sqlite.repository');
 
 let authService = null;
 
@@ -7,53 +6,40 @@ function setAuthService(service) {
     authService = service;
 }
 
-function getBaseRepository() {
-    if (!authService) {
-        // Fallback or error if authService is not set, to prevent crashes.
-        // During initial load, it might not be set, so we default to sqlite.
-        return sqliteRepository;
-    }
-    const user = authService.getCurrentUser();
-    if (user && user.isLoggedIn) {
-        return firebaseRepository;
-    }
-    return sqliteRepository;
-}
-
 // The adapter layer that injects the UID
 const sessionRepositoryAdapter = {
     setAuthService, // Expose the setter
 
-    getById: (id) => getBaseRepository().getById(id),
+    getById: (id) => repository.getById(id),
     
     create: (type = 'ask') => {
         const uid = authService.getCurrentUserId();
-        return getBaseRepository().create(uid, type);
+        return repository.create(uid, type);
     },
     
     getAllByUserId: () => {
         const uid = authService.getCurrentUserId();
-        return getBaseRepository().getAllByUserId(uid);
+        return repository.getAllByUserId(uid);
     },
 
-    updateTitle: (id, title) => getBaseRepository().updateTitle(id, title),
+    updateTitle: (id, title) => repository.updateTitle(id, title),
     
-    deleteWithRelatedData: (id) => getBaseRepository().deleteWithRelatedData(id),
+    deleteWithRelatedData: (id) => repository.deleteWithRelatedData(id),
 
-    end: (id) => getBaseRepository().end(id),
+    end: (id) => repository.end(id),
 
-    updateType: (id, type) => getBaseRepository().updateType(id, type),
+    updateType: (id, type) => repository.updateType(id, type),
 
-    touch: (id) => getBaseRepository().touch(id),
+    touch: (id) => repository.touch(id),
 
     getOrCreateActive: (requestedType = 'ask') => {
         const uid = authService.getCurrentUserId();
-        return getBaseRepository().getOrCreateActive(uid, requestedType);
+        return repository.getOrCreateActive(uid, requestedType);
     },
 
     endAllActiveSessions: () => {
         const uid = authService.getCurrentUserId();
-        return getBaseRepository().endAllActiveSessions(uid);
+        return repository.endAllActiveSessions(uid);
     },
 };
 
