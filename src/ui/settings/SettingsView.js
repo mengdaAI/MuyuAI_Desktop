@@ -1138,9 +1138,27 @@ const MIN_HEIGHT = 300; // Minimum guaranteed height
         }
     }
 
-    handleQuit() {
+    async handleQuit() {
         console.log('Quit clicked');
-        window.api.settingsView.quitApplication();
+
+        const stopSessionFn = window.api?.settingsView?.stopInterviewSession;
+        if (stopSessionFn) {
+            try {
+                const result = await stopSessionFn();
+                console.log('[SettingsView] stopInterviewSession result:', result);
+                if (!result?.success && !result?.skipped) {
+                    console.warn('[SettingsView] Failed to stop interview session before quit:', result?.error);
+                }
+            } catch (error) {
+                console.error('[SettingsView] Error when stopping interview session before quit:', error);
+            }
+        }
+
+        if (window.api?.settingsView?.quitApplication) {
+            window.api.settingsView.quitApplication();
+        } else {
+            window.api?.common?.quitApplication?.();
+        }
     }
 
     handleFirebaseLogout() {
@@ -1440,7 +1458,7 @@ const MIN_HEIGHT = 300; // Minimum guaranteed height
                                 `
                         }
                         <button class="settings-button half-width danger" @click=${this.handleQuit}>
-                            <span>Quit</span>
+                            <span>结束面试</span>
                         </button>
                     </div>
                 </div>

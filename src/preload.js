@@ -274,6 +274,7 @@ contextBridge.exposeInMainWorld('api', {
     hideSettingsWindow: () => ipcRenderer.send('hide-settings-window'),
     
     // App Control
+    stopInterviewSession: (sessionId) => ipcRenderer.invoke('passcode:stop-session', sessionId),
     quitApplication: () => ipcRenderer.invoke('quit-application'),
     
     // Progress Tracking
