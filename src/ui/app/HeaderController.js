@@ -15,6 +15,7 @@ class HeaderTransitionManager {
         this.passcodeStatusChecked = false;
         this.pendingUserState      = null;
         this.lastKnownUserState    = null;
+        this.interviewStartTimestamp = null;
         this._onPasscodeVerified   = this._handlePasscodeVerified.bind(this);
 
         /**
@@ -284,10 +285,30 @@ class HeaderTransitionManager {
         return this.passcodeUnlocked;
     }
 
+    _recordInterviewStart() {
+        const timestamp = Date.now();
+        this.interviewStartTimestamp = timestamp;
+
+        if (typeof window !== 'undefined') {
+            window.__interviewStartTimestamp = timestamp;
+
+            try {
+                window.localStorage?.setItem('interviewStartTimestamp', String(timestamp));
+            } catch (error) {
+                console.warn('[HeaderController] Failed to cache interview start time:', error);
+            }
+
+            window.dispatchEvent?.(new CustomEvent('interview-started', { detail: { startTime: timestamp } }));
+        }
+
+        return timestamp;
+    }
+
     async _handlePasscodeVerified() {
         console.log('[HeaderController] Passcode verified, resuming normal flow.');
         this.passcodeUnlocked = true;
         this.passcodeStatusChecked = true;
+        this._recordInterviewStart();
         if (this.welcomeHeader) {
             this.welcomeHeader.passcodeRequired = false;
             this.welcomeHeader.passcodeVerified = true;

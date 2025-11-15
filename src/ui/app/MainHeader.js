@@ -5,6 +5,8 @@ export class MainHeader extends LitElement {
         isTogglingSession: { type: Boolean, state: true },
         shortcuts: { type: Object, state: true },
         listenSessionStatus: { type: String, state: true },
+        interviewStartTime: { type: Number, state: true },
+        interviewElapsedSeconds: { type: Number, state: true },
     };
 
     static styles = css`
@@ -297,6 +299,19 @@ export class MainHeader extends LitElement {
             width: 16px;
             height: 16px;
         }
+
+        .timer-display {
+            -webkit-app-region: no-drag;
+            margin-left: 8px;
+            padding: 0 4px;
+            min-width: 52px;
+            text-align: right;
+            color: white;
+            font-size: 12px;
+            font-family: 'Helvetica Neue', sans-serif;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+        }
         /* ────────────────[ GLASS BYPASS ]─────────────── */
         :host-context(body.has-glass) .header,
         :host-context(body.has-glass) .listen-button,
@@ -358,6 +373,10 @@ export class MainHeader extends LitElement {
         this.isTogglingSession = false;
         this.listenSessionStatus = 'beforeSession';
         this.animationEndTimer = null;
+        this.interviewStartTime = null;
+        this.interviewElapsedSeconds = 0;
+        this._interviewTimerInterval = null;
+        this._interviewStartListener = null;
         this.handleAnimationEnd = this.handleAnimationEnd.bind(this);
         this.handleMouseMove = this.handleMouseMove.bind(this);
         this.handleMouseUp = this.handleMouseUp.bind(this);
@@ -481,9 +500,91 @@ export class MainHeader extends LitElement {
         this.classList.add('sliding-in');
     }
 
+    _getStoredInterviewStart() {
+        if (typeof window === 'undefined') {
+            return null;
+        }
+
+        const directValue = Number(window.__interviewStartTimestamp);
+        if (Number.isFinite(directValue) && directValue > 0) {
+            return directValue;
+        }
+
+        try {
+            const stored = window.localStorage?.getItem('interviewStartTimestamp');
+            const parsed = Number(stored);
+            if (Number.isFinite(parsed) && parsed > 0) {
+                return parsed;
+            }
+        } catch (error) {
+            console.warn('[MainHeader] Failed to read interview start time from storage:', error);
+        }
+
+        return null;
+    }
+
+    _setupInterviewTimer() {
+        if (typeof window === 'undefined') {
+            return;
+        }
+
+        if (this._interviewTimerInterval) {
+            clearInterval(this._interviewTimerInterval);
+            this._interviewTimerInterval = null;
+        }
+        if (this._interviewStartListener) {
+            window.removeEventListener('interview-started', this._interviewStartListener);
+        }
+
+        this._interviewStartListener = (event) => {
+            const timestamp = Number(event?.detail?.startTime);
+            if (Number.isFinite(timestamp) && timestamp > 0) {
+                this.interviewStartTime = timestamp;
+                this._updateInterviewElapsed();
+            }
+        };
+
+        window.addEventListener('interview-started', this._interviewStartListener);
+
+        const storedStart = this._getStoredInterviewStart();
+        if (storedStart) {
+            this.interviewStartTime = storedStart;
+        }
+
+        this._updateInterviewElapsed();
+        this._interviewTimerInterval = setInterval(() => this._updateInterviewElapsed(), 1000);
+    }
+
+    _teardownInterviewTimer() {
+        if (this._interviewTimerInterval) {
+            clearInterval(this._interviewTimerInterval);
+            this._interviewTimerInterval = null;
+        }
+
+        if (typeof window !== 'undefined' && this._interviewStartListener) {
+            window.removeEventListener('interview-started', this._interviewStartListener);
+            this._interviewStartListener = null;
+        }
+    }
+
+    _updateInterviewElapsed() {
+        if (!this.interviewStartTime) {
+            if (this.interviewElapsedSeconds !== 0) {
+                this.interviewElapsedSeconds = 0;
+            }
+            return;
+        }
+
+        const elapsedSeconds = Math.max(0, Math.floor((Date.now() - this.interviewStartTime) / 1000));
+        if (elapsedSeconds !== this.interviewElapsedSeconds) {
+            this.interviewElapsedSeconds = elapsedSeconds;
+        }
+    }
+
     connectedCallback() {
         super.connectedCallback();
         this.addEventListener('animationend', this.handleAnimationEnd);
+        this._setupInterviewTimer();
 
         if (window.api) {
 
@@ -512,6 +613,7 @@ export class MainHeader extends LitElement {
     disconnectedCallback() {
         super.disconnectedCallback();
         this.removeEventListener('animationend', this.handleAnimationEnd);
+        this._teardownInterviewTimer();
         
         if (this.animationEndTimer) {
             clearTimeout(this.animationEndTimer);
@@ -621,6 +723,13 @@ export class MainHeader extends LitElement {
         `)}`;
     }
 
+    formatElapsedTime(totalSeconds) {
+        const safeSeconds = Number.isFinite(totalSeconds) ? Math.max(0, totalSeconds) : 0;
+        const minutes = Math.floor(safeSeconds / 60);
+        const seconds = safeSeconds % 60;
+        return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
     render() {
         const listenButtonText = this._getListenButtonText(this.listenSessionStatus);
     
@@ -694,6 +803,9 @@ export class MainHeader extends LitElement {
                         </svg>
                     </div>
                 </button>
+                <div class="timer-display">
+                    ${this.formatElapsedTime(this.interviewElapsedSeconds)}
+                </div>
             </div>
         `;
     }

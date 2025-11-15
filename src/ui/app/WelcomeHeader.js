@@ -271,7 +271,7 @@ export class WelcomeHeader extends LitElement {
                         ?disabled=${!this.passcodeGateActive}
                     />
                     <button class="passcode-button" type="submit" ?disabled=${buttonDisabled}>
-                        ${this.isVerifyingPasscode ? 'Verifying…' : 'Enter'}
+                        ${this.isVerifyingPasscode ? 'Verifying…' : '开始面试'}
                     </button>
                     <div class="passcode-error">${this.passcodeError}</div>
                 </form>

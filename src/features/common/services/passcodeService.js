@@ -4,6 +4,7 @@ const authService = require('./authService');
 const loggerPrefix = '[PasscodeService]';
 const DEFAULT_API_DOMAIN = 'https://muyu.mengdaai.com';
 const SESSION_START_PATH = '/api/v1/session/start';
+const SESSION_STOP_PATH = '/api/v1/session/stop';
 
 class PasscodeService {
     constructor() {
@@ -11,6 +12,8 @@ class PasscodeService {
         const domain = (process.env.INTERVIEW_API_DOMAIN || DEFAULT_API_DOMAIN).trim().replace(/\/$/, '');
         const customEndpoint = (process.env.INTERVIEW_PASSCODE_API || '').trim();
         this.sessionEndpoint = customEndpoint || `${domain}${SESSION_START_PATH}`;
+        const customStopEndpoint = (process.env.INTERVIEW_SESSION_STOP_API || '').trim();
+        this.sessionStopEndpoint = customStopEndpoint || `${domain}${SESSION_STOP_PATH}`;
         this.requirePasscode = process.env.INTERVIEW_PASSCODE_REQUIRED !== 'false';
         this.activeSession = null;
     }
@@ -121,6 +124,52 @@ class PasscodeService {
             return {
                 success: false,
                 error: '无法连接验证服务，请稍后重试',
+            };
+        }
+    }
+
+    async stopActiveSession(sessionId = null) {
+        const targetSessionId = sessionId || this.activeSession?.session_id || this.activeSession?.sessionId;
+        console.log(`${loggerPrefix} stopActiveSession called with sessionId:`, targetSessionId);
+        if (!targetSessionId) {
+            console.log(`${loggerPrefix} No active interview session to stop.`);
+            return { success: true, skipped: true };
+        }
+
+        if (!this.sessionStopEndpoint) {
+            console.warn(`${loggerPrefix} Session stop endpoint missing, skipping stop call.`);
+            return { success: false, error: 'Session stop endpoint not configured' };
+        }
+
+        try {
+            const headers = { 'Content-Type': 'application/json' };
+            const { token } = authService.getInterviewAuthState?.() || {};
+            if (token) {
+                headers.Authorization = `Bearer ${token}`;
+            }
+
+            const response = await fetch(this.sessionStopEndpoint, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ sessionId: targetSessionId }),
+            });
+
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                return {
+                    success: false,
+                    error: data?.message || data?.error || 'Session stop failed',
+                };
+            }
+
+            console.log(`${loggerPrefix} Interview session ${targetSessionId} stopped successfully.`);
+            this.activeSession = null;
+            return { success: true, data };
+        } catch (error) {
+            console.error(`${loggerPrefix} session stop error:`, error);
+            return {
+                success: false,
+                error: error?.message || 'Failed to stop interview session',
             };
         }
     }

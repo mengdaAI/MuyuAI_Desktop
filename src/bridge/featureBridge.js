@@ -55,6 +55,7 @@ module.exports = {
     ipcMain.handle('firebase-logout', async () => await authService.signOut());
     ipcMain.handle('passcode:get-status', () => passcodeService.getStatus());
     ipcMain.handle('passcode:verify', (event, input) => passcodeService.verify(input));
+    ipcMain.handle('passcode:stop-session', (event, sessionId) => passcodeService.stopActiveSession(sessionId));
 
     // App
     ipcMain.handle('quit-application', () => app.quit());
