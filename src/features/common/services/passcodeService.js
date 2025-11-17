@@ -35,6 +35,29 @@ class PasscodeService {
         this.activeSession = null;
     }
 
+    getActiveSessionInfo() {
+        if (!this.activeSession) {
+            return null;
+        }
+        try {
+            return { ...this.activeSession };
+        } catch (_) {
+            return this.activeSession;
+        }
+    }
+
+    getActiveSessionId() {
+        const session = this.getActiveSessionInfo();
+        if (!session) return null;
+        return (
+            session.sessionId ||
+            session.session_id ||
+            session.id ||
+            session.interview_session_id ||
+            null
+        );
+    }
+
     async verify(input) {
         if (!this.requirePasscode) {
             this.isVerified = true;

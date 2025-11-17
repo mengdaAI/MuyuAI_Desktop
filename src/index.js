@@ -607,14 +607,14 @@ async function startWebStack() {
 
   console.log(`🔧 Allocated ports: API=${apiPort}, Frontend=${frontendPort}`);
 
-  process.env.pickleglass_API_PORT = apiPort.toString();
-  process.env.pickleglass_API_URL = `http://localhost:${apiPort}`;
-  process.env.pickleglass_WEB_PORT = frontendPort.toString();
-  process.env.pickleglass_WEB_URL = `http://localhost:${frontendPort}`;
+  process.env.MUYU_API_PORT = apiPort.toString();
+  process.env.MUYU_API_URL = `http://localhost:${apiPort}`;
+  process.env.MUYU_WEB_PORT = frontendPort.toString();
+  process.env.MUYU_WEB_URL = `http://localhost:${frontendPort}`;
 
   console.log(`🌍 Environment variables set:`, {
-    pickleglass_API_URL: process.env.pickleglass_API_URL,
-    pickleglass_WEB_URL: process.env.pickleglass_WEB_URL
+    MUYU_API_URL: process.env.MUYU_API_URL,
+    MUYU_WEB_URL: process.env.MUYU_WEB_URL
   });
 
   const createBackendApp = require('../pickleglass_web/backend_node');
@@ -637,8 +637,8 @@ async function startWebStack() {
   }
 
   const runtimeConfig = {
-    API_URL: `http://localhost:${apiPort}`,
-    WEB_URL: `http://localhost:${frontendPort}`,
+    API_URL: `http://localhost:${process.env.MUYU_API_PORT}`,
+    WEB_URL: `http://localhost:${process.env.MUYU_WEB_PORT}`,
     timestamp: Date.now()
   };
   

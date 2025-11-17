@@ -1,11 +1,10 @@
-const { createStreamingLLM, isVirtualOpenAIProvider } = require('../common/ai/factory');
-const modelStateService = require('../common/services/modelStateService');
-const { LIVE_INSIGHTS_SYSTEM_PROMPT, liveInsightsUserPrompt } = require('../common/prompts');
 const { TextDecoder } = require('util');
+const liveInsightsApi = require('./liveInsightsApi');
 
 class LiveInsightsService {
-    constructor({ sendToRenderer }) {
+    constructor({ sendToRenderer, buildStreamPayload } = {}) {
         this.sendToRenderer = sendToRenderer;
+        this.buildStreamPayload = typeof buildStreamPayload === 'function' ? buildStreamPayload : null;
         this.currentTurnId = null;
         this.currentSpeaker = null;
         this.currentQuestion = '';
@@ -74,34 +73,17 @@ class LiveInsightsService {
 
     async startStream(turn) {
         try {
-            const modelInfo = await modelStateService.getCurrentModelInfo('llm');
-            if (!modelInfo || !modelInfo.apiKey) {
-                throw new Error('AI model or API key is not configured.');
-            }
-
-            const prompt = this.buildPrompt(turn);
-            const messages = [
-                { role: 'system', content: prompt.system },
-                { role: 'user', content: prompt.user },
-            ];
-
             this.abortController = new AbortController();
-            const isVirtualProvider = isVirtualOpenAIProvider(modelInfo.provider);
-            const streamingLLM = createStreamingLLM(modelInfo.provider, {
-                apiKey: modelInfo.apiKey,
-                model: modelInfo.model,
-                temperature: 0.4,
-                maxTokens: 1024,
-                usePortkey: isVirtualProvider,
-                portkeyVirtualKey: isVirtualProvider ? modelInfo.apiKey : undefined,
-            });
-
-            const response = await streamingLLM.streamChat(messages);
-            this.reader = response.body?.getReader?.();
-            if (!this.reader) {
-                throw new Error('Streaming reader unavailable from provider response.');
+            const payload = this.buildStreamPayload ? (this.buildStreamPayload(turn) || {}) : {};
+            if (!payload.turn) {
+                payload.turn = {
+                    id: turn.id,
+                    speaker: turn.speaker,
+                    text: turn.text,
+                    timestamp: turn.timestamp || Date.now(),
+                };
             }
-
+            this.reader = await liveInsightsApi.startInsightStream(payload, { signal: this.abortController.signal });
             this.streamLoop(this.reader, this.abortController.signal, turn.id);
         } catch (error) {
             this.sendToRenderer('listen:live-answer', {
@@ -111,17 +93,6 @@ class LiveInsightsService {
             });
             this.reset();
         }
-    }
-
-    buildPrompt(turn) {
-        const question = (turn.text || '').trim();
-        const systemPrompt = LIVE_INSIGHTS_SYSTEM_PROMPT;
-        const userPrompt = liveInsightsUserPrompt(question);
-
-        return {
-            system: systemPrompt,
-            user: userPrompt,
-        };
     }
 
     async streamLoop(reader, signal, turnId) {
@@ -144,30 +115,7 @@ class LiveInsightsService {
                 const { done, value } = await reader.read();
                 if (done) break;
                 const chunk = this.decoder.decode(value);
-                for (const line of chunk.split('\n')) {
-                    if (!line.startsWith('data: ')) continue;
-                    const data = line.slice(6).trim();
-                    if (!data || data === '[DONE]') {
-                        reader.cancel().catch(() => {});
-                        this.completeStream(turnId);
-                        return;
-                    }
-                    try {
-                        const json = JSON.parse(data);
-                        const token = json.choices?.[0]?.delta?.content || '';
-                        if (token) {
-                            this.fullAnswer += token;
-                            this.sendToRenderer('listen:live-answer', {
-                                turnId,
-                                status: 'streaming',
-                                token,
-                                answer: this.fullAnswer,
-                            });
-                        }
-                    } catch (err) {
-                        continue;
-                    }
-                }
+                this._processChunk(chunk, turnId, reader);
             }
             this.completeStream(turnId);
         } catch (err) {
@@ -201,6 +149,61 @@ class LiveInsightsService {
         this.isStreaming = false;
         this.reader = null;
         this.abortController = null;
+    }
+
+    _processChunk(chunk, turnId, reader) {
+        for (const line of chunk.split('\n')) {
+            if (!line.startsWith('data: ')) continue;
+            const data = line.slice(6).trim();
+            if (!data) continue;
+            if (data === '[DONE]') {
+                reader.cancel().catch(() => {});
+                this.completeStream(turnId);
+                return;
+            }
+
+            try {
+                const json = JSON.parse(data);
+                if (json.status || json.answer || json.reason || json.error) {
+                    this._handleStatusEvent(json, turnId);
+                    continue;
+                }
+                const token = json.choices?.[0]?.delta?.content || json.token || '';
+                if (token) {
+                    this.fullAnswer += token;
+                    this.sendToRenderer('listen:live-answer', {
+                        turnId,
+                        status: 'streaming',
+                        token,
+                        answer: this.fullAnswer,
+                    });
+                }
+            } catch (err) {
+                continue;
+            }
+        }
+    }
+
+    _handleStatusEvent(event, turnId) {
+        const payload = {
+            turnId,
+            status: event.status || 'streaming',
+            answer: event.answer ?? this.fullAnswer,
+        };
+
+        if (event.reason) {
+            payload.reason = event.reason;
+        }
+        if (event.error) {
+            payload.error = event.error;
+        }
+
+        if (event.status === 'completed' && typeof event.answer === 'string') {
+            this.fullAnswer = event.answer;
+            payload.answer = event.answer;
+        }
+
+        this.sendToRenderer('listen:live-answer', payload);
     }
 }
 
