@@ -30,7 +30,6 @@ const PROVIDERS = {
           { id: 'gpt-4o-mini-transcribe', name: 'GPT-4o Mini Transcribe' }
       ],
   },
-
   'openai-glass': {
       name: 'OpenAI (Glass)',
       handler: () => require("./providers/openai"),
@@ -41,15 +40,13 @@ const PROVIDERS = {
           { id: 'gpt-4o-mini-transcribe-glass', name: 'GPT-4o Mini Transcribe (glass)' }
       ],
   },
-  'openai_muyu': {
-      name: 'OpenAI (Muyu Cloud)',
-      handler: () => require("./providers/openai"),
+  'muyuai': {
+      name: 'MuyuAI',
+      handler: () => require("./providers/muyuai"),
       llmModels: [
-          { id: 'gpt-4.1-muyu', name: 'GPT-4.1 (Muyu Cloud)' },
+          { id: 'kimi-muyu', name: 'Kimi Muyu' },
       ],
-      sttModels: [
-          { id: 'gpt-4o-mini-transcribe-muyu', name: 'GPT-4o Mini Transcribe (Muyu Cloud)' }
-      ],
+      sttModels: [],
   },
   'gemini': {
       name: 'Gemini',
@@ -196,7 +193,8 @@ function getProviderClass(providerId) {
         'kimi': 'KimiProvider',
         'deepgram': 'DeepgramProvider',
         'ollama': 'OllamaProvider',
-        'whisper': 'WhisperProvider'
+        'whisper': 'WhisperProvider',
+        'muyuai': 'MuyuAIProvider'
     };
     
     const className = classNameMap[actualProviderId];

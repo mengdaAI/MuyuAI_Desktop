@@ -35,6 +35,46 @@ try {
 }
 let lastScreenshot = null;
 
+async function resolveAskModelInfo() {
+    const existingInfo = await modelStateService.getCurrentModelInfo('llm');
+    if (existingInfo?.apiKey) {
+        return existingInfo;
+    }
+
+    return await mirrorLiveInsightsModelSelection();
+}
+
+async function mirrorLiveInsightsModelSelection() {
+    try {
+        const availableModels = await modelStateService.getAvailableModels('llm');
+        if (!availableModels || availableModels.length === 0) {
+            console.warn('[AskService] No LLM models available to mirror Live Insights configuration.');
+            return null;
+        }
+
+        const preferredModel = availableModels.find(model => {
+            const provider = modelStateService.getProviderForModel(model.id, 'llm');
+            return provider && provider !== 'ollama' && provider !== 'whisper';
+        }) || availableModels[0];
+
+        const selectionResult = await modelStateService.setSelectedModel('llm', preferredModel.id);
+        if (!selectionResult) {
+            console.warn(`[AskService] Failed to auto-select shared LLM model ${preferredModel.id}.`);
+            return null;
+        }
+
+        const mirroredInfo = await modelStateService.getCurrentModelInfo('llm');
+        if (mirroredInfo?.apiKey) {
+            console.log(`[AskService] Using shared LLM model ${mirroredInfo.model} from provider ${mirroredInfo.provider}.`);
+            return mirroredInfo;
+        }
+    } catch (error) {
+        console.error('[AskService] Failed to mirror Live Insights LLM configuration:', error);
+    }
+
+    return null;
+}
+
 async function captureScreenshot(options = {}) {
     if (process.platform === 'darwin') {
         try {
@@ -243,7 +283,7 @@ class AskService {
             await askRepository.addAiMessage({ sessionId, role: 'user', content: userPrompt.trim() });
             console.log(`[AskService] DB: Saved user prompt to session ${sessionId}`);
             
-            const modelInfo = await modelStateService.getCurrentModelInfo('llm');
+            const modelInfo = await resolveAskModelInfo();
             if (!modelInfo || !modelInfo.apiKey) {
                 throw new Error('AI model or API key not configured.');
             }

@@ -6,6 +6,7 @@ const authService = require('../common/services/authService');
 const sessionRepository = require('../common/repositories/session');
 const sttRepository = require('./stt/repositories');
 const internalBridge = require('../../bridge/internalBridge');
+const passcodeService = require('../common/services/passcodeService');
 
 class ListenService {
     constructor() {
@@ -13,6 +14,7 @@ class ListenService {
         this.summaryService = new SummaryService();
         this.liveInsightsService = new LiveInsightsService({
             sendToRenderer: (channel, payload) => this.sendToRenderer(channel, payload),
+            buildStreamPayload: (turn) => this._buildLiveInsightsRequestPayload(turn),
         });
         this.currentSessionId = null;
         this.isInitializingSession = false;
@@ -62,6 +64,58 @@ class ListenService {
             console.log('[ListenService] Live insights turn state reset');
         } catch (e) {}
         this.sendToRenderer('listen:turn-state-reset', {});
+    }
+
+    _mapSpeakerForInsights(speaker) {
+        if (speaker === 'Them') return 'Candidate';
+        if (speaker === 'Me') return 'Interviewer';
+        return speaker || 'Unknown';
+    }
+
+    _getInterviewSessionMetadata() {
+        const sessionInfo = passcodeService.getActiveSessionInfo?.() || null;
+        const sessionId = passcodeService.getActiveSessionId?.() || sessionInfo?.id || this.currentSessionId || null;
+        const candidateProfile = sessionInfo?.candidateProfile || sessionInfo?.candidate_profile || sessionInfo?.candidate || null;
+        const interviewTopic = sessionInfo?.interviewTopic || sessionInfo?.interview_topic || sessionInfo?.topic || null;
+
+        return {
+            sessionId,
+            candidateProfile,
+            interviewTopic,
+        };
+    }
+
+    _buildRecentTranscript(currentTurnText = '') {
+        const history = this.summaryService?.getConversationHistory?.() || [];
+        const limit = 8;
+        const recentHistory = history.slice(-limit).map(item => (item || '').trim()).filter(Boolean);
+        const trimmedTurn = (currentTurnText || '').trim();
+        if (trimmedTurn) {
+            recentHistory.push(`them: ${trimmedTurn}`);
+        }
+        return recentHistory.join('\n');
+    }
+
+    _buildLiveInsightsRequestPayload(turn) {
+        if (!turn) return null;
+        const normalizedText = (turn.text || '').trim();
+        const { sessionId, candidateProfile, interviewTopic } = this._getInterviewSessionMetadata();
+        const recentTranscript = this._buildRecentTranscript(normalizedText);
+
+        return {
+            sessionId: sessionId || null,
+            turn: {
+                id: turn.id,
+                speaker: this._mapSpeakerForInsights(turn.speaker),
+                text: normalizedText,
+                timestamp: turn.timestamp || Date.now(),
+            },
+            context: {
+                recentTranscript: recentTranscript || '',
+                candidateProfile: candidateProfile || null,
+                interviewTopic: interviewTopic || null,
+            },
+        };
     }
 
     showLiveInsightsView() {
