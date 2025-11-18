@@ -1,8 +1,8 @@
-const { BrowserWindow } = require('electron');
-const { createStreamingLLM, isVirtualOpenAIProvider } = require('../common/ai/factory');
 // Lazy require helper to avoid circular dependency issues
 const getWindowManager = () => require('../../window/windowManager');
 const internalBridge = require('../../bridge/internalBridge');
+const askApi = require('./askApi');
+const ossApi = require('../common/services/ossApi');
 
 const getWindowPool = () => {
     try {
@@ -14,14 +14,12 @@ const getWindowPool = () => {
 
 const sessionRepository = require('../common/repositories/session');
 const askRepository = require('./repositories');
-const { getSystemPrompt } = require('../common/prompts/promptBuilder');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('os');
-const util = require('util');
-const execFile = util.promisify(require('child_process').execFile);
+const { promisify, TextDecoder } = require('util');
+const execFile = promisify(require('child_process').execFile);
 const { desktopCapturer } = require('electron');
-const modelStateService = require('../common/services/modelStateService');
 
 // Try to load sharp, but don't fail if it's not available
 let sharp;
@@ -33,48 +31,6 @@ try {
     console.warn('[AskService] Screenshot functionality will work with reduced image processing capabilities');
     sharp = null;
 }
-let lastScreenshot = null;
-
-async function resolveAskModelInfo() {
-    const existingInfo = await modelStateService.getCurrentModelInfo('llm');
-    if (existingInfo?.apiKey) {
-        return existingInfo;
-    }
-
-    return await mirrorLiveInsightsModelSelection();
-}
-
-async function mirrorLiveInsightsModelSelection() {
-    try {
-        const availableModels = await modelStateService.getAvailableModels('llm');
-        if (!availableModels || availableModels.length === 0) {
-            console.warn('[AskService] No LLM models available to mirror Live Insights configuration.');
-            return null;
-        }
-
-        const preferredModel = availableModels.find(model => {
-            const provider = modelStateService.getProviderForModel(model.id, 'llm');
-            return provider && provider !== 'ollama' && provider !== 'whisper';
-        }) || availableModels[0];
-
-        const selectionResult = await modelStateService.setSelectedModel('llm', preferredModel.id);
-        if (!selectionResult) {
-            console.warn(`[AskService] Failed to auto-select shared LLM model ${preferredModel.id}.`);
-            return null;
-        }
-
-        const mirroredInfo = await modelStateService.getCurrentModelInfo('llm');
-        if (mirroredInfo?.apiKey) {
-            console.log(`[AskService] Using shared LLM model ${mirroredInfo.model} from provider ${mirroredInfo.provider}.`);
-            return mirroredInfo;
-        }
-    } catch (error) {
-        console.error('[AskService] Failed to mirror Live Insights LLM configuration:', error);
-    }
-
-    return null;
-}
-
 async function captureScreenshot(options = {}) {
     if (process.platform === 'darwin') {
         try {
@@ -87,23 +43,25 @@ async function captureScreenshot(options = {}) {
 
             if (sharp) {
                 try {
-                    // Try using sharp for optimal image processing
-                    const resizedBuffer = await sharp(imageBuffer)
-                        .resize({ height: 384 })
-                        .jpeg({ quality: 80 })
+                    // Resize + compress to keep clarity without exceeding payload limits
+                    const baseImage = sharp(imageBuffer);
+                    const metadata = await baseImage.metadata();
+                    const targetHeight = 900;
+                    const processedBuffer = await baseImage
+                        .clone()
+                        .resize({ height: targetHeight, withoutEnlargement: true })
+                        .jpeg({ quality: 85 })
                         .toBuffer();
 
-                    const base64 = resizedBuffer.toString('base64');
-                    const metadata = await sharp(resizedBuffer).metadata();
+                    const resizedMeta = await sharp(processedBuffer).metadata();
 
-                    lastScreenshot = {
-                        base64,
-                        width: metadata.width,
-                        height: metadata.height,
-                        timestamp: Date.now(),
+                    return {
+                        success: true,
+                        buffer: processedBuffer,
+                        width: resizedMeta.width ?? metadata.width ?? null,
+                        height: resizedMeta.height ?? metadata.height ?? null,
+                        mimeType: 'image/jpeg',
                     };
-
-                    return { success: true, base64, width: metadata.width, height: metadata.height };
                 } catch (sharpError) {
                     console.warn('Sharp module failed, falling back to basic image processing:', sharpError.message);
                 }
@@ -111,16 +69,13 @@ async function captureScreenshot(options = {}) {
             
             // Fallback: Return the original image without resizing
             console.log('[AskService] Using fallback image processing (no resize/compression)');
-            const base64 = imageBuffer.toString('base64');
-            
-            lastScreenshot = {
-                base64,
-                width: null, // We don't have metadata without sharp
+            return {
+                success: true,
+                buffer: imageBuffer,
+                width: null,
                 height: null,
-                timestamp: Date.now(),
+                mimeType: 'image/jpeg',
             };
-
-            return { success: true, base64, width: null, height: null };
         } catch (error) {
             console.error('Failed to capture screenshot:', error);
             return { success: false, error: error.message };
@@ -141,14 +96,14 @@ async function captureScreenshot(options = {}) {
         }
         const source = sources[0];
         const buffer = source.thumbnail.toJPEG(70);
-        const base64 = buffer.toString('base64');
         const size = source.thumbnail.getSize();
 
         return {
             success: true,
-            base64,
+            buffer,
             width: size.width,
             height: size.height,
+            mimeType: 'image/jpeg',
         };
     } catch (error) {
         console.error('Failed to capture screenshot using desktopCapturer:', error);
@@ -184,15 +139,8 @@ class AskService {
         }
     }
 
-    async toggleAskButton(inputScreenOnly = false) {
+    async toggleAskButton() {
         const askWindow = getWindowPool()?.get('ask');
-
-        let shouldSendScreenOnly = false;
-        if (inputScreenOnly && this.state.showTextInput && askWindow && askWindow.isVisible()) {
-            shouldSendScreenOnly = true;
-            await this.sendMessage('', []);
-            return;
-        }
 
         const hasContent = this.state.isLoading || this.state.isStreaming || (this.state.currentResponse && this.state.currentResponse.length > 0);
 
@@ -250,18 +198,93 @@ class AskService {
         return conversationTexts.slice(-30).join('\n');
     }
 
+    _buildAskApiPayload({ sessionId, userPrompt, conversationHistory, screenshot }) {
+        const payload = {
+            sessionId: sessionId || null,
+            question: (userPrompt || '').trim(),
+            context: {
+                conversationHistory: conversationHistory || '',
+            },
+        };
+
+        if (screenshot) {
+            const url = typeof screenshot.url === 'string' ? screenshot.url.trim() : '';
+            if (url) {
+                payload.attachments = {
+                    screenshot: {
+                        url,
+                        width: typeof screenshot.width === 'number' ? screenshot.width : null,
+                        height: typeof screenshot.height === 'number' ? screenshot.height : null,
+                        mimeType: screenshot.mimeType || 'image/jpeg',
+                    },
+                };
+            }
+        }
+
+        return payload;
+    }
+
+    async _uploadScreenshotToOss(screenshot) {
+        if (!screenshot || !screenshot.buffer || !screenshot.buffer.length) {
+            return null;
+        }
+        try {
+            const mimeType = screenshot.mimeType || 'image/jpeg';
+            const fileExtension = (mimeType.split('/')?.[1] || 'jpeg').replace('jpeg', 'jpg');
+            const base64Data = screenshot.buffer.toString('base64');
+            console.log('[AskService] Uploading screenshot via server API', {
+                mimeType,
+                fileExtension,
+                bufferSize: screenshot.buffer.length,
+            });
+
+            const uploadResult = await ossApi.uploadScreenshot({
+                data: base64Data,
+                mimeType,
+                fileExtension,
+                objectPrefix: 'ask-screenshots',
+            });
+
+            if (!uploadResult?.fileUrl) {
+                throw new Error('OSS upload API response missing fileUrl');
+            }
+
+            console.log('[AskService] Server upload completed', { fileUrl: uploadResult.fileUrl });
+
+            return {
+                url: uploadResult.fileUrl,
+                width: screenshot.width || null,
+                height: screenshot.height || null,
+                mimeType,
+            };
+        } catch (error) {
+            console.error('[AskService] Screenshot upload failed:', error);
+            return null;
+        }
+    }
+
     /**
      * 
      * @param {string} userPrompt
      * @returns {Promise<{success: boolean, response?: string, error?: string}>}
      */
     async sendMessage(userPrompt, conversationHistoryRaw=[]) {
+        const trimmedPrompt = (userPrompt || '').trim();
+        if (!trimmedPrompt) {
+            const askWin = getWindowPool()?.get('ask');
+            const errorMessage = '请输入要发送的问题内容';
+            if (askWin && !askWin.isDestroyed()) {
+                askWin.webContents.send('ask-response-stream-error', { error: errorMessage });
+            }
+            return { success: false, error: errorMessage };
+        }
+
         internalBridge.emit('window:requestVisibility', { name: 'ask', visible: true });
         this.state = {
             ...this.state,
             isLoading: true,
             isStreaming: false,
-            currentQuestion: userPrompt,
+            currentQuestion: trimmedPrompt,
             currentResponse: '',
             showTextInput: false,
         };
@@ -277,107 +300,49 @@ class AskService {
         let sessionId;
 
         try {
-            console.log(`[AskService] 🤖 Processing message: ${userPrompt.substring(0, 50)}...`);
+            console.log(`[AskService] 🤖 Processing message: ${trimmedPrompt.substring(0, 50)}...`);
 
             sessionId = await sessionRepository.getOrCreateActive('ask');
-            await askRepository.addAiMessage({ sessionId, role: 'user', content: userPrompt.trim() });
+            await askRepository.addAiMessage({ sessionId, role: 'user', content: trimmedPrompt });
             console.log(`[AskService] DB: Saved user prompt to session ${sessionId}`);
             
-            const modelInfo = await resolveAskModelInfo();
-            if (!modelInfo || !modelInfo.apiKey) {
-                throw new Error('AI model or API key not configured.');
-            }
-            console.log(`[AskService] Using model: ${modelInfo.model} for provider: ${modelInfo.provider}`);
-
             const screenshotResult = await captureScreenshot({ quality: 'medium' });
-            const screenshotBase64 = screenshotResult.success ? screenshotResult.base64 : null;
+            if (!screenshotResult.success) {
+                console.warn('[AskService] Screenshot capture failed:', screenshotResult.error);
+            }
+
+            let uploadedScreenshot = null;
+            if (screenshotResult.success && screenshotResult.buffer?.length) {
+                uploadedScreenshot = await this._uploadScreenshotToOss(screenshotResult);
+            }
 
             const conversationHistory = this._formatConversationForPrompt(conversationHistoryRaw);
-
-            const systemPrompt = getSystemPrompt('pickle_glass_analysis', conversationHistory, false);
-
-            const messages = [
-                { role: 'system', content: systemPrompt },
-                {
-                    role: 'user',
-                    content: [
-                        { type: 'text', text: `User Request: ${userPrompt.trim()}` },
-                    ],
-                },
-            ];
-
-            if (screenshotBase64) {
-                messages[1].content.push({
-                    type: 'image_url',
-                    image_url: { url: `data:image/jpeg;base64,${screenshotBase64}` },
-                });
-            }
-            
-            const isVirtualProvider = isVirtualOpenAIProvider(modelInfo.provider);
-            const streamingLLM = createStreamingLLM(modelInfo.provider, {
-                apiKey: modelInfo.apiKey,
-                model: modelInfo.model,
-                temperature: 0.7,
-                maxTokens: 2048,
-                usePortkey: isVirtualProvider,
-                portkeyVirtualKey: isVirtualProvider ? modelInfo.apiKey : undefined,
+            const payload = this._buildAskApiPayload({
+                sessionId,
+                userPrompt: trimmedPrompt,
+                conversationHistory,
+                screenshot: uploadedScreenshot,
             });
 
-            try {
-                const response = await streamingLLM.streamChat(messages);
-                const askWin = getWindowPool()?.get('ask');
+            const reader = await askApi.startAskStream(payload, { signal });
+            console.log('[AskService] Ask API reader:', reader)
+            const askWin = getWindowPool()?.get('ask');
 
-                if (!askWin || askWin.isDestroyed()) {
-                    console.error("[AskService] Ask window is not available to send stream to.");
-                    response.body.getReader().cancel();
-                    return { success: false, error: 'Ask window is not available.' };
+            if (!askWin || askWin.isDestroyed()) {
+                console.error('[AskService] Ask window is not available to send stream to.');
+                if (typeof reader.cancel === 'function') {
+                    reader.cancel('ask-window-missing').catch(() => {});
                 }
-
-                const reader = response.body.getReader();
-                signal.addEventListener('abort', () => {
-                    console.log(`[AskService] Aborting stream reader. Reason: ${signal.reason}`);
-reader.cancel(signal.reason).catch(() => { /* Ignore error if already canceled */ });
-                });
-
-                await this._processStream(reader, askWin, sessionId, signal);
-                return { success: true };
-
-            } catch (multimodalError) {
-// If multimodal request fails and a screenshot was included, retry with text only
-                if (screenshotBase64 && this._isMultimodalError(multimodalError)) {
-                    console.log(`[AskService] Multimodal request failed, retrying with text-only: ${multimodalError.message}`);
-                    
-// Recompose message with text only
-                    const textOnlyMessages = [
-                        { role: 'system', content: systemPrompt },
-                        {
-                            role: 'user',
-                            content: `User Request: ${userPrompt.trim()}`
-                        }
-                    ];
-
-                    const fallbackResponse = await streamingLLM.streamChat(textOnlyMessages);
-                    const askWin = getWindowPool()?.get('ask');
-
-                    if (!askWin || askWin.isDestroyed()) {
-                        console.error("[AskService] Ask window is not available for fallback response.");
-                        fallbackResponse.body.getReader().cancel();
-                        return { success: false, error: 'Ask window is not available.' };
-                    }
-
-                    const fallbackReader = fallbackResponse.body.getReader();
-                    signal.addEventListener('abort', () => {
-                        console.log(`[AskService] Aborting fallback stream reader. Reason: ${signal.reason}`);
-                        fallbackReader.cancel(signal.reason).catch(() => {});
-                    });
-
-                    await this._processStream(fallbackReader, askWin, sessionId, signal);
-                    return { success: true };
-                } else {
-// If a different error or no screenshot, rethrow
-                    throw multimodalError;
-                }
+                return { success: false, error: 'Ask window is not available.' };
             }
+
+            signal.addEventListener('abort', () => {
+                console.log(`[AskService] Aborting stream reader. Reason: ${signal.reason}`);
+                reader.cancel(signal.reason).catch(() => { /* ignore */ });
+            });
+
+            await this._processStream(reader, askWin, sessionId, signal);
+            return { success: true };
 
         } catch (error) {
             console.error('[AskService] Error during message processing:', error);
@@ -416,29 +381,44 @@ reader.cancel(signal.reason).catch(() => { /* Ignore error if already canceled *
             this.state.isLoading = false;
             this.state.isStreaming = true;
             this._broadcastState();
-            while (true) {
+
+            let shouldStop = false;
+            while (!shouldStop) {
                 const { done, value } = await reader.read();
                 if (done) break;
 
                 const chunk = decoder.decode(value);
-                const lines = chunk.split('\n').filter(line => line.trim() !== '');
+                const lines = chunk.split('\n');
 
                 for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        const data = line.substring(6);
-                        if (data === '[DONE]') {
-                            return; 
+                    if (!line.startsWith('data: ')) continue;
+                    const data = line.slice(6).trim();
+                    if (!data) continue;
+                    if (data === '[DONE]') {
+                        shouldStop = true;
+                        reader.cancel().catch(() => {});
+                        break;
+                    }
+
+                    try {
+                        const json = JSON.parse(data);
+                        if (json.status === 'completed' && typeof json.answer === 'string') {
+                            fullResponse = json.answer;
+                            this.state.currentResponse = fullResponse;
+                            this._broadcastState();
+                            continue;
                         }
-                        try {
-                            const json = JSON.parse(data);
-                            const token = json.choices[0]?.delta?.content || '';
-                            if (token) {
-                                fullResponse += token;
-                                this.state.currentResponse = fullResponse;
-                                this._broadcastState();
-                            }
-                        } catch (error) {
+                        if (json.status === 'error' || json.error) {
+                            throw new Error(json.error || 'Ask stream reported an error');
                         }
+                        const token = json.token || json.choices?.[0]?.delta?.content || '';
+                        if (token) {
+                            fullResponse += token;
+                            this.state.currentResponse = fullResponse;
+                            this._broadcastState();
+                        }
+                    } catch (parseError) {
+                        continue;
                     }
                 }
             }
@@ -464,24 +444,6 @@ reader.cancel(signal.reason).catch(() => { /* Ignore error if already canceled *
                 }
             }
         }
-    }
-
-    /**
-* Determine whether the error is multimodal-related
-     * @private
-     */
-    _isMultimodalError(error) {
-        const errorMessage = error.message?.toLowerCase() || '';
-        return (
-            errorMessage.includes('vision') ||
-            errorMessage.includes('image') ||
-            errorMessage.includes('multimodal') ||
-            errorMessage.includes('unsupported') ||
-            errorMessage.includes('image_url') ||
-            errorMessage.includes('400') ||  // Bad Request often for unsupported features
-            errorMessage.includes('invalid') ||
-            errorMessage.includes('not supported')
-        );
     }
 
 }

@@ -210,9 +210,6 @@ class ShortcutsService {
                 case 'toggleVisibility':
                     callback = () => this.toggleAllWindowsVisibility();
                     break;
-                case 'nextStep':
-                    callback = () => askService.toggleAskButton(true);
-                    break;
                 case 'scrollUp':
                     callback = () => {
                         const askWindow = this.windowPool.get('ask');
