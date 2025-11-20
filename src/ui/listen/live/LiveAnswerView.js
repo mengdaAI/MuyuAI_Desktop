@@ -205,7 +205,19 @@ export class LiveAnswerView extends LitElement {
         };
 
         if (payload.text) {
-            existing.question = payload.text.trim();
+            const incoming = payload.text.trim();
+            const prev = existing.question || '';
+            if (!prev || payload.event === 'finalized') {
+                existing.question = incoming;
+            } else {
+                if (incoming.startsWith(prev)) {
+                    existing.question = incoming;
+                } else if (prev.startsWith(incoming)) {
+                    existing.question = prev;
+                } else {
+                    existing.question = this._mergeText(prev, incoming);
+                }
+            }
         }
         if (payload.event === 'finalized' || payload.status === 'completed') {
             existing.status = 'completed';
@@ -245,6 +257,24 @@ export class LiveAnswerView extends LitElement {
         this._turnMap.set(existing.id, existing);
         this.turns = this._sortTurns();
         this._notifyUpdated();
+    }
+
+    _mergeText(a, b) {
+        const first = (a || '').trim();
+        const second = (b || '').trim();
+        if (!first) return second;
+        if (!second) return first;
+        if (second.includes(first)) return second;
+        if (first.includes(second)) return first;
+        const max = Math.min(first.length, second.length);
+        for (let i = Math.min(max, 64); i > 0; i--) {
+            const suffix = first.slice(-i);
+            const prefix = second.slice(0, i);
+            if (suffix === prefix) {
+                return (first + second.slice(i)).replace(/\s+/g, ' ').trim();
+            }
+        }
+        return (first + ' ' + second).replace(/\s+/g, ' ').trim();
     }
 
     _sortTurns() {
