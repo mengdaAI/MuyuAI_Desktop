@@ -38,34 +38,6 @@ class WindowLayoutManager {
 
 
     /**
-     * 
-     * @returns {{name: string, primary: string, secondary: string}}
-     */
-    determineLayoutStrategy(headerBounds, screenWidth, screenHeight, relativeX, relativeY, workAreaX, workAreaY) {
-        const headerRelX = headerBounds.x - workAreaX;
-        const headerRelY = headerBounds.y - workAreaY;
-
-        const spaceBelow = screenHeight - (headerRelY + headerBounds.height);
-        const spaceAbove = headerRelY;
-        const spaceLeft = headerRelX;
-        const spaceRight = screenWidth - (headerRelX + headerBounds.width);
-
-        if (spaceBelow >= 400) {
-            return { name: 'below', primary: 'below', secondary: relativeX < 0.5 ? 'right' : 'left' };
-        } else if (spaceAbove >= 400) {
-            return { name: 'above', primary: 'above', secondary: relativeX < 0.5 ? 'right' : 'left' };
-        } else if (relativeX < 0.3 && spaceRight >= 800) {
-            return { name: 'right-side', primary: 'right', secondary: spaceBelow > spaceAbove ? 'below' : 'above' };
-        } else if (relativeX > 0.7 && spaceLeft >= 800) {
-            return { name: 'left-side', primary: 'left', secondary: spaceBelow > spaceAbove ? 'below' : 'above' };
-        } else {
-            return { name: 'adaptive', primary: spaceBelow > spaceAbove ? 'below' : 'above', secondary: spaceRight > spaceLeft ? 'right' : 'left' };
-        }
-    }
-
-
-
-    /**
      * @returns {{x: number, y: number} | null}
      */
     calculateSettingsWindowPosition() {
@@ -145,72 +117,56 @@ class WindowLayoutManager {
         } else {
             display = getCurrentDisplay(header);
         }
-    
+
         const { width: screenWidth, height: screenHeight, x: workAreaX, y: workAreaY } = display.workArea;
-    
+
         const ask = this.windowPool.get('ask');
         const listen = this.windowPool.get('listen');
-    
+
         const askVis = visibility.ask && ask && !ask.isDestroyed();
         const listenVis = visibility.listen && listen && !listen.isDestroyed();
-    
-        if (!askVis && !listenVis) return {};
-    
-        const PAD = 8;
-        const headerTopRel = headerBounds.y - workAreaY;
-        const headerBottomRel = headerTopRel + headerBounds.height;
-        const headerCenterXRel = headerBounds.x - workAreaX + headerBounds.width / 2;
-        
-        const relativeX = headerCenterXRel / screenWidth;
-        const relativeY = (headerBounds.y - workAreaY) / screenHeight;
-        const strategy = this.determineLayoutStrategy(headerBounds, screenWidth, screenHeight, relativeX, relativeY, workAreaX, workAreaY);
-    
-        const askB = askVis ? ask.getBounds() : null;
-        const listenB = listenVis ? listen.getBounds() : null;
 
-        // Removed verbose layout debug logs for cleaner console output
-    
+        if (!askVis && !listenVis) return {};
+
+        const clampX = (targetX, winWidth) => {
+            const maxX = workAreaX + screenWidth - winWidth;
+            return Math.max(workAreaX, Math.min(targetX, maxX));
+        };
+
+        const clampY = (targetY, winHeight) => {
+            const maxY = workAreaY + screenHeight - winHeight;
+            return Math.max(workAreaY, Math.min(targetY, maxY));
+        };
+
+        const headerLeft = headerBounds.x;
+        const headerRight = headerBounds.x + headerBounds.width;
+        const targetTop = headerBounds.y;
         const layout = {};
-    
-        if (askVis && listenVis) {
-            let askXRel = headerCenterXRel - (askB.width / 2);
-            let listenXRel = askXRel - listenB.width - PAD;
-    
-            if (listenXRel < PAD) {
-                listenXRel = PAD;
-                askXRel = listenXRel + listenB.width + PAD;
-            }
-            if (askXRel + askB.width > screenWidth - PAD) {
-                askXRel = screenWidth - PAD - askB.width;
-                listenXRel = askXRel - listenB.width - PAD;
-            }
-            
-            if (strategy.primary === 'above') {
-                const windowBottomAbs = headerBounds.y - PAD;
-                layout.ask = { x: Math.round(askXRel + workAreaX), y: Math.round(windowBottomAbs - askB.height), width: askB.width, height: askB.height };
-                layout.listen = { x: Math.round(listenXRel + workAreaX), y: Math.round(windowBottomAbs - listenB.height), width: listenB.width, height: listenB.height };
-            } else { // 'below'
-                const yAbs = headerBounds.y + headerBounds.height + PAD;
-                layout.ask = { x: Math.round(askXRel + workAreaX), y: Math.round(yAbs), width: askB.width, height: askB.height };
-                layout.listen = { x: Math.round(listenXRel + workAreaX), y: Math.round(yAbs), width: listenB.width, height: listenB.height };
-            }
-        } else { // Single window
-            const winName = askVis ? 'ask' : 'listen';
-            const winB = askVis ? askB : listenB;
-            if (!winB) return {};
-    
-            let xRel = headerCenterXRel - winB.width / 2;
-            xRel = Math.max(PAD, Math.min(screenWidth - winB.width - PAD, xRel));
-    
-            let yPos;
-            if (strategy.primary === 'above') {
-                yPos = (headerBounds.y - workAreaY) - PAD - winB.height;
-            } else { // 'below'
-                yPos = (headerBounds.y - workAreaY) + headerBounds.height + PAD;
-            }
-            
-            layout[winName] = { x: Math.round(xRel + workAreaX), y: Math.round(yPos + workAreaY), width: winB.width, height: winB.height };
+
+        if (listenVis) {
+            const listenBounds = listen.getBounds();
+            const alignedY = clampY(targetTop, listenBounds.height);
+            const alignedX = clampX(headerLeft - listenBounds.width, listenBounds.width);
+            layout.listen = {
+                x: Math.round(alignedX),
+                y: Math.round(alignedY),
+                width: listenBounds.width,
+                height: listenBounds.height,
+            };
         }
+
+        if (askVis) {
+            const askBounds = ask.getBounds();
+            const alignedY = clampY(targetTop, askBounds.height);
+            const alignedX = clampX(headerRight, askBounds.width);
+            layout.ask = {
+                x: Math.round(alignedX),
+                y: Math.round(alignedY),
+                width: askBounds.width,
+                height: askBounds.height,
+            };
+        }
+
         return layout;
     }
     
