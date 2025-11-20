@@ -33,11 +33,6 @@ class LiveInsightsService {
         await this.startStream(turn);
     }
 
-    async handleTurnFinalized(turn) {
-        if (!turn || turn.id !== this.currentTurnId) return;
-        this.abortStream('turn_completed');
-    }
-
     reset() {
         this.abortStream('reset');
         this.currentTurnId = null;

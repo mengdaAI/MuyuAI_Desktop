@@ -204,6 +204,28 @@ class ListenService {
         return text;
     }
 
+    mergeTexts(prev, next) {
+        const a = (prev || '').trim();
+        const b = (next || '').trim();
+        if (!a) return b;
+        if (!b) return a;
+        if (b.startsWith(a)) return b;
+        if (a.startsWith(b)) return a;
+        if (a.includes(b)) return a;
+        if (b.includes(a)) return b;
+        let maxOverlap = 0;
+        const maxLen = Math.min(a.length, b.length);
+        for (let i = 1; i <= maxLen; i++) {
+            if (a.slice(-i) === b.slice(0, i)) {
+                maxOverlap = i;
+            }
+        }
+        if (maxOverlap > 0) {
+            return a + b.slice(maxOverlap);
+        }
+        return a + ' ' + b;
+    }
+
     emitTurnUpdate(turn, extras = {}) {
         if (!turn) return;
 
@@ -257,8 +279,9 @@ class ListenService {
         const timestamp = meta.timestamp || Date.now();
         const provider = meta.provider || turn.provider || null;
 
-        turn.partialText = text;
-        turn.finalText = text;
+        const mergedFinal = this.mergeTexts(turn.partialText || '', text);
+        turn.partialText = mergedFinal;
+        turn.finalText = mergedFinal;
         turn.status = 'completed';
         turn.updatedAt = timestamp;
         turn.completedAt = timestamp;
@@ -274,7 +297,7 @@ class ListenService {
         delete this.activeTurns[normalizedSpeaker];
 
         this.emitTurnUpdate(turn, {
-            text,
+            text: mergedFinal,
             timestamp,
             isPartial: false,
             isFinal: true,
@@ -282,14 +305,17 @@ class ListenService {
             event: 'finalized',
         });
 
-        this.lastCompletedText[normalizedSpeaker] = text;
+        this.lastCompletedText[normalizedSpeaker] = mergedFinal;
 
         if (normalizedSpeaker === 'Them' && this.liveInsightsService) {
-            this.liveInsightsService.handleTurnFinalized({
+            this.liveInsightsService.handleTranscriptUpdate({
                 id: turn.id,
                 speaker: normalizedSpeaker,
                 text,
                 timestamp,
+                isFinal: true,
+            }).catch(err => {
+                console.error('[ListenService] Live insights final turn failed:', err);
             });
         }
 
@@ -370,17 +396,18 @@ class ListenService {
         const normalizedSpeaker = speaker === 'Me' ? 'Me' : 'Them';
         const activeTurn = this.activeTurns[normalizedSpeaker];
         const cleanedText = this.normalizeTextForSpeaker(speaker, text, activeTurn);
+        const aggregatedText = this.mergeTexts(activeTurn?.partialText || '', cleanedText);
 
-        this.finalizeTurn(speaker, cleanedText, {
+        this.finalizeTurn(speaker, aggregatedText, {
             timestamp: Date.now(),
             provider: this.sttService?.modelInfo?.provider || null,
         });
         
         // Save to database
-        await this.saveConversationTurn(speaker, text);
+        await this.saveConversationTurn(speaker, aggregatedText);
         
         // Add to summary service for analysis
-        this.summaryService.addConversationTurn(speaker, text);
+        this.summaryService.addConversationTurn(speaker, aggregatedText);
     }
 
     handlePartialTranscript(partial) {
@@ -392,14 +419,15 @@ class ListenService {
 
         const turn = this.getOrCreateActiveTurn(speaker);
         const normalizedText = this.normalizeTextForSpeaker(speaker, partial.text, turn);
-        const hasMeaningfulText = normalizedText && normalizedText.trim().length > 0;
-        const partialChanged = normalizedText !== turn.partialText;
+        const mergedPartial = this.mergeTexts(turn.partialText || '', normalizedText);
+        const hasMeaningfulText = mergedPartial && mergedPartial.trim().length > 0;
+        const partialChanged = mergedPartial !== turn.partialText;
 
         if (!partialChanged && !partial.isFinal) {
             return;
         }
 
-        turn.partialText = normalizedText;
+        turn.partialText = mergedPartial;
         turn.updatedAt = timestamp;
         if (provider) {
             turn.provider = provider;
@@ -412,31 +440,19 @@ class ListenService {
         try {
             console.log('[ListenService] Updating partial transcript', {
                 speaker,
-                text: normalizedText.slice(0, 120),
+                text: mergedPartial.slice(0, 120),
                 turnId: turn.id,
             });
         } catch (e) {}
 
         this.emitTurnUpdate(turn, {
-            text: normalizedText,
+            text: mergedPartial,
             timestamp,
             isPartial: partial.isPartial ?? true,
             isFinal: partial.isFinal ?? false,
             provider,
             event: partial.isFinal ? 'finalized' : 'partial',
         });
-
-        if (speaker === 'Them' && this.liveInsightsService) {
-            this.liveInsightsService.handleTranscriptUpdate({
-                id: turn.id,
-                speaker,
-                text: normalizedText,
-                timestamp,
-                isFinal: partial.isFinal ?? false,
-            }).catch(err => {
-                console.error('[ListenService] Live insights update failed:', err);
-            });
-        }
     }
 
     async saveConversationTurn(speaker, transcription) {
