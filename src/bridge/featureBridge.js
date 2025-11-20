@@ -104,6 +104,10 @@ module.exports = {
         listenService.showLiveInsightsView();
         return { success: true };
     });
+    ipcMain.handle('listen:showTranscriptView', async () => {
+        listenService.showTranscriptView();
+        return { success: true };
+    });
     ipcMain.handle('listen:isSessionActive', async () => await listenService.isSessionActive());
     ipcMain.handle('listen:getTurnState', async () => listenService.getTurnState());
     ipcMain.handle('listen:changeSession', async (event, listenButtonText) => {

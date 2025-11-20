@@ -129,6 +129,17 @@ class ListenService {
         this.sendToRenderer('listen:set-view', { view: 'live', insightsMode: 'live' });
     }
 
+    showTranscriptView() {
+        const { windowPool } = require('../../window/windowManager');
+        const listenWindow = windowPool?.get('listen');
+        if (!listenWindow || listenWindow.isDestroyed()) {
+            internalBridge.emit('window:requestVisibility', { name: 'listen', visible: true });
+        } else if (!listenWindow.isVisible()) {
+            internalBridge.emit('window:requestVisibility', { name: 'listen', visible: true });
+        }
+        this.sendToRenderer('listen:set-view', { view: 'transcript' });
+    }
+
     serializeTurn(turn) {
         if (!turn) return null;
         return {
