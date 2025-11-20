@@ -35,15 +35,18 @@ export class MainHeader extends LitElement {
             pointer-events: none;
         }
 
-        .panel {
+        .rail-panel {
             position: relative;
-            width: min(640px, calc(100vw - 24px));
-            min-height: 420px;
-            border-radius: 36px;
-            padding: 52px 40px 44px 52px;
+            width: 120px;
+            min-height: 480px;
+            border-radius: 32px;
+            padding: 32px 22px 28px;
             box-sizing: border-box;
             display: flex;
-            gap: 28px;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            gap: 24px;
             background: linear-gradient(135deg, rgba(26, 10, 49, 0.95), rgba(59, 16, 82, 0.9));
             box-shadow:
                 inset 0 0 0 1px rgba(255, 255, 255, 0.12),
@@ -52,131 +55,48 @@ export class MainHeader extends LitElement {
             -webkit-app-region: drag;
         }
 
-        .panel::before,
-        .panel::after {
+        .rail-panel::before,
+        .rail-panel::after {
             content: '';
             position: absolute;
             inset: 0;
             pointer-events: none;
         }
 
-        .panel::before {
+        .rail-panel::before {
             background: radial-gradient(circle at 25% -15%, rgba(255, 160, 243, 0.18), transparent 55%);
         }
 
-        .panel::after {
+        .rail-panel::after {
             background: radial-gradient(circle at 90% 25%, rgba(118, 83, 255, 0.35), transparent 45%);
         }
 
-        .panel.state-listening {
+        .rail-panel.state-listening {
             background: linear-gradient(120deg, rgba(11, 19, 60, 0.95), rgba(17, 9, 67, 0.96));
         }
 
-        .panel.state-completed {
+        .rail-panel.state-completed {
             background: linear-gradient(135deg, rgba(4, 35, 52, 0.9), rgba(16, 57, 70, 0.92));
         }
 
-        .panel-content,
-        .action-rail {
+        .rail-top,
+        .rail-bottom {
             position: relative;
             z-index: 1;
-        }
-
-        .panel-content {
-            flex: 1;
+            width: 100%;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
-            gap: 24px;
-        }
-
-        .panel-body {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        .state-headline {
-            margin: 0;
-            font-size: 22px;
-            font-weight: 600;
-            letter-spacing: 0.02em;
-            color: rgba(255, 255, 255, 0.92);
-        }
-
-        .state-subtext {
-            margin: 0;
-            font-size: 15px;
-            line-height: 26px;
-            color: rgba(233, 224, 255, 0.75);
-        }
-
-        .panel-footer {
-            display: flex;
             align-items: center;
-            justify-content: space-between;
+            gap: 20px;
         }
 
-        .status-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px 18px;
-            border-radius: 999px;
-            background: rgba(0, 0, 0, 0.28);
-            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
-            font-size: 13px;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #79ffe1;
-            box-shadow: 0 0 8px rgba(121, 255, 225, 0.8);
-        }
-
-        .panel.state-idle .status-dot {
-            background: #ffd28f;
-            box-shadow: 0 0 8px rgba(255, 199, 143, 0.8);
-        }
-
-        .panel.state-completed .status-dot {
-            background: #8fdeff;
-            box-shadow: 0 0 8px rgba(143, 222, 255, 0.8);
-        }
-
-        .timer-info {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-        .timer-info svg {
-            width: 16px;
-            height: 16px;
-        }
-
-        .action-rail {
-            width: 72px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            align-items: center;
-            padding: 4px 0;
-            border-left: 1px solid rgba(255, 255, 255, 0.15);
-            -webkit-app-region: no-drag;
-        }
-
-        .action-stack {
+        .primary-stack,
+        .secondary-stack {
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 16px;
+            width: 100%;
         }
 
         button {
@@ -190,8 +110,8 @@ export class MainHeader extends LitElement {
         }
 
         .listen-toggle {
-            width: 54px;
-            height: 54px;
+            width: 58px;
+            height: 58px;
             border-radius: 50%;
             border: 1px solid rgba(255, 255, 255, 0.4);
             background: linear-gradient(140deg, rgba(214, 154, 255, 0.18), rgba(139, 84, 255, 0.26));
@@ -224,8 +144,8 @@ export class MainHeader extends LitElement {
         }
 
         .rail-button {
-            width: 42px;
-            height: 42px;
+            width: 46px;
+            height: 46px;
             border-radius: 14px;
             border: 1px solid rgba(255, 255, 255, 0.18);
             background: rgba(9, 9, 14, 0.25);
@@ -254,6 +174,54 @@ export class MainHeader extends LitElement {
             animation: spin 0.8s linear infinite;
         }
 
+        .status-cluster {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            border-radius: 999px;
+            background: rgba(0, 0, 0, 0.28);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #79ffe1;
+            box-shadow: 0 0 8px rgba(121, 255, 225, 0.8);
+        }
+
+        .rail-panel.state-idle .status-dot {
+            background: #ffd28f;
+            box-shadow: 0 0 8px rgba(255, 199, 143, 0.8);
+        }
+
+        .rail-panel.state-completed .status-dot {
+            background: #8fdeff;
+            box-shadow: 0 0 8px rgba(143, 222, 255, 0.8);
+        }
+
+        .status-text {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            text-align: left;
+        }
+
+        .status-label {
+            font-size: 12px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .timer-text {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
         @keyframes spin {
             from {
                 transform: rotate(0deg);
@@ -264,7 +232,7 @@ export class MainHeader extends LitElement {
         }
 
         /* Glass-friendly styling (keep tint + blur) */
-        :host-context(body.has-glass) .panel {
+        :host-context(body.has-glass) .rail-panel {
             background: linear-gradient(135deg, rgba(16, 8, 26, 0.82), rgba(37, 11, 54, 0.78));
             box-shadow:
                 inset 0 0 0 1px rgba(255, 255, 255, 0.08),
@@ -272,11 +240,11 @@ export class MainHeader extends LitElement {
             backdrop-filter: blur(22px);
         }
 
-        :host-context(body.has-glass) .panel::before {
+        :host-context(body.has-glass) .rail-panel::before {
             opacity: 0.6;
         }
 
-        :host-context(body.has-glass) .panel::after {
+        :host-context(body.has-glass) .rail-panel::after {
             opacity: 0.45;
         }
 
@@ -290,7 +258,7 @@ export class MainHeader extends LitElement {
             box-shadow: inset 0 0 25px rgba(255, 255, 255, 0.04);
         }
 
-        :host-context(body.has-glass) .status-pill {
+        :host-context(body.has-glass) .status-cluster {
             background: rgba(0, 0, 0, 0.4);
         }
     `;
@@ -587,7 +555,7 @@ export class MainHeader extends LitElement {
     }
 
     _initializeResizeObserver() {
-        const panel = this.shadowRoot?.querySelector('.panel');
+        const panel = this.shadowRoot?.querySelector('.rail-panel');
         if (!panel) return;
         if (this._resizeTarget !== panel) {
             if (this._resizeObserver) {
@@ -792,52 +760,33 @@ export class MainHeader extends LitElement {
                 : '开始聆听';
 
         return html`
-            <div class="panel state-${panelState}" @mousedown=${this.handleMouseDown}>
-                <div class="panel-content">
-                    <div class="panel-body">
-                        <p class="state-headline">${stateCopy.headline}</p>
-                        <p class="state-subtext">${stateCopy.subline}</p>
-                    </div>
-                    <div class="panel-footer">
-                        <div class="status-pill">
-                            <span class="status-dot"></span>
-                            <span>${stateCopy.status}</span>
-                        </div>
-                        <div class="timer-info">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                                <circle cx="12" cy="12" r="9"></circle>
-                                <path d="M12 7v5l3 2"></path>
-                            </svg>
-                            <span>${panelState === 'idle' ? '计时 00:00' : `计时 ${elapsed}`}</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="action-rail">
-                    <div class="action-stack">
-                        <button
-                            class=${listenButtonClasses.join(' ')}
-                            @click=${this._handleListenClick}
-                            ?disabled=${this.isTogglingSession}
-                            title=${listenTitle}
-                            aria-label=${listenTitle}
-                        >
-                            ${this.isTogglingSession
-                                ? html`<div class="loader"></div>`
-                                : hasCompleted
-                                ? html`
-                                      <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2.5">
-                                          <path d="M4 9.5l3.2 3.2L14 5.7" stroke-linecap="round" stroke-linejoin="round"></path>
-                                      </svg>
-                                  `
-                                : isListening
-                                ? html`<svg viewBox="0 0 10 10" fill="currentColor"><rect width="10" height="10" rx="2" /></svg>`
-                                : html`
-                                      <svg viewBox="0 0 14 18" fill="none" stroke="currentColor" stroke-width="2">
-                                          <rect x="2" y="2" width="3" height="14" rx="1"></rect>
-                                          <rect x="9" y="2" width="3" height="14" rx="1"></rect>
-                                      </svg>
-                                  `}
-                        </button>
+            <div class="rail-panel state-${panelState}" @mousedown=${this.handleMouseDown}>
+                <div class="rail-top">
+                    <button
+                        class=${listenButtonClasses.join(' ')}
+                        @click=${this._handleListenClick}
+                        ?disabled=${this.isTogglingSession}
+                        title=${listenTitle}
+                        aria-label=${listenTitle}
+                    >
+                        ${this.isTogglingSession
+                            ? html`<div class="loader"></div>`
+                            : hasCompleted
+                            ? html`
+                                  <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2.5">
+                                      <path d="M4 9.5l3.2 3.2L14 5.7" stroke-linecap="round" stroke-linejoin="round"></path>
+                                  </svg>
+                              `
+                            : isListening
+                            ? html`<svg viewBox="0 0 10 10" fill="currentColor"><rect width="10" height="10" rx="2" /></svg>`
+                            : html`
+                                  <svg viewBox="0 0 14 18" fill="none" stroke="currentColor" stroke-width="2">
+                                      <rect x="2" y="2" width="3" height="14" rx="1"></rect>
+                                      <rect x="9" y="2" width="3" height="14" rx="1"></rect>
+                                  </svg>
+                              `}
+                    </button>
+                    <div class="primary-stack">
                         <button
                             class="rail-button"
                             @click=${this._handleAskClick}
@@ -883,7 +832,9 @@ export class MainHeader extends LitElement {
                             </svg>
                         </button>
                     </div>
-                    <div class="action-stack">
+                </div>
+                <div class="rail-bottom">
+                    <div class="secondary-stack">
                         <button
                             class="rail-button"
                             @click=${this._handleToggleAllWindowsVisibility}
@@ -908,6 +859,13 @@ export class MainHeader extends LitElement {
                                 <circle cx="2" cy="13" r="1"></circle>
                             </svg>
                         </button>
+                    </div>
+                    <div class="status-cluster">
+                        <span class="status-dot"></span>
+                        <div class="status-text">
+                            <span class="status-label">${stateCopy.status}</span>
+                            <span class="timer-text">${panelState === 'idle' ? '计时 00:00' : `计时 ${elapsed}`}</span>
+                        </div>
                     </div>
                 </div>
             </div>
