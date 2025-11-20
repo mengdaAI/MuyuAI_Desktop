@@ -134,6 +134,7 @@ contextBridge.exposeInMainWorld('api', {
     sendListenButtonClick: (listenButtonText) => ipcRenderer.invoke('listen:changeSession', listenButtonText),
     sendAskButtonClick: () => ipcRenderer.invoke('ask:toggleAskButton'),
     openLiveInsightsView: () => ipcRenderer.invoke('listen:showLiveView'),
+    openTranscriptView: () => ipcRenderer.invoke('listen:showTranscriptView'),
     sendToggleAllWindowsVisibility: () => ipcRenderer.invoke('shortcut:toggleAllWindowsVisibility'),
     
     // Listeners
