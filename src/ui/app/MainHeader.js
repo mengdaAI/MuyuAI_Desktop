@@ -37,20 +37,20 @@ export class MainHeader extends LitElement {
 
         .rail-panel {
             position: relative;
-            width: 120px;
-            min-height: 480px;
-            border-radius: 32px;
-            padding: 32px 22px 28px;
+            width: 72px;
+            min-height: 640px;
+            border-radius: 28px;
+            padding: 20px 12px 24px;
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
             align-items: center;
-            gap: 24px;
-            background: linear-gradient(135deg, rgba(26, 10, 49, 0.95), rgba(59, 16, 82, 0.9));
+            gap: 28px;
+            background: linear-gradient(180deg, rgba(18, 10, 28, 0.95), rgba(24, 12, 36, 0.92));
             box-shadow:
-                inset 0 0 0 1px rgba(255, 255, 255, 0.12),
-                0 25px 55px rgba(10, 6, 24, 0.6);
+                inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+                0 25px 55px rgba(6, 4, 16, 0.6);
             overflow: hidden;
             -webkit-app-region: drag;
         }
@@ -87,7 +87,7 @@ export class MainHeader extends LitElement {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 20px;
+            gap: 22px;
         }
 
         .primary-stack,
@@ -95,7 +95,7 @@ export class MainHeader extends LitElement {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 16px;
+            gap: 18px;
             width: 100%;
         }
 
@@ -110,23 +110,23 @@ export class MainHeader extends LitElement {
         }
 
         .listen-toggle {
-            width: 58px;
-            height: 58px;
+            width: 52px;
+            height: 52px;
             border-radius: 50%;
-            border: 1px solid rgba(255, 255, 255, 0.4);
-            background: linear-gradient(140deg, rgba(214, 154, 255, 0.18), rgba(139, 84, 255, 0.26));
+            border: 2px solid rgba(178, 116, 255, 0.9);
+            background: radial-gradient(circle at 50% 50%, rgba(191, 120, 255, 0.22), rgba(139, 84, 255, 0.18));
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 10px 25px rgba(33, 12, 60, 0.65);
+            box-shadow: 0 18px 35px rgba(33, 12, 60, 0.55);
         }
 
         .listen-toggle.is-active {
-            background: linear-gradient(140deg, rgba(255, 89, 153, 0.3), rgba(173, 86, 255, 0.45));
+            background: radial-gradient(circle at 50% 50%, rgba(255, 120, 180, 0.28), rgba(173, 86, 255, 0.35));
         }
 
         .listen-toggle.is-done {
-            background: linear-gradient(140deg, rgba(84, 255, 201, 0.3), rgba(148, 222, 255, 0.35));
+            background: radial-gradient(circle at 50% 50%, rgba(84, 255, 201, 0.24), rgba(148, 222, 255, 0.28));
         }
 
         .listen-toggle:disabled {
@@ -139,30 +139,30 @@ export class MainHeader extends LitElement {
         }
 
         .listen-toggle svg {
-            width: 18px;
-            height: 18px;
+            width: 16px;
+            height: 16px;
         }
 
         .rail-button {
-            width: 46px;
-            height: 46px;
-            border-radius: 14px;
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            background: rgba(9, 9, 14, 0.25);
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            border: 0;
+            background: transparent;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: inset 0 0 25px rgba(255, 255, 255, 0.06);
+            color: rgba(255, 255, 255, 0.95);
         }
 
         .rail-button:hover {
             transform: translateY(-1px);
-            border-color: rgba(255, 255, 255, 0.4);
+            color: #ffffff;
         }
 
         .rail-button svg {
-            width: 16px;
-            height: 16px;
+            width: 18px;
+            height: 18px;
         }
 
         .loader {
@@ -175,14 +175,7 @@ export class MainHeader extends LitElement {
         }
 
         .status-cluster {
-            width: 100%;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 14px;
-            border-radius: 999px;
-            background: rgba(0, 0, 0, 0.28);
-            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+            display: none;
         }
 
         .status-dot {
