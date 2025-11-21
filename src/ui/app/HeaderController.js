@@ -331,8 +331,8 @@ class HeaderTransitionManager {
 
     async _resizeForMain() {
         if (!window.api) return;
-        const width = 680;
-        const height = 460;
+        const width = 720;
+        const height = 700;
         console.log(`[HeaderController] _resizeForMain: Resizing window to ${width}x${height}`);
         return window.api.headerController.resizeHeaderWindow({ width, height }).catch(() => {});
     }
