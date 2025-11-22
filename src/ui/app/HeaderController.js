@@ -161,7 +161,13 @@ class HeaderTransitionManager {
             return;
         }
 
-        // 默认使用内置模型配置，只需检查系统权限即可。
+        const forceMain = await window.api?.headerController?.isDebugForceMainHeader?.();
+        if (forceMain) {
+            await this._resizeForMain();
+            this.ensureHeader('main');
+            return;
+        }
+
         const permissionResult = await this.checkPermissions();
         if (permissionResult.success) {
             this.transitionToMainHeader();
@@ -331,7 +337,7 @@ class HeaderTransitionManager {
 
     async _resizeForMain() {
         if (!window.api) return;
-        const width = 720;
+        const width = 72;
         const height = 700;
         console.log(`[HeaderController] _resizeForMain: Resizing window to ${width}x${height}`);
         return window.api.headerController.resizeHeaderWindow({ width, height }).catch(() => {});

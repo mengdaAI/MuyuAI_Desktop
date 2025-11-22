@@ -1,9 +1,12 @@
-// try {
-//     const reloader = require('electron-reloader');
-//     reloader(module, {
-//     });
-// } catch (err) {
-// }
+try {
+    if (process.env.ENABLE_ELECTRON_RELOAD !== 'false') {
+        const reloader = require('electron-reloader');
+        reloader(module, {
+            watchRenderer: true,
+        });
+    }
+} catch (err) {
+}
 
 require('dotenv').config();
 

@@ -115,6 +115,13 @@ contextBridge.exposeInMainWorld('api', {
     removeOnAuthFailed: (callback) => ipcRenderer.removeListener('auth-failed', callback),
     onForceShowApiKeyHeader: (callback) => ipcRenderer.on('force-show-apikey-header', callback),
     removeOnForceShowApiKeyHeader: (callback) => ipcRenderer.removeListener('force-show-apikey-header', callback),
+    isDebugForceMainHeader: async () => {
+      try {
+        return process.env.DEBUG_FORCE_MAIN_HEADER === 'true';
+      } catch (_) {
+        return false;
+      }
+    },
   },
 
   // src/ui/app/MainHeader.js
@@ -135,6 +142,7 @@ contextBridge.exposeInMainWorld('api', {
     sendAskButtonClick: () => ipcRenderer.invoke('ask:toggleAskButton'),
     openLiveInsightsView: () => ipcRenderer.invoke('listen:showLiveView'),
     openTranscriptView: () => ipcRenderer.invoke('listen:showTranscriptView'),
+    toggleTranscriptView: () => ipcRenderer.invoke('listen:toggleTranscriptView'),
     sendToggleAllWindowsVisibility: () => ipcRenderer.invoke('shortcut:toggleAllWindowsVisibility'),
     
     // Listeners
@@ -170,7 +178,7 @@ contextBridge.exposeInMainWorld('api', {
     adjustWindowHeight: (winName, height) => ipcRenderer.invoke('adjust-window-height', { winName, height }),
     
     // Message Handling
-    sendMessage: (text) => ipcRenderer.invoke('ask:sendQuestionFromAsk', text),
+    sendMessage: (text, options) => ipcRenderer.invoke('ask:sendQuestionFromAsk', text, options),
 
     // Listeners
     onAskStateUpdate: (callback) => ipcRenderer.on('ask:stateUpdate', callback),

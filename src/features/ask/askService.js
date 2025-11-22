@@ -268,7 +268,7 @@ class AskService {
      * @param {string} userPrompt
      * @returns {Promise<{success: boolean, response?: string, error?: string}>}
      */
-    async sendMessage(userPrompt, conversationHistoryRaw=[]) {
+    async sendMessage(userPrompt, conversationHistoryRaw = [], opts = {}) {
         const trimmedPrompt = (userPrompt || '').trim();
         if (!trimmedPrompt) {
             const askWin = getWindowPool()?.get('ask');
@@ -342,6 +342,14 @@ class AskService {
             });
 
             await this._processStream(reader, askWin, sessionId, signal);
+            // Auto-close Ask window after successful stream if requested
+            if (opts && opts.autoClose) {
+                try {
+                    internalBridge.emit('window:requestVisibility', { name: 'ask', visible: false });
+                    this.state.isVisible = false;
+                    this._broadcastState();
+                } catch (_) {}
+            }
             return { success: true };
 
         } catch (error) {
@@ -360,6 +368,14 @@ class AskService {
                 askWin.webContents.send('ask-response-stream-error', { error: streamError });
             }
 
+            // On error, if requested, also close ask window to prevent dangling view
+            if (opts && opts.autoClose) {
+                try {
+                    internalBridge.emit('window:requestVisibility', { name: 'ask', visible: false });
+                    this.state.isVisible = false;
+                    this._broadcastState();
+                } catch (_) {}
+            }
             return { success: false, error: error.message };
         }
     }
