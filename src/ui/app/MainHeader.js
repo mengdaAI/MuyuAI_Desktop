@@ -11,7 +11,7 @@ export class MainHeader extends LitElement {
 
     static styles = css`
         :host {
-            display: block;
+            display: inline-block;
             color: #ffffff;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             transition: transform 0.2s cubic-bezier(0.23, 1, 0.32, 1), opacity 0.2s ease-out;
@@ -48,9 +48,7 @@ export class MainHeader extends LitElement {
             align-items: center;
             gap: 28px;
             background: linear-gradient(180deg, rgba(18, 10, 28, 0.95), rgba(24, 12, 36, 0.92));
-            box-shadow:
-                inset 0 0 0 1px rgba(255, 255, 255, 0.08),
-                0 25px 55px rgba(6, 4, 16, 0.6);
+            box-shadow: none;
             overflow: hidden;
             -webkit-app-region: drag;
         }
@@ -227,9 +225,7 @@ export class MainHeader extends LitElement {
         /* Glass-friendly styling (keep tint + blur) */
         :host-context(body.has-glass) .rail-panel {
             background: linear-gradient(135deg, rgba(16, 8, 26, 0.82), rgba(37, 11, 54, 0.78));
-            box-shadow:
-                inset 0 0 0 1px rgba(255, 255, 255, 0.08),
-                0 25px 55px rgba(4, 0, 23, 0.5);
+            box-shadow: none;
             backdrop-filter: blur(22px);
         }
 
@@ -572,7 +568,7 @@ export class MainHeader extends LitElement {
 
     _applyWindowResize(width, height) {
         if (!window.api?.headerController?.resizeHeaderWindow) return;
-        const padding = 24;
+        const padding = 0;
         const targetWidth = Math.ceil(width + padding);
         const targetHeight = Math.ceil(height + padding);
         if (
@@ -652,6 +648,16 @@ export class MainHeader extends LitElement {
         }
     }
 
+    async _handleScreenshotAskClick() {
+        if (this.wasJustDragged) return;
+        const prompt = '请分析当前屏幕内容，并给出关键信息与可执行建议';
+        try {
+            await window.api?.askView?.sendMessage?.(prompt, { autoClose: true });
+        } catch (error) {
+            console.error('IPC invoke for screenshot ask failed:', error);
+        }
+    }
+
     async _handleLiveInsightsClick() {
         if (this.wasJustDragged) return;
         try {
@@ -664,7 +670,7 @@ export class MainHeader extends LitElement {
     async _handleShowTranscriptClick() {
         if (this.wasJustDragged) return;
         try {
-            await window.api?.mainHeader?.openTranscriptView?.();
+            await window.api?.mainHeader?.toggleTranscriptView?.();
         } catch (error) {
             console.error('IPC invoke for transcript view failed:', error);
         }
@@ -797,9 +803,9 @@ export class MainHeader extends LitElement {
                         </button>
                         <button
                             class="rail-button"
-                            @click=${this._handleLiveInsightsClick}
-                            title="Ask (Live View)"
-                            aria-label="Ask (Live View)"
+                            @click=${this._handleScreenshotAskClick}
+                            title="Screenshots"
+                            aria-label="Screenshots"
                         >
                             <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5">
                                 <path d="M5 4H3a2 2 0 00-2 2v2" stroke-linecap="round"></path>
