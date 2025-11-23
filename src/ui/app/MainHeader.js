@@ -652,7 +652,7 @@ export class MainHeader extends LitElement {
         if (this.wasJustDragged) return;
         const prompt = '请分析当前屏幕内容，并给出关键信息与可执行建议';
         try {
-            await window.api?.askView?.sendMessage?.(prompt, { autoClose: true });
+            await window.api?.askView?.sendMessage?.(prompt);
         } catch (error) {
             console.error('IPC invoke for screenshot ask failed:', error);
         }
