@@ -712,13 +712,13 @@ export class ListenView extends LitElement {
             ? this.viewMode === 'transcript'
                 ? 'Copy Transcript'
                 : this.insightsMode === 'summary'
-                ? 'Copy Glass Analysis'
-                : 'Copy Live Answer'
+                    ? 'Copy Glass Analysis'
+                    : 'Copy Live Answer'
             : this.viewMode === 'transcript'
-            ? `小抄 is Listening ${this.elapsedTime}`
-            : this.insightsMode === 'summary'
-            ? 'Glass Summary'
-            : 'Live Answers';
+                ? `小抄 is Listening ${this.elapsedTime}`
+                : this.insightsMode === 'summary'
+                    ? 'Glass Summary'
+                    : 'Live Answers';
 
         return html`
             <div class="assistant-container">
@@ -726,50 +726,9 @@ export class ListenView extends LitElement {
                     <div class="bar-left-text">
                         <span class="bar-left-text-content ${this.isAnimating ? 'slide-in' : ''}">${displayText}</span>
                     </div>
-                    ${this.viewMode === 'insights'
-                        ? html`
-                              <div class="insight-mode-toggle">
-                                  <button
-                                      class="mode-button ${this.insightsMode === 'live' ? 'active' : ''}"
-                                      @click=${() => this.setInsightsMode('live')}
-                                  >
-                                      Live
-                                  </button>
-                              </div>
-                          `
-                        : ''}
+                    <!-- Live toggle removed -->
                     <div class="bar-controls">
-                        <button class="toggle-button" @click=${this.toggleViewMode}>
-                            ${this.viewMode === 'insights'
-                                ? html`
-                                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
-                                          <circle cx="12" cy="12" r="3" />
-                                      </svg>
-                                      <span>Show Transcript</span>
-                                  `
-                                : html`
-                                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                          <path d="M9 11l3 3L22 4" />
-                                          <path d="M22 12v7a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h11" />
-                                      </svg>
-                                      <span>Show ${this.insightsMode === 'summary' ? 'Summary' : 'Live'}</span>
-                                  `}
-                        </button>
-                        <button
-                            class="copy-button ${this.copyState === 'copied' ? 'copied' : ''}"
-                            @click=${this.handleCopy}
-                            @mouseenter=${() => this.handleCopyHover(true)}
-                            @mouseleave=${() => this.handleCopyHover(false)}
-                        >
-                            <svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-                            </svg>
-                            <svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                                <path d="M20 6L9 17l-5-5" />
-                            </svg>
-                        </button>
+                        <!-- Controls removed as per request -->
                     </div>
                 </div>
 

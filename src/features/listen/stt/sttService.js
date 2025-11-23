@@ -221,6 +221,29 @@ class SttService {
         }, COMPLETION_DEBOUNCE_MS);
     }
 
+    _mergeSlidingWindow(current, incoming) {
+        if (!current) return incoming;
+        if (!incoming) return current;
+
+        // Fast path: incoming extends current (normal accumulation)
+        if (incoming.startsWith(current)) {
+            return incoming;
+        }
+
+        // Overlap check: find longest suffix of current that matches prefix of incoming
+        const maxOverlap = Math.min(current.length, incoming.length);
+        const minOverlap = 2; // Minimum overlap to consider valid stitching
+
+        for (let len = maxOverlap; len >= minOverlap; len--) {
+            if (current.slice(-len) === incoming.slice(0, len)) {
+                return current + incoming.slice(len);
+            }
+        }
+
+        // Fallback: if no overlap, assume replacement (standard behavior)
+        return incoming;
+    }
+
     async initializeSttSessions(language = 'zh') {
         const effectiveLanguage = process.env.OPENAI_TRANSCRIBE_LANG || language || 'zh';
 
@@ -520,13 +543,16 @@ class SttService {
                         newPartial = newPartial.slice(buffer.length).trim();
                     }
 
-                    this.theirCurrentUtterance = newPartial;
+                    // Stitching logic for sliding window
+                    this.theirCurrentUtterance = this._mergeSlidingWindow(this.theirCurrentUtterance, newPartial);
+
                     try {
                         console.log('[SttService-Them-Doubao] Partial path: updating utterance', {
                             utteranceLen: (this.theirCurrentUtterance || '').length,
                             bufferLen: (this.theirCompletionBuffer || '').length,
                             originalText: text.slice(0, 50),
-                            newPartial: newPartial.slice(0, 50)
+                            newPartial: newPartial.slice(0, 50),
+                            stitched: this.theirCurrentUtterance.slice(-50)
                         });
                     } catch (e) { }
 
