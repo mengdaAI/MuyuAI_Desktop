@@ -31,13 +31,13 @@ class SttService {
         this.theirSttSession = null;
         this.myCurrentUtterance = '';
         this.theirCurrentUtterance = '';
-        
+
         // Turn-completion debouncing
         this.myCompletionBuffer = '';
         this.theirCompletionBuffer = '';
         this.myCompletionTimer = null;
         this.theirCompletionTimer = null;
-        
+
         // System audio capture
         this.systemAudioProc = null;
 
@@ -50,7 +50,7 @@ class SttService {
         this.onStatusUpdate = null;
         this.onPartialTranscript = null;
 
-        this.modelInfo = null; 
+        this.modelInfo = null;
     }
 
     setCallbacks({ onTranscriptionComplete, onStatusUpdate, onPartialTranscript }) {
@@ -63,7 +63,7 @@ class SttService {
                 onStatusUpdate: typeof onStatusUpdate,
                 onPartialTranscript: typeof onPartialTranscript,
             });
-        } catch (e) {}
+        } catch (e) { }
     }
 
     emitPartialTranscript(speaker, text, extra = {}) {
@@ -92,7 +92,7 @@ class SttService {
         // Send Listen-related events only to the Listen window (prevents conflicts with Ask window)
         const { windowPool } = require('../../../window/windowManager');
         const listenWindow = windowPool?.get('listen');
-        
+
         if (listenWindow && !listenWindow.isDestroyed()) {
             listenWindow.webContents.send(channel, data);
         }
@@ -117,7 +117,7 @@ class SttService {
         if (this.onTranscriptionComplete) {
             this.onTranscriptionComplete('Me', finalText);
         }
-        
+
         // Send to renderer as final
         this.sendToRenderer('stt-update', {
             speaker: 'Me',
@@ -130,7 +130,7 @@ class SttService {
         this.myCompletionBuffer = '';
         this.myCompletionTimer = null;
         this.myCurrentUtterance = '';
-        
+
         if (this.onStatusUpdate) {
             this.onStatusUpdate('Listening...');
         }
@@ -145,25 +145,25 @@ class SttService {
                 currentLen: (this.theirCurrentUtterance || '').length,
                 finalLen: (finalText || '').length,
             });
-        } catch (e) {}
+        } catch (e) { }
         if (!this.modelInfo || !finalText) {
             try {
                 console.log('[SttService-Them] flushTheirCompletion skipped', {
                     hasModelInfo: !!this.modelInfo,
                     finalTextEmpty: !finalText,
                 });
-            } catch (e) {}
+            } catch (e) { }
             return;
         }
-        
+
         // Notify completion callback
         if (this.onTranscriptionComplete) {
             try {
                 console.log('[SttService-Them] onTranscriptionComplete firing', { finalText });
-            } catch (e) {}
+            } catch (e) { }
             this.onTranscriptionComplete('Them', finalText);
         }
-        
+
         // Send to renderer as final
         this.sendToRenderer('stt-update', {
             speaker: 'Them',
@@ -172,13 +172,13 @@ class SttService {
             isFinal: true,
             timestamp: Date.now(),
         });
-        try { console.log('[SttService-Them] stt-update final dispatched'); } catch (e) {}
+        try { console.log('[SttService-Them] stt-update final dispatched'); } catch (e) { }
 
         this.theirCompletionBuffer = '';
         this.theirCompletionTimer = null;
         this.theirCurrentUtterance = '';
-        try { console.log('[SttService-Them] completion buffers reset'); } catch (e) {}
-        
+        try { console.log('[SttService-Them] completion buffers reset'); } catch (e) { }
+
         if (this.onStatusUpdate) {
             this.onStatusUpdate('Listening...');
         }
@@ -208,15 +208,15 @@ class SttService {
                 textLen: (text || '').length,
                 bufferLen: (this.theirCompletionBuffer || '').length,
             });
-        } catch (e) {}
+        } catch (e) { }
 
         if (this.theirCompletionTimer) {
-            try { console.log('[SttService-Them] clearing previous completion timer'); } catch (e) {}
+            try { console.log('[SttService-Them] clearing previous completion timer'); } catch (e) { }
             clearTimeout(this.theirCompletionTimer);
         }
-        try { console.log(`[SttService-Them] setting completion timer ${COMPLETION_DEBOUNCE_MS}ms`); } catch (e) {}
+        try { console.log(`[SttService-Them] setting completion timer ${COMPLETION_DEBOUNCE_MS}ms`); } catch (e) { }
         this.theirCompletionTimer = setTimeout(() => {
-            try { console.log('[SttService-Them] completion timer fired'); } catch (e) {}
+            try { console.log('[SttService-Them] completion timer fired'); } catch (e) { }
             this.flushTheirCompletion();
         }, COMPLETION_DEBOUNCE_MS);
     }
@@ -237,12 +237,12 @@ class SttService {
                 return;
             }
             // console.log('[SttService] handleMyMessage', message);
-            
+
             if (this.modelInfo.provider === 'whisper') {
                 // Whisper STT emits 'transcription' events with different structure
                 if (message.text && message.text.trim()) {
                     const finalText = message.text.trim();
-                    
+
                     // Filter out Whisper noise transcriptions
                     const noisePatterns = [
                         '[BLANK_AUDIO]',
@@ -256,15 +256,15 @@ class SttService {
                         '(SOUND)',
                         '(NOISE)'
                     ];
-                    
-                    const isNoise = noisePatterns.some(pattern => 
+
+                    const isNoise = noisePatterns.some(pattern =>
                         finalText.includes(pattern) || finalText === pattern
                     );
-                    
-                    
+
+
                     if (!isNoise && finalText.length > 2) {
                         this.debounceMyCompletion(finalText);
-                        
+
                         this.sendToRenderer('stt-update', {
                             speaker: 'Me',
                             text: finalText,
@@ -289,17 +289,17 @@ class SttService {
                     }
                     return;
                 }
-            
+
                 const transcription = message.serverContent?.inputTranscription;
                 if (!transcription || !transcription.text) return;
-                
+
                 const textChunk = transcription.text;
                 if (!textChunk.trim() || textChunk.trim() === '<noise>') {
                     return; // 1. Ignore whitespace-only chunks or noise
                 }
-            
+
                 this.debounceMyCompletion(textChunk);
-                
+
                 this.sendToRenderer('stt-update', {
                     speaker: 'Me',
                     text: this.myCompletionBuffer,
@@ -307,13 +307,13 @@ class SttService {
                     isFinal: false,
                     timestamp: Date.now(),
                 });
-                
+
                 this.emitPartialTranscript('Me', {
                     text: this.myCompletionBuffer,
                     provider: this.modelInfo?.provider,
                 });
-                
-            // Deepgram 
+
+                // Deepgram 
             } else if (this.modelInfo.provider === 'deepgram' || this.modelInfo.provider === 'doubao') {
                 let text;
                 let isFinal = false;
@@ -337,14 +337,14 @@ class SttService {
                     this.debounceMyCompletion(text);
                     if (this.modelInfo.provider === 'doubao') {
                         this.flushMyCompletion();
-                    } 
+                    }
                 } else {
                     // For interim results, update the UI in real-time.
                     if (this.myCompletionTimer) clearTimeout(this.myCompletionTimer);
                     this.myCompletionTimer = null;
 
                     this.myCurrentUtterance = text;
-                    
+
                     const continuousText = (this.myCompletionBuffer + ' ' + this.myCurrentUtterance).trim();
 
                     this.sendToRenderer('stt-update', {
@@ -354,13 +354,13 @@ class SttService {
                         isFinal: false,
                         timestamp: Date.now(),
                     });
-                    
+
                     this.emitPartialTranscript('Me', {
                         text: continuousText,
                         provider: this.modelInfo?.provider,
                     });
                 }
-                
+
             } else {
                 const type = message.type;
                 const text = message.transcript || message.delta || (message.alternatives && message.alternatives[0]?.transcript) || '';
@@ -405,12 +405,12 @@ class SttService {
                 console.log('[SttService] Ignoring message - session already closed');
                 return;
             }
-            
+
             if (this.modelInfo.provider === 'whisper') {
                 // Whisper STT emits 'transcription' events with different structure
                 if (message.text && message.text.trim()) {
                     const finalText = message.text.trim();
-                    
+
                     // Filter out Whisper noise transcriptions
                     const noisePatterns = [
                         '[BLANK_AUDIO]',
@@ -424,16 +424,16 @@ class SttService {
                         '(SOUND)',
                         '(NOISE)'
                     ];
-                    
-                    const isNoise = noisePatterns.some(pattern => 
+
+                    const isNoise = noisePatterns.some(pattern =>
                         finalText.includes(pattern) || finalText === pattern
                     );
-                    
-                    
+
+
                     // Only process if it's not noise, not a false positive, and has meaningful content
                     if (!isNoise && finalText.length > 2) {
                         this.debounceTheirCompletion(finalText);
-                        
+
                         this.sendToRenderer('stt-update', {
                             speaker: 'Them',
                             text: finalText,
@@ -458,7 +458,7 @@ class SttService {
                     }
                     return;
                 }
-            
+
                 const transcription = message.serverContent?.inputTranscription;
                 if (!transcription || !transcription.text) return;
 
@@ -468,7 +468,7 @@ class SttService {
                 }
 
                 this.debounceTheirCompletion(textChunk);
-                
+
                 this.sendToRenderer('stt-update', {
                     speaker: 'Them',
                     text: this.theirCompletionBuffer,
@@ -476,13 +476,13 @@ class SttService {
                     isFinal: false,
                     timestamp: Date.now(),
                 });
-                
+
                 this.emitPartialTranscript('Them', {
                     text: this.theirCompletionBuffer,
                     provider: this.modelInfo?.provider,
                 });
 
-            // Deepgram
+                // Deepgram
             } else if (this.modelInfo.provider === 'deepgram' || this.modelInfo.provider === 'doubao') {
                 let text;
                 let isFinal = false;
@@ -500,25 +500,38 @@ class SttService {
                 }
 
                 if (isFinal) {
-                    try { console.log('[SttService-Them-Doubao] Final received; scheduling debounce completion'); } catch (e) {}
-                    this.theirCurrentUtterance = ''; 
-                    this.debounceTheirCompletion(text); 
+                    try { console.log('[SttService-Them-Doubao] Final received; flushing immediately'); } catch (e) { }
+                    this.theirCurrentUtterance = '';
+                    this.debounceTheirCompletion(text);
+                    if (this.modelInfo.provider === 'doubao') {
+                        this.flushTheirCompletion();
+                    }
                 } else {
                     if (this.theirCompletionTimer) {
-                        try { console.log('[SttService-Them-Doubao] Partial received; clearing previous completion timer'); } catch (e) {}
+                        try { console.log('[SttService-Them-Doubao] Partial received; clearing previous completion timer'); } catch (e) { }
                         clearTimeout(this.theirCompletionTimer);
                     }
 
-                    this.theirCurrentUtterance = text;
+                    // Smart merge: if the new partial text starts with what we've already buffered,
+                    // it means the provider is sending history. We should strip that prefix.
+                    let newPartial = text;
+                    const buffer = this.theirCompletionBuffer || '';
+                    if (buffer && newPartial.startsWith(buffer)) {
+                        newPartial = newPartial.slice(buffer.length).trim();
+                    }
+
+                    this.theirCurrentUtterance = newPartial;
                     try {
-                        console.log('[SttService-Them-Doubao] Partial path: updating utterance and resetting debounce', {
+                        console.log('[SttService-Them-Doubao] Partial path: updating utterance', {
                             utteranceLen: (this.theirCurrentUtterance || '').length,
                             bufferLen: (this.theirCompletionBuffer || '').length,
+                            originalText: text.slice(0, 50),
+                            newPartial: newPartial.slice(0, 50)
                         });
-                    } catch (e) {}
-                    
+                    } catch (e) { }
+
                     const continuousText = (this.theirCompletionBuffer + ' ' + this.theirCurrentUtterance).trim();
-                    try { console.log('[SttService-Them-Doubao] Partial path: continuousText computed', { continuousLen: (continuousText || '').length }); } catch (e) {}
+                    try { console.log('[SttService-Them-Doubao] Partial path: continuousText computed', { continuousLen: (continuousText || '').length }); } catch (e) { }
 
                     this.sendToRenderer('stt-update', {
                         speaker: 'Them',
@@ -527,7 +540,7 @@ class SttService {
                         isFinal: false,
                         timestamp: Date.now(),
                     });
-                    try { console.log('[SttService-Them-Doubao] stt-update partial dispatched (debounce reset on partial)'); } catch (e) {}
+                    try { console.log('[SttService-Them-Doubao] stt-update partial dispatched (debounce reset on partial)'); } catch (e) { }
 
                     this.emitPartialTranscript('Them', {
                         text: continuousText,
@@ -535,9 +548,9 @@ class SttService {
                     });
 
                     // Reset the completion debounce on partial to enable pause-based auto completion
-                    try { console.log(`[SttService-Them-Doubao] setting completion timer ${COMPLETION_DEBOUNCE_MS}ms (partial)`); } catch (e) {}
+                    try { console.log(`[SttService-Them-Doubao] setting completion timer ${COMPLETION_DEBOUNCE_MS}ms (partial)`); } catch (e) { }
                     this.theirCompletionTimer = setTimeout(() => {
-                        try { console.log('[SttService-Them-Doubao] completion timer fired (partial path)'); } catch (e) {}
+                        try { console.log('[SttService-Them-Doubao] completion timer fired (partial path)'); } catch (e) { }
                         this.flushTheirCompletion();
                     }, COMPLETION_DEBOUNCE_MS);
                 }
@@ -571,7 +584,7 @@ class SttService {
                     }
                 }
             }
-            
+
             if (message.error) {
                 console.error('[Them] STT Session Error:', message.error);
             }
@@ -585,7 +598,7 @@ class SttService {
                 onclose: event => console.log('My STT session closed:', event.reason),
             },
         };
-        
+
         const theirSttConfig = {
             language: effectiveLanguage,
             callbacks: {
@@ -594,7 +607,7 @@ class SttService {
                 onclose: event => console.log('Their STT session closed:', event.reason),
             },
         };
-        
+
         const isVirtualProvider = isVirtualOpenAIProvider(this.modelInfo.provider);
         const sttOptions = {
             apiKey: this.modelInfo.apiKey,
@@ -689,7 +702,7 @@ class SttService {
     async sendMicAudioContent(data, mimeType) {
         // const provider = await this.getAiProvider();
         // const isGemini = provider === 'gemini';
-        
+
         if (!this.mySttSession) {
             throw new Error('User STT session not active');
         }
@@ -707,7 +720,7 @@ class SttService {
         if (modelInfo.provider === 'gemini') {
             payload = { audio: { data, mimeType: mimeType || 'audio/pcm;rate=24000' } };
         } else if (modelInfo.provider === 'deepgram') {
-            payload = Buffer.from(data, 'base64'); 
+            payload = Buffer.from(data, 'base64');
         } else {
             payload = data;
         }
@@ -927,7 +940,7 @@ class SttService {
         this.theirCurrentUtterance = '';
         this.myCompletionBuffer = '';
         this.theirCompletionBuffer = '';
-        this.modelInfo = null; 
+        this.modelInfo = null;
     }
 }
 
