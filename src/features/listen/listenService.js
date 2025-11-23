@@ -221,27 +221,7 @@ class ListenService {
         return text;
     }
 
-    mergeTexts(prev, next) {
-        const a = (prev || '').trim();
-        const b = (next || '').trim();
-        if (!a) return b;
-        if (!b) return a;
-        if (b.startsWith(a)) return b;
-        if (a.startsWith(b)) return a;
-        if (a.includes(b)) return a;
-        if (b.includes(a)) return b;
-        let maxOverlap = 0;
-        const maxLen = Math.min(a.length, b.length);
-        for (let i = 1; i <= maxLen; i++) {
-            if (a.slice(-i) === b.slice(0, i)) {
-                maxOverlap = i;
-            }
-        }
-        if (maxOverlap > 0) {
-            return a + b.slice(maxOverlap);
-        }
-        return a + ' ' + b;
-    }
+
 
     emitTurnUpdate(turn, extras = {}) {
         if (!turn) return;
@@ -296,7 +276,7 @@ class ListenService {
         const timestamp = meta.timestamp || Date.now();
         const provider = meta.provider || turn.provider || null;
 
-        const mergedFinal = this.mergeTexts(turn.partialText || '', text);
+        const mergedFinal = text;
         turn.partialText = mergedFinal;
         turn.finalText = mergedFinal;
         turn.status = 'completed';
@@ -414,7 +394,7 @@ class ListenService {
         const normalizedSpeaker = speaker === 'Me' ? 'Me' : 'Them';
         const activeTurn = this.activeTurns[normalizedSpeaker];
         const cleanedText = this.normalizeTextForSpeaker(speaker, text, activeTurn);
-        const aggregatedText = this.mergeTexts(activeTurn?.partialText || '', cleanedText);
+        const aggregatedText = cleanedText;
 
         this.finalizeTurn(speaker, aggregatedText, {
             timestamp: Date.now(),
@@ -437,7 +417,7 @@ class ListenService {
 
         const turn = this.getOrCreateActiveTurn(speaker);
         const normalizedText = this.normalizeTextForSpeaker(speaker, partial.text, turn);
-        const mergedPartial = this.mergeTexts(turn.partialText || '', normalizedText);
+        const mergedPartial = normalizedText;
         const hasMeaningfulText = mergedPartial && mergedPartial.trim().length > 0;
         const partialChanged = mergedPartial !== turn.partialText;
 
