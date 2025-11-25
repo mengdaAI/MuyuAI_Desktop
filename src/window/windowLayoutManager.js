@@ -65,6 +65,34 @@ class WindowLayoutManager {
         return { x: Math.round(clampedX), y: Math.round(clampedY) };
     }
 
+    /**
+     * @returns {{x: number, y: number, width: number, height: number} | null}
+     */
+    calculateMainWindowPosition() {
+        const header = this.windowPool.get('header');
+        const mainWin = this.windowPool.get('main');
+
+        if (!header || header.isDestroyed() || !mainWin || mainWin.isDestroyed()) {
+            return null;
+        }
+
+        const headerBounds = header.getBounds();
+        const mainBounds = mainWin.getBounds();
+        const display = getCurrentDisplay(header);
+        const { x: workAreaX, y: workAreaY, width: screenWidth, height: screenHeight } = display.workArea;
+
+        const PAD = 10;
+        const headerCenterX = headerBounds.x + headerBounds.width / 2;
+
+        const x = headerCenterX - mainBounds.width / 2;
+        const y = headerBounds.y + headerBounds.height + PAD;
+
+        const clampedX = Math.max(workAreaX + 10, Math.min(workAreaX + screenWidth - mainBounds.width - 10, x));
+        const clampedY = Math.max(workAreaY + 10, Math.min(workAreaY + screenHeight - mainBounds.height - 10, y));
+
+        return { x: Math.round(clampedX), y: Math.round(clampedY), width: mainBounds.width, height: mainBounds.height };
+    }
+
 
     calculateHeaderResize(header, { width, height }) {
         if (!header) return null;
@@ -76,7 +104,7 @@ class WindowLayoutManager {
         const clampedX = Math.max(workAreaX, Math.min(workAreaX + workAreaWidth - width, newX));
         return { x: clampedX, y: currentBounds.y, width, height };
     }
-    
+
     calculateClampedPosition(header, { x: newX, y: newY }) {
         if (!header) return null;
         const targetDisplay = screen.getDisplayNearestPoint({ x: newX, y: newY });
@@ -86,7 +114,7 @@ class WindowLayoutManager {
         const clampedY = Math.max(workAreaY, Math.min(newY, workAreaY + height - headerBounds.height));
         return { x: clampedX, y: clampedY };
     }
-    
+
     calculateWindowHeightAdjustment(senderWindow, targetHeight) {
         if (!senderWindow) return null;
         const currentBounds = senderWindow.getBounds();
@@ -99,8 +127,8 @@ class WindowLayoutManager {
         // console.log(`[Layout Debug] calculateWindowHeightAdjustment: targetHeight=${targetHeight}`);
         return { ...currentBounds, height: adjustedHeight };
     }
-    
-// Replace the original getTargetBoundsForFeatureWindows with this function.
+
+    // Replace the original getTargetBoundsForFeatureWindows with this function.
     calculateFeatureWindowLayout(visibility, headerBoundsOverride = null) {
         const header = this.windowPool.get('header');
         const headerBounds = headerBoundsOverride || (header ? header.getBounds() : null);
@@ -145,13 +173,15 @@ class WindowLayoutManager {
 
         if (listenVis) {
             const listenBounds = listen.getBounds();
-            const alignedY = clampY(targetTop, listenBounds.height);
+            // Force height to match header, with a minimum of 640px to match MainHeader's min-height
+            const targetHeight = Math.max(headerBounds.height, 640);
+            const alignedY = clampY(targetTop, targetHeight);
             const alignedX = clampX(headerLeft - listenBounds.width, listenBounds.width);
             layout.listen = {
                 x: Math.round(alignedX),
                 y: Math.round(alignedY),
                 width: listenBounds.width,
-                height: listenBounds.height,
+                height: targetHeight,
             };
         }
 
@@ -169,51 +199,51 @@ class WindowLayoutManager {
 
         return layout;
     }
-    
+
     calculateShortcutSettingsWindowPosition() {
         const header = this.windowPool.get('header');
         const shortcutSettings = this.windowPool.get('shortcut-settings');
         if (!header || !shortcutSettings) return null;
-    
+
         const headerBounds = header.getBounds();
         const shortcutBounds = shortcutSettings.getBounds();
         const { workArea } = getCurrentDisplay(header);
-    
+
         let newX = Math.round(headerBounds.x + (headerBounds.width / 2) - (shortcutBounds.width / 2));
         let newY = Math.round(headerBounds.y);
-    
+
         newX = Math.max(workArea.x, Math.min(newX, workArea.x + workArea.width - shortcutBounds.width));
         newY = Math.max(workArea.y, Math.min(newY, workArea.y + workArea.height - shortcutBounds.height));
-    
+
         return { x: newX, y: newY, width: shortcutBounds.width, height: shortcutBounds.height };
     }
 
     calculateStepMovePosition(header, direction) {
         if (!header) return null;
         const currentBounds = header.getBounds();
-const stepSize = 80; // Movement step size
+        const stepSize = 80; // Movement step size
         let targetX = currentBounds.x;
         let targetY = currentBounds.y;
-    
+
         switch (direction) {
             case 'left': targetX -= stepSize; break;
             case 'right': targetX += stepSize; break;
             case 'up': targetY -= stepSize; break;
             case 'down': targetY += stepSize; break;
         }
-    
+
         return this.calculateClampedPosition(header, { x: targetX, y: targetY });
     }
-    
+
     calculateEdgePosition(header, direction) {
         if (!header) return null;
         const display = getCurrentDisplay(header);
         const { workArea } = display;
         const currentBounds = header.getBounds();
-    
+
         let targetX = currentBounds.x;
         let targetY = currentBounds.y;
-    
+
         switch (direction) {
             case 'left': targetX = workArea.x; break;
             case 'right': targetX = workArea.x + workArea.width - currentBounds.width; break;
@@ -222,30 +252,30 @@ const stepSize = 80; // Movement step size
         }
         return { x: targetX, y: targetY };
     }
-    
+
     calculateNewPositionForDisplay(window, targetDisplayId) {
         if (!window) return null;
-    
+
         const targetDisplay = screen.getAllDisplays().find(d => d.id === targetDisplayId);
         if (!targetDisplay) return null;
-    
+
         const currentBounds = window.getBounds();
         const currentDisplay = getCurrentDisplay(window);
-    
+
         if (currentDisplay.id === targetDisplay.id) return { x: currentBounds.x, y: currentBounds.y };
-    
+
         const relativeX = (currentBounds.x - currentDisplay.workArea.x) / currentDisplay.workArea.width;
         const relativeY = (currentBounds.y - currentDisplay.workArea.y) / currentDisplay.workArea.height;
-        
+
         const targetX = targetDisplay.workArea.x + targetDisplay.workArea.width * relativeX;
         const targetY = targetDisplay.workArea.y + targetDisplay.workArea.height * relativeY;
-    
+
         const clampedX = Math.max(targetDisplay.workArea.x, Math.min(targetX, targetDisplay.workArea.x + targetDisplay.workArea.width - currentBounds.width));
         const clampedY = Math.max(targetDisplay.workArea.y, Math.min(targetY, targetDisplay.workArea.y + targetDisplay.workArea.height - currentBounds.height));
-    
+
         return { x: Math.round(clampedX), y: Math.round(clampedY) };
     }
-    
+
     /**
      * @param {Rectangle} bounds1
      * @param {Rectangle} bounds2

@@ -5,6 +5,8 @@ export class LiveAnswerView extends LitElement {
         :host {
             display: block;
             width: 100%;
+            height: 100%;
+            overflow: hidden;
         }
 
         .answers-container {
@@ -12,7 +14,8 @@ export class LiveAnswerView extends LitElement {
             flex-direction: column;
             gap: 12px;
             padding: 12px 16px 16px 16px;
-            max-height: 600px;
+            height: 100%;
+            max-height: none;
             overflow-y: auto;
             box-sizing: border-box;
         }
@@ -134,6 +137,7 @@ export class LiveAnswerView extends LitElement {
 
     connectedCallback() {
         super.connectedCallback();
+        console.log('[LiveAnswerView] Connected');
         if (window.api?.liveInsights) {
             window.api.liveInsights.onTurnUpdate(this._handleTurnUpdate);
             window.api.liveInsights.onLiveAnswer(this._handleLiveAnswer);
@@ -193,6 +197,7 @@ export class LiveAnswerView extends LitElement {
     }
 
     _handleTurnUpdate(_, payload) {
+        console.log('[LiveAnswerView] Turn update:', payload);
         if (!payload || payload.speaker !== 'Them') return;
 
         const existing = this._turnMap.get(payload.id) || {
@@ -226,6 +231,7 @@ export class LiveAnswerView extends LitElement {
     }
 
     _handleLiveAnswer(_, payload) {
+        console.log('[LiveAnswerView] Live answer:', payload);
         if (!payload || !payload.turnId) return;
 
         const existing = this._turnMap.get(payload.turnId);

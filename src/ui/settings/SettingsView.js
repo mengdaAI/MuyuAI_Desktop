@@ -534,7 +534,6 @@ export class SettingsView extends LitElement {
         // Whisper related
         this.whisperModels = [];
         this.whisperProgressTracker = null; // Will be initialized when needed
-        this.handleUsePicklesKey = this.handleUsePicklesKey.bind(this)
         this.autoUpdateEnabled = true;
         this.autoUpdateLoading = true;
         this.loadInitialData();
@@ -583,7 +582,7 @@ export class SettingsView extends LitElement {
                 this.ollamaStatus = { installed: ollamaStatus.installed, running: ollamaStatus.running };
                 this.ollamaModels = ollamaStatus.models || [];
             }
-            
+
             // Load Whisper models status only if Whisper is enabled
             if (this.apiKeys?.whisper === 'local') {
                 const whisperModelsResult = await window.api.settingsView.getWhisperInstalledModels();
@@ -599,7 +598,7 @@ export class SettingsView extends LitElement {
                     }
                 }
             }
-            
+
             // Trigger UI update
             this.requestUpdate();
         } catch (error) {
@@ -620,9 +619,9 @@ export class SettingsView extends LitElement {
                 window.api.settingsView.getContentProtectionStatus(),
                 window.api.settingsView.getCurrentShortcuts()
             ]);
-            
+
             if (userState && userState.isLoggedIn) this.firebaseUser = userState;
-            
+
             if (modelSettings.success) {
                 const { config, storedKeys, availableLlm, availableStt, selectedModels } = modelSettings.data;
                 this.providerConfig = config;
@@ -640,7 +639,7 @@ export class SettingsView extends LitElement {
                 const firstUserPreset = this.presets.find(p => p.is_default === 0);
                 if (firstUserPreset) this.selectedPreset = firstUserPreset;
             }
-            
+
             // Load LocalAI status asynchronously to improve initial load time
             this.loadLocalAIStatus();
         } catch (error) {
@@ -655,11 +654,11 @@ export class SettingsView extends LitElement {
         const input = this.shadowRoot.querySelector(`#key-input-${provider}`);
         if (!input) return;
         const key = input.value;
-        
+
         // For Ollama, we need to ensure it's ready first
         if (provider === 'ollama') {
-        this.saving = true;
-            
+            this.saving = true;
+
             // First ensure Ollama is installed and running
             const ensureResult = await window.api.settingsView.ensureOllamaReady();
             if (!ensureResult.success) {
@@ -667,10 +666,10 @@ export class SettingsView extends LitElement {
                 this.saving = false;
                 return;
             }
-            
+
             // Now validate (which will check if service is running)
             const result = await window.api.settingsView.validateKey({ provider, key: 'local' });
-            
+
             if (result.success) {
                 await this.refreshModelData();
                 await this.refreshOllamaStatus();
@@ -680,12 +679,12 @@ export class SettingsView extends LitElement {
             this.saving = false;
             return;
         }
-        
+
         // For Whisper, just enable it
         if (provider === 'whisper') {
             this.saving = true;
             const result = await window.api.settingsView.validateKey({ provider, key: 'local' });
-            
+
             if (result.success) {
                 await this.refreshModelData();
             } else {
@@ -694,11 +693,11 @@ export class SettingsView extends LitElement {
             this.saving = false;
             return;
         }
-        
+
         // For other providers, use the normal flow
         this.saving = true;
         const result = await window.api.settingsView.validateKey({ provider, key });
-        
+
         if (result.success) {
             await this.refreshModelData();
         } else {
@@ -707,7 +706,7 @@ export class SettingsView extends LitElement {
         }
         this.saving = false;
     }
-    
+
     async handleClearKey(provider) {
         console.log(`[SettingsView] handleClearKey: ${provider}`);
         this.saving = true;
@@ -731,24 +730,24 @@ export class SettingsView extends LitElement {
         this.apiKeys = storedKeys;
         this.requestUpdate();
     }
-    
+
     async toggleModelList(type) {
         const visibilityProp = type === 'llm' ? 'isLlmListVisible' : 'isSttListVisible';
 
         if (!this[visibilityProp]) {
             this.saving = true;
             this.requestUpdate();
-            
+
             await this.refreshModelData();
 
             this.saving = false;
         }
 
-// After data refresh, toggle list visibility.
+        // After data refresh, toggle list visibility.
         this[visibilityProp] = !this[visibilityProp];
         this.requestUpdate();
     }
-    
+
     async selectModel(type, modelId) {
         // Check if this is an Ollama model that needs to be installed
         const provider = this.getProviderForModel(type, modelId);
@@ -760,18 +759,18 @@ export class SettingsView extends LitElement {
                 return;
             }
         }
-        
+
         // Check if this is a Whisper model that needs to be downloaded
         if (provider === 'whisper' && type === 'stt') {
             const isInstalling = this.installingModels[modelId] !== undefined;
             const whisperModelInfo = this.providerConfig.whisper.sttModels.find(m => m.id === modelId);
-            
+
             if (whisperModelInfo && !whisperModelInfo.installed && !isInstalling) {
                 await this.downloadWhisperModel(modelId);
                 return;
             }
         }
-        
+
         this.saving = true;
         await window.api.settingsView.setSelectedModel({ type, modelId });
         if (type === 'llm') this.selectedLlm = modelId;
@@ -781,7 +780,7 @@ export class SettingsView extends LitElement {
         this.saving = false;
         this.requestUpdate();
     }
-    
+
     async refreshOllamaStatus() {
         const ollamaStatus = await window.api.settingsView.getOllamaStatus();
         if (ollamaStatus?.success) {
@@ -789,14 +788,14 @@ export class SettingsView extends LitElement {
             this.ollamaModels = ollamaStatus.models || [];
         }
     }
-    
+
     async installOllamaModel(modelName) {
         try {
-// Start Ollama model download
+            // Start Ollama model download
             this.installingModels = { ...this.installingModels, [modelName]: 0 };
             this.requestUpdate();
 
-// Set up progress listener - using unified LocalAI events
+            // Set up progress listener - using unified LocalAI events
             const progressHandler = (event, data) => {
                 if (data.service === 'ollama' && data.model === modelName) {
                     this.installingModels = { ...this.installingModels, [modelName]: data.progress || 0 };
@@ -804,25 +803,25 @@ export class SettingsView extends LitElement {
                 }
             };
 
-// Register unified LocalAI event listeners
+            // Register unified LocalAI event listeners
             window.api.settingsView.onLocalAIInstallProgress(progressHandler);
 
             try {
                 const result = await window.api.settingsView.pullOllamaModel(modelName);
-                
+
                 if (result.success) {
                     console.log(`[SettingsView] Model ${modelName} installed successfully`);
                     delete this.installingModels[modelName];
                     this.requestUpdate();
-                    
-// Refresh state
+
+                    // Refresh state
                     await this.refreshOllamaStatus();
                     await this.refreshModelData();
                 } else {
                     throw new Error(result.error || 'Installation failed');
                 }
             } finally {
-// Remove unified LocalAI event listeners
+                // Remove unified LocalAI event listeners
                 window.api.settingsView.removeOnLocalAIInstallProgress(progressHandler);
             }
         } catch (error) {
@@ -831,26 +830,26 @@ export class SettingsView extends LitElement {
             this.requestUpdate();
         }
     }
-    
+
     async downloadWhisperModel(modelId) {
         // Mark as installing
         this.installingModels = { ...this.installingModels, [modelId]: 0 };
         this.requestUpdate();
-        
+
         try {
-// Set up progress listener - using unified LocalAI events
+            // Set up progress listener - using unified LocalAI events
             const progressHandler = (event, data) => {
                 if (data.service === 'whisper' && data.model === modelId) {
                     this.installingModels = { ...this.installingModels, [modelId]: data.progress || 0 };
                     this.requestUpdate();
                 }
             };
-            
+
             window.api.settingsView.onLocalAIInstallProgress(progressHandler);
-            
+
             // Start download
             const result = await window.api.settingsView.downloadWhisperModel(modelId);
-            
+
             if (result.success) {
                 // Update the model's installed status
                 if (this.providerConfig?.whisper?.sttModels) {
@@ -859,14 +858,14 @@ export class SettingsView extends LitElement {
                         modelInfo.installed = true;
                     }
                 }
-                
+
                 // Remove from installing models
                 delete this.installingModels[modelId];
                 this.requestUpdate();
-                
+
                 // Reload LocalAI status to get fresh data
                 await this.loadLocalAIStatus();
-                
+
                 // Auto-select the model after download
                 await this.selectModel('stt', modelId);
             } else {
@@ -875,7 +874,7 @@ export class SettingsView extends LitElement {
                 this.requestUpdate();
                 alert(`Failed to download Whisper model: ${result.error}`);
             }
-            
+
             // Cleanup
             window.api.settingsView.removeOnLocalAIInstallProgress(progressHandler);
         } catch (error) {
@@ -886,7 +885,7 @@ export class SettingsView extends LitElement {
             alert(`Error downloading ${modelId}: ${error.message}`);
         }
     }
-    
+
     getProviderForModel(type, modelId) {
         for (const [providerId, config] of Object.entries(this.providerConfig)) {
             const models = type === 'llm' ? config.llmModels : config.sttModels;
@@ -898,13 +897,7 @@ export class SettingsView extends LitElement {
     }
 
 
-    handleUsePicklesKey(e) {
-        e.preventDefault()
-        if (this.wasJustDragged) return
-    
-        console.log("Requesting Firebase authentication from main process...")
-        window.api.settingsView.startFirebaseAuth();
-    }
+
     //////// after_modelStateService ////////
 
     openShortcutEditor() {
@@ -913,7 +906,7 @@ export class SettingsView extends LitElement {
 
     connectedCallback() {
         super.connectedCallback();
-        
+
         this.setupEventListeners();
         this.setupIpcListeners();
         this.setupWindowResize();
@@ -927,7 +920,7 @@ export class SettingsView extends LitElement {
         this.cleanupEventListeners();
         this.cleanupIpcListeners();
         this.cleanupWindowResize();
-        
+
         // Cancel any ongoing Ollama installations when component is destroyed
         const installingModels = Object.keys(this.installingModels);
         if (installingModels.length > 0) {
@@ -949,7 +942,7 @@ export class SettingsView extends LitElement {
 
     setupIpcListeners() {
         if (!window.api) return;
-        
+
         this._userStateListener = (event, userState) => {
             console.log('[SettingsView] Received user-state-changed:', userState);
             if (userState && userState.isLoggedIn) {
@@ -961,26 +954,26 @@ export class SettingsView extends LitElement {
             // Reload model settings when user state changes (Firebase login/logout)
             this.loadInitialData();
         };
-        
+
         this._settingsUpdatedListener = (event, settings) => {
             console.log('[SettingsView] Received settings-updated');
             this.settings = settings;
             this.requestUpdate();
         };
 
-// Add preset update listener
+        // Add preset update listener
         this._presetsUpdatedListener = async (event) => {
             console.log('[SettingsView] Received presets-updated, refreshing presets');
             try {
                 const presets = await window.api.settingsView.getPresets();
                 this.presets = presets || [];
-                
-// Check whether the selected preset was deleted (user presets only)
+
+                // Check whether the selected preset was deleted (user presets only)
                 const userPresets = this.presets.filter(p => p.is_default === 0);
                 if (this.selectedPreset && !userPresets.find(p => p.id === this.selectedPreset.id)) {
                     this.selectedPreset = userPresets.length > 0 ? userPresets[0] : null;
                 }
-                
+
                 this.requestUpdate();
             } catch (error) {
                 console.error('[SettingsView] Failed to refresh presets:', error);
@@ -990,7 +983,7 @@ export class SettingsView extends LitElement {
             console.log('[SettingsView] Received updated shortcuts:', keybinds);
             this.shortcuts = keybinds;
         };
-        
+
         window.api.settingsView.onUserStateChanged(this._userStateListener);
         window.api.settingsView.onSettingsUpdated(this._settingsUpdatedListener);
         window.api.settingsView.onPresetsUpdated(this._presetsUpdatedListener);
@@ -999,7 +992,7 @@ export class SettingsView extends LitElement {
 
     cleanupIpcListeners() {
         if (!window.api) return;
-        
+
         if (this._userStateListener) {
             window.api.settingsView.removeOnUserStateChanged(this._userStateListener);
         }
@@ -1020,7 +1013,7 @@ export class SettingsView extends LitElement {
             this.updateScrollHeight();
         };
         window.addEventListener('resize', this.resizeHandler);
-        
+
         // Initial setup
         setTimeout(() => this.updateScrollHeight(), 100);
     }
@@ -1032,9 +1025,9 @@ export class SettingsView extends LitElement {
     }
 
     updateScrollHeight() {
-// Guard against Electron bug where window.innerHeight reports 0 at times
+        // Guard against Electron bug where window.innerHeight reports 0 at times
         const rawHeight = window.innerHeight || (window.screen ? window.screen.height : 0);
-const MIN_HEIGHT = 300; // Minimum guaranteed height
+        const MIN_HEIGHT = 300; // Minimum guaranteed height
         const maxHeight = Math.max(MIN_HEIGHT, rawHeight);
 
         this.style.maxHeight = `${maxHeight}px`;
@@ -1067,17 +1060,17 @@ const MIN_HEIGHT = 300; // Minimum guaranteed height
 
     renderShortcutKeys(accelerator) {
         if (!accelerator) return html`N/A`;
-        
+
         const keyMap = {
             'Cmd': '⌘', 'Command': '⌘', 'Ctrl': '⌃', 'Alt': '⌥', 'Shift': '⇧', 'Enter': '↵',
             'Up': '↑', 'Down': '↓', 'Left': '←', 'Right': '→'
         };
 
-// Special handling for scrollDown/scrollUp
+        // Special handling for scrollDown/scrollUp
         if (accelerator.includes('↕')) {
-            const keys = accelerator.replace('↕','').split('+');
+            const keys = accelerator.replace('↕', '').split('+');
             keys.push('↕');
-             return html`${keys.map(key => html`<span class="shortcut-key">${keyMap[key] || key}</span>`)}`;
+            return html`${keys.map(key => html`<span class="shortcut-key">${keyMap[key] || key}</span>`)}`;
         }
 
         const keys = accelerator.split('+');
@@ -1104,14 +1097,7 @@ const MIN_HEIGHT = 300; // Minimum guaranteed height
         window.api.settingsView.moveWindowStep('right');
     }
 
-    async handlePersonalize() {
-        console.log('Personalize clicked');
-        try {
-            await window.api.settingsView.openPersonalizePage();
-        } catch (error) {
-            console.error('Failed to open personalize page:', error);
-        }
-    }
+
 
     async handleToggleInvisibility() {
         console.log('Toggle Invisibility clicked');
@@ -1131,9 +1117,9 @@ const MIN_HEIGHT = 300; // Minimum guaranteed height
                 this.apiKey = newApiKey;
                 this.requestUpdate();
             } else {
-                 console.error('Failed to save API Key via IPC:', result.error);
+                console.error('Failed to save API Key via IPC:', result.error);
             }
-        } catch(e) {
+        } catch (e) {
             console.error('Error invoking save-api-key IPC:', e);
         }
     }
@@ -1161,23 +1147,20 @@ const MIN_HEIGHT = 300; // Minimum guaranteed height
         }
     }
 
-    handleFirebaseLogout() {
-        console.log('Firebase Logout clicked');
-        window.api.settingsView.firebaseLogout();
-    }
+
 
     async handleOllamaShutdown() {
         console.log('[SettingsView] Shutting down Ollama service...');
-        
+
         if (!window.api) return;
-        
+
         try {
             // Show loading state
             this.ollamaStatus = { ...this.ollamaStatus, running: false };
             this.requestUpdate();
-            
+
             const result = await window.api.settingsView.shutdownOllama(false); // Graceful shutdown
-            
+
             if (result.success) {
                 console.log('[SettingsView] Ollama shut down successfully');
                 // Refresh status to reflect the change
@@ -1212,11 +1195,11 @@ const MIN_HEIGHT = 300; // Minimum guaranteed height
         const apiKeyManagementHTML = html`
             <div class="api-key-section">
                 ${Object.entries(this.providerConfig)
-                    .filter(([id, config]) => !id.includes('-glass'))
-                    .map(([id, config]) => {
-                        if (id === 'ollama') {
-                            // Special UI for Ollama
-                            return html`
+                .filter(([id, config]) => !id.includes('-glass'))
+                .map(([id, config]) => {
+                    if (id === 'ollama') {
+                        // Special UI for Ollama
+                        return html`
                                 <div class="provider-key-group">
                                     <label>${config.name} (Local)</label>
                                     ${this.ollamaStatus.installed && this.ollamaStatus.running ? html`
@@ -1243,11 +1226,11 @@ const MIN_HEIGHT = 300; // Minimum guaranteed height
                                     `}
                                 </div>
                             `;
-                        }
-                        
-                        if (id === 'whisper') {
-                            // Simplified UI for Whisper without model selection
-                            return html`
+                    }
+
+                    if (id === 'whisper') {
+                        // Simplified UI for Whisper without model selection
+                        return html`
                                 <div class="provider-key-group">
                                     <label>${config.name} (Local STT)</label>
                                     ${this.apiKeys[id] === 'local' ? html`
@@ -1264,10 +1247,10 @@ const MIN_HEIGHT = 300; // Minimum guaranteed height
                                     `}
                                 </div>
                             `;
-                        }
-                        
-                        // Regular providers
-                        return html`
+                    }
+
+                    // Regular providers
+                    return html`
                         <div class="provider-key-group">
                             <label for="key-input-${id}">${config.name} API Key</label>
                             <input type="password" id="key-input-${id}"
@@ -1280,10 +1263,10 @@ const MIN_HEIGHT = 300; // Minimum guaranteed height
                             </div>
                         </div>
                         `;
-                    })}
+                })}
             </div>
         `;
-        
+
         const getModelName = (type, id) => {
             const models = type === 'llm' ? this.availableLlmModels : this.availableSttModels;
             const model = models.find(m => m.id === id);
@@ -1300,12 +1283,12 @@ const MIN_HEIGHT = 300; // Minimum guaranteed height
                     ${this.isLlmListVisible ? html`
                         <div class="model-list">
                             ${this.availableLlmModels.map(model => {
-                                const isOllama = this.getProviderForModel('llm', model.id) === 'ollama';
-                                const ollamaModel = isOllama ? this.ollamaModels.find(m => m.name === model.id) : null;
-                                const isInstalling = this.installingModels[model.id] !== undefined;
-                                const installProgress = this.installingModels[model.id] || 0;
-                                
-                                return html`
+            const isOllama = this.getProviderForModel('llm', model.id) === 'ollama';
+            const ollamaModel = isOllama ? this.ollamaModels.find(m => m.name === model.id) : null;
+            const isInstalling = this.installingModels[model.id] !== undefined;
+            const installProgress = this.installingModels[model.id] || 0;
+
+            return html`
                                     <div class="model-item ${this.selectedLlm === model.id ? 'selected' : ''}" 
                                          @click=${() => this.selectModel('llm', model.id)}>
                                         <span>${model.name}</span>
@@ -1322,7 +1305,7 @@ const MIN_HEIGHT = 300; // Minimum guaranteed height
                                         ` : ''}
                                     </div>
                                 `;
-                            })}
+        })}
                         </div>
                     ` : ''}
                 </div>
@@ -1334,14 +1317,14 @@ const MIN_HEIGHT = 300; // Minimum guaranteed height
                     ${this.isSttListVisible ? html`
                         <div class="model-list">
                             ${this.availableSttModels.map(model => {
-                                const isWhisper = this.getProviderForModel('stt', model.id) === 'whisper';
-                                const whisperModel = isWhisper && this.providerConfig?.whisper?.sttModels 
-                                    ? this.providerConfig.whisper.sttModels.find(m => m.id === model.id) 
-                                    : null;
-                                const isInstalling = this.installingModels[model.id] !== undefined;
-                                const installProgress = this.installingModels[model.id] || 0;
-                                
-                                return html`
+            const isWhisper = this.getProviderForModel('stt', model.id) === 'whisper';
+            const whisperModel = isWhisper && this.providerConfig?.whisper?.sttModels
+                ? this.providerConfig.whisper.sttModels.find(m => m.id === model.id)
+                : null;
+            const isInstalling = this.installingModels[model.id] !== undefined;
+            const installProgress = this.installingModels[model.id] || 0;
+
+            return html`
                                     <div class="model-item ${this.selectedStt === model.id ? 'selected' : ''}" 
                                          @click=${() => this.selectModel('stt', model.id)}>
                                         <span>${model.name}</span>
@@ -1358,7 +1341,7 @@ const MIN_HEIGHT = 300; // Minimum guaranteed height
                                         ` : ''}
                                     </div>
                                 `;
-                            })}
+        })}
                         </div>
                     ` : ''}
                 </div>
@@ -1372,9 +1355,9 @@ const MIN_HEIGHT = 300; // Minimum guaranteed height
                         <h1 class="app-title">幕语AI</h1>
                         <div class="account-info">
                             ${this.firebaseUser
-                                ? html`Account: ${this.firebaseUser.email || 'Logged In'}`
-                                : `Account: Not Logged In`
-                            }
+                ? html`Account: ${this.firebaseUser.email || 'Logged In'}`
+                : `Account: Not Logged In`
+            }
                         </div>
                     </div>
                 </div>
@@ -1412,9 +1395,6 @@ const MIN_HEIGHT = 300; // Minimum guaranteed height
                         ${this.presets.filter(p => p.is_default === 0).length === 0 ? html`
                             <div class="no-presets-message">
                                 No custom presets yet.<br>
-                                <span class="web-link" @click=${this.handlePersonalize}>
-                                    Create your first preset
-                                </span>
                             </div>
                         ` : this.presets.filter(p => p.is_default === 0).map(preset => html`
                             <div class="preset-item ${this.selectedPreset?.id === preset.id ? 'selected' : ''}"
@@ -1445,18 +1425,6 @@ const MIN_HEIGHT = 300; // Minimum guaranteed height
                     </button>
                     
                     <div class="bottom-buttons">
-                        ${this.firebaseUser
-                            ? html`
-                                <button class="settings-button half-width danger" @click=${this.handleFirebaseLogout}>
-                                    <span>Logout</span>
-                                </button>
-                                `
-                            : html`
-                                <button class="settings-button half-width" @click=${this.handleUsePicklesKey}>
-                                    <span>Login</span>
-                                </button>
-                                `
-                        }
                         <button class="settings-button half-width danger" @click=${this.handleQuit}>
                             <span>结束面试</span>
                         </button>

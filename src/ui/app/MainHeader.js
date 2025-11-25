@@ -39,7 +39,7 @@ export class MainHeader extends LitElement {
             position: relative;
             width: 72px;
             min-height: 640px;
-            border-radius: 28px;
+            border-radius: 0 28px 28px 0; /* Square left, rounded right */
             padding: 20px 12px 24px;
             box-sizing: border-box;
             display: flex;
@@ -47,7 +47,8 @@ export class MainHeader extends LitElement {
             justify-content: space-between;
             align-items: center;
             gap: 28px;
-            background: linear-gradient(180deg, rgba(18, 10, 28, 0.95), rgba(24, 12, 36, 0.92));
+            background: linear-gradient(180deg, rgba(30, 20, 40, 0.95), rgba(20, 10, 30, 0.98)); /* Match ListenView */
+            border-left: 1px solid rgba(255, 255, 255, 0.1); /* Subtle separator */
             box-shadow: none;
             overflow: hidden;
             -webkit-app-region: drag;
@@ -280,9 +281,9 @@ export class MainHeader extends LitElement {
     _getListenButtonText(status) {
         switch (status) {
             case 'beforeSession': return 'Listen';
-            case 'inSession'   : return 'Stop';
+            case 'inSession': return 'Stop';
             case 'afterSession': return 'Done';
-            default            : return 'Listen';
+            default: return 'Listen';
         }
     }
 
@@ -290,7 +291,7 @@ export class MainHeader extends LitElement {
         // Ignore mousedown originating from interactive controls to prevent accidental drag
         const interactiveSelector =
             '.listen-toggle, .rail-button, .settings-button, .action-rail, .settings-icon';
-        if (e.target.closest(interactiveSelector) || ['BUTTON','INPUT','SELECT','A','SVG'].includes(e.target.tagName)) {
+        if (e.target.closest(interactiveSelector) || ['BUTTON', 'INPUT', 'SELECT', 'A', 'SVG'].includes(e.target.tagName)) {
             return;
         }
 
@@ -315,7 +316,7 @@ export class MainHeader extends LitElement {
 
         const deltaX = Math.abs(e.screenX - this.dragState.initialMouseX);
         const deltaY = Math.abs(e.screenY - this.dragState.initialMouseY);
-        
+
         if (deltaX > 3 || deltaY > 3) {
             this.dragState.moved = true;
         }
@@ -347,14 +348,14 @@ export class MainHeader extends LitElement {
             console.log('[MainHeader] Animation already in progress, ignoring toggle');
             return;
         }
-        
+
         if (this.animationEndTimer) {
             clearTimeout(this.animationEndTimer);
             this.animationEndTimer = null;
         }
-        
+
         this.isAnimating = true;
-        
+
         if (this.isVisible) {
             this.hide();
         } else {
@@ -366,17 +367,17 @@ export class MainHeader extends LitElement {
         this.classList.remove('showing');
         this.classList.add('hiding');
     }
-    
+
     show() {
         this.classList.remove('hiding', 'hidden');
         this.classList.add('showing');
     }
-    
+
     handleAnimationEnd(e) {
         if (e.target !== this) return;
-    
+
         this.isAnimating = false;
-    
+
         if (this.classList.contains('hiding')) {
             this.classList.add('hidden');
             if (window.api) {
@@ -493,7 +494,7 @@ export class MainHeader extends LitElement {
                 } else {
                     this.listenSessionStatus = 'beforeSession';
                 }
-        this.isTogglingSession = false; // ✨ Only clear loading state
+                this.isTogglingSession = false; // ✨ Only clear loading state
             };
             window.api.mainHeader.onListenChangeSessionResult(this._sessionStateTextListener);
 
@@ -504,7 +505,7 @@ export class MainHeader extends LitElement {
             window.api.mainHeader.onShortcutsUpdated(this._shortcutListener);
         }
 
-        this.updateComplete.then(() => this._initializeResizeObserver()).catch(() => {});
+        this.updateComplete.then(() => this._initializeResizeObserver()).catch(() => { });
     }
 
     disconnectedCallback() {
@@ -522,12 +523,12 @@ export class MainHeader extends LitElement {
         this._resizeTarget = null;
         this._pendingResizeSize = null;
         this._lastDispatchedSize = null;
-        
+
         if (this.animationEndTimer) {
             clearTimeout(this.animationEndTimer);
             this.animationEndTimer = null;
         }
-        
+
         if (window.api) {
             if (this._sessionStateTextListener) {
                 window.api.mainHeader.removeOnListenChangeSessionResult(this._sessionStateTextListener);
@@ -755,8 +756,8 @@ export class MainHeader extends LitElement {
             listenButtonText === 'Stop'
                 ? '停止聆听'
                 : listenButtonText === 'Done'
-                ? '结束聆听'
-                : '开始聆听';
+                    ? '结束聆听'
+                    : '开始聆听';
 
         return html`
             <div class="rail-panel state-${panelState}" @mousedown=${this.handleMouseDown}>
@@ -769,16 +770,16 @@ export class MainHeader extends LitElement {
                         aria-label=${listenTitle}
                     >
                         ${this.isTogglingSession
-                            ? html`<div class="loader"></div>`
-                            : hasCompleted
-                            ? html`
+                ? html`<div class="loader"></div>`
+                : hasCompleted
+                    ? html`
                                   <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2.5">
                                       <path d="M4 9.5l3.2 3.2L14 5.7" stroke-linecap="round" stroke-linejoin="round"></path>
                                   </svg>
                               `
-                            : isListening
-                            ? html`<svg viewBox="0 0 10 10" fill="currentColor"><rect width="10" height="10" rx="2" /></svg>`
-                            : html`
+                    : isListening
+                        ? html`<svg viewBox="0 0 10 10" fill="currentColor"><rect width="10" height="10" rx="2" /></svg>`
+                        : html`
                                   <svg viewBox="0 0 14 18" fill="none" stroke="currentColor" stroke-width="2">
                                       <rect x="2" y="2" width="3" height="14" rx="1"></rect>
                                       <rect x="9" y="2" width="3" height="14" rx="1"></rect>

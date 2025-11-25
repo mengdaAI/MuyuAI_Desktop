@@ -62,7 +62,7 @@ class ListenService {
         }
         try {
             console.log('[ListenService] Live insights turn state reset');
-        } catch (e) {}
+        } catch (e) { }
         this.sendToRenderer('listen:turn-state-reset', {});
     }
 
@@ -119,13 +119,7 @@ class ListenService {
     }
 
     showLiveInsightsView() {
-        const { windowPool } = require('../../window/windowManager');
-        const listenWindow = windowPool?.get('listen');
-        if (!listenWindow || listenWindow.isDestroyed()) {
-            internalBridge.emit('window:requestVisibility', { name: 'listen', visible: true });
-        } else if (!listenWindow.isVisible()) {
-            internalBridge.emit('window:requestVisibility', { name: 'listen', visible: true });
-        }
+        // We no longer force show the listen window as it is integrated into MainView
         this.sendToRenderer('listen:set-view', { view: 'live', insightsMode: 'live' });
     }
 
@@ -261,6 +255,14 @@ class ListenService {
                 event,
             };
             this.sendToRenderer('listen:partial-transcript', transcriptPayload);
+
+            // Also broadcast to stt-update channel for SttView
+            this.sendToRenderer('stt-update', {
+                speaker: turn.speaker,
+                text,
+                isFinal,
+                isPartial
+            });
         }
     }
 
@@ -333,9 +335,13 @@ class ListenService {
     sendToRenderer(channel, data) {
         const { windowPool } = require('../../window/windowManager');
         const listenWindow = windowPool?.get('listen');
-        
+        const mainWindow = windowPool?.get('main');
+
         if (listenWindow && !listenWindow.isDestroyed()) {
             listenWindow.webContents.send(channel, data);
+        }
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send(channel, data);
         }
     }
 
@@ -353,38 +359,34 @@ class ListenService {
             switch (listenButtonText) {
                 case 'Listen':
                     console.log('[ListenService] changeSession to "Listen"');
-                    internalBridge.emit('window:requestVisibility', { name: 'listen', visible: true });
+                    // internalBridge.emit('window:requestVisibility', { name: 'listen', visible: true });
                     await this.initializeSession();
-                    if (listenWindow && !listenWindow.isDestroyed()) {
-                        listenWindow.webContents.send('session-state-changed', { isActive: true });
-                    }
+                    this.sendToRenderer('session-state-changed', { isActive: true });
                     this.showLiveInsightsView();
                     break;
-        
+
                 case 'Stop':
                     console.log('[ListenService] changeSession to "Stop"');
                     await this.closeSession();
-                    if (listenWindow && !listenWindow.isDestroyed()) {
-                        listenWindow.webContents.send('session-state-changed', { isActive: false });
-                    }
+                    this.sendToRenderer('session-state-changed', { isActive: false });
                     break;
-        
+
                 case 'Done':
                     console.log('[ListenService] changeSession to "Done"');
-                    internalBridge.emit('window:requestVisibility', { name: 'listen', visible: false });
-                    listenWindow.webContents.send('session-state-changed', { isActive: false });
+                    // internalBridge.emit('window:requestVisibility', { name: 'listen', visible: false });
+                    this.sendToRenderer('session-state-changed', { isActive: false });
                     break;
-        
+
                 default:
                     throw new Error(`[ListenService] unknown listenButtonText: ${listenButtonText}`);
             }
-            
+
             header.webContents.send('listen:changeSessionResult', { success: true });
 
         } catch (error) {
             console.error('[ListenService] error in handleListenRequest:', error);
             header.webContents.send('listen:changeSessionResult', { success: false });
-            throw error; 
+            throw error;
         }
     }
 
@@ -400,10 +402,10 @@ class ListenService {
             timestamp: Date.now(),
             provider: this.sttService?.modelInfo?.provider || null,
         });
-        
+
         // Save to database
         await this.saveConversationTurn(speaker, aggregatedText);
-        
+
         // Add to summary service for analysis
         this.summaryService.addConversationTurn(speaker, aggregatedText);
     }
@@ -441,7 +443,7 @@ class ListenService {
                 text: mergedPartial.slice(0, 120),
                 turnId: turn.id,
             });
-        } catch (e) {}
+        } catch (e) { }
 
         this.emitTurnUpdate(turn, {
             text: mergedPartial,
@@ -482,13 +484,13 @@ class ListenService {
                 // This case should ideally not happen as authService initializes a default user.
                 throw new Error("Cannot initialize session: auth service not ready.");
             }
-            
+
             this.currentSessionId = await sessionRepository.getOrCreateActive('listen');
             console.log(`[DB] New listen session ensured: ${this.currentSessionId}`);
 
             // Set session ID for summary service
             this.summaryService.setSessionId(this.currentSessionId);
-            
+
             // Reset conversation history
             this.summaryService.resetConversationHistory();
             this.resetTurnState();
@@ -542,9 +544,9 @@ class ListenService {
             /* ------------------------------------------- */
 
             console.log('✅ Listen service initialized successfully.');
-            
+
             this.sendToRenderer('update-status', 'Connected. Ready to listen.');
-            
+
             return true;
         } catch (error) {
             console.error('❌ Failed to initialize listen service:', error);
@@ -621,9 +623,9 @@ class ListenService {
             try {
                 const result = await asyncFn.apply(this, args);
                 if (successMessage) console.log(successMessage);
-        // `startMacOSAudioCapture` does not return a { success, error } object on success,
-        // so we return a success object here for consistent handler responses.
-        // Other functions already return a success object.
+                // `startMacOSAudioCapture` does not return a { success, error } object on success,
+                // so we return a success object here for consistent handler responses.
+                // Other functions already return a success object.
                 return result && typeof result.success !== 'undefined' ? result : { success: true };
             } catch (e) {
                 console.error(errorMessage, e);
@@ -653,7 +655,7 @@ class ListenService {
         'macOS audio capture started.',
         'Error starting macOS audio capture:'
     );
-    
+
     handleStopMacosAudio = this._createHandler(
         this.stopMacOSAudioCapture,
         'macOS audio capture stopped.',

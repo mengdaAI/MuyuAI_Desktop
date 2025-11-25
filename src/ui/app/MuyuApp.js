@@ -3,10 +3,11 @@ import { SettingsView } from '../settings/SettingsView.js';
 import { ListenView } from '../listen/ListenView.js';
 import { AskView } from '../ask/AskView.js';
 import { ShortcutSettingsView } from '../settings/ShortCutSettingsView.js';
+import '../main/MainView.js';
 
 import '../listen/audioCore/renderer.js';
 
-export class PickleGlassApp extends LitElement {
+export class MuyuApp extends LitElement {
     static styles = css`
         :host {
             display: block;
@@ -45,7 +46,7 @@ export class PickleGlassApp extends LitElement {
         layoutMode: { type: String },
         _viewInstances: { type: Object, state: true },
         _isClickThrough: { state: true },
-        structuredData: { type: Object }, 
+        structuredData: { type: Object },
     };
 
     constructor() {
@@ -54,7 +55,7 @@ export class PickleGlassApp extends LitElement {
         this.currentView = urlParams.get('view') || 'listen';
         this.currentResponseIndex = -1;
         this.selectedProfile = localStorage.getItem('selectedProfile') || 'interview';
-        
+
         // Language format migration for legacy users
         let lang = localStorage.getItem('selectedLanguage') || 'en';
         if (lang.includes('-')) {
@@ -73,9 +74,9 @@ export class PickleGlassApp extends LitElement {
 
     connectedCallback() {
         super.connectedCallback();
-        
+
         if (window.api) {
-            window.api.pickleGlassApp.onClickThroughToggled((_, isEnabled) => {
+            window.api.muyuApp.onClickThroughToggled((_, isEnabled) => {
                 this._isClickThrough = isEnabled;
             });
         }
@@ -84,7 +85,7 @@ export class PickleGlassApp extends LitElement {
     disconnectedCallback() {
         super.disconnectedCallback();
         if (window.api) {
-            window.api.pickleGlassApp.removeAllClickThroughListeners();
+            window.api.muyuApp.removeAllClickThroughListeners();
         }
     }
 
@@ -128,6 +129,8 @@ export class PickleGlassApp extends LitElement {
 
     render() {
         switch (this.currentView) {
+            case 'main':
+                return html`<main-view></main-view>`;
             case 'listen':
                 return html`<listen-view
                     .currentResponseIndex=${this.currentResponseIndex}
@@ -158,4 +161,4 @@ export class PickleGlassApp extends LitElement {
     }
 }
 
-customElements.define('pickle-glass-app', PickleGlassApp);
+customElements.define('muyu-app', MuyuApp);
