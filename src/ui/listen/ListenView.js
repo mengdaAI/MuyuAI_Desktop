@@ -8,6 +8,8 @@ export class ListenView extends LitElement {
         :host {
             display: block;
             width: 400px;
+            height: 100%;
+            min-height: 640px; /* Match MainHeader min-height */
             transform: translate3d(0, 0, 0);
             backface-visibility: hidden;
             transition: transform 0.2s cubic-bezier(0.23, 1, 0.32, 1), opacity 0.2s ease-out;
@@ -28,123 +30,36 @@ export class ListenView extends LitElement {
             pointer-events: none;
         }
 
-
         * {
             font-family: 'Helvetica Neue', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             cursor: default;
             user-select: none;
         }
 
-/* Allow text selection in insights responses */
-.insights-container, .insights-container *, .markdown-content {
-    user-select: text !important;
-    cursor: text !important;
-}
+        /* Allow text selection in insights responses */
+        .insights-container, .insights-container *, .markdown-content {
+            user-select: text !important;
+            cursor: text !important;
+        }
 
-/* Add highlight.js styles */
-.insights-container pre {
-    background: rgba(0, 0, 0, 0.4) !important;
-    border-radius: 8px !important;
-    padding: 12px !important;
-    margin: 8px 0 !important;
-    overflow-x: auto !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    white-space: pre !important;
-    word-wrap: normal !important;
-    word-break: normal !important;
-}
-
-.insights-container code {
-    font-family: 'Monaco', 'Menlo', 'Consolas', monospace !important;
-    font-size: 11px !important;
-    background: transparent !important;
-    white-space: pre !important;
-    word-wrap: normal !important;
-    word-break: normal !important;
-}
-
-.insights-container pre code {
-    white-space: pre !important;
-    word-wrap: normal !important;
-    word-break: normal !important;
-    display: block !important;
-}
-
-.insights-container p code {
-    background: rgba(255, 255, 255, 0.1) !important;
-    padding: 2px 4px !important;
-    border-radius: 3px !important;
-    color: #ffd700 !important;
-}
-
-.hljs-keyword {
-    color: #ff79c6 !important;
-}
-
-.hljs-string {
-    color: #f1fa8c !important;
-}
-
-.hljs-comment {
-    color: #6272a4 !important;
-}
-
-.hljs-number {
-    color: #bd93f9 !important;
-}
-
-.hljs-function {
-    color: #50fa7b !important;
-}
-
-.hljs-title {
-    color: #50fa7b !important;
-}
-
-.hljs-variable {
-    color: #8be9fd !important;
-}
-
-.hljs-built_in {
-    color: #ffb86c !important;
-}
-
-.hljs-attr {
-    color: #50fa7b !important;
-}
-
-.hljs-tag {
-    color: #ff79c6 !important;
-}
         .assistant-container {
             display: flex;
             flex-direction: column;
             color: #ffffff;
             box-sizing: border-box;
             position: relative;
-            background: rgba(0, 0, 0, 0.6);
+            background: linear-gradient(180deg, rgba(30, 20, 40, 0.95), rgba(20, 10, 30, 0.98)); /* Darker gradient */
             overflow: hidden;
-            border-radius: 12px;
+            border-top-left-radius: 28px;
+            border-bottom-left-radius: 28px;
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
             width: 100%;
             height: 100%;
+            min-height: 640px;
         }
 
-        .assistant-container::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            border-radius: 12px;
-            padding: 1px;
-            background: linear-gradient(169deg, rgba(255, 255, 255, 0.17) 0%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.17) 100%);
-            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            -webkit-mask-composite: destination-out;
-            mask-composite: exclude;
-            pointer-events: none;
-        }
-
+        /* Gradient overlay for the "reddish" look in the design */
         .assistant-container::before {
             content: '';
             position: absolute;
@@ -152,301 +67,75 @@ export class ListenView extends LitElement {
             left: 0;
             right: 0;
             bottom: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.15);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            border-radius: 12px;
-            z-index: -1;
+            background: 
+                radial-gradient(circle at 10% 20%, rgba(255, 100, 100, 0.15), transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(100, 50, 200, 0.15), transparent 40%);
+            pointer-events: none;
+            z-index: 0;
         }
 
-        .top-bar {
+        .content-area {
+            flex: 1;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 6px 16px;
-            min-height: 32px;
+            flex-direction: column;
+            padding: 24px;
             position: relative;
             z-index: 1;
-            width: 100%;
-            box-sizing: border-box;
-            flex-shrink: 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            overflow-y: auto;
+        }
+
+        .status-headline {
+            font-size: 18px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 20px;
+        }
+
+        .bottom-bar {
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            background: rgba(0, 0, 0, 0.2);
+            position: relative;
+            z-index: 1;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
             gap: 8px;
-        }
-
-        .bar-left-text {
-            color: white;
             font-size: 13px;
-            font-family: 'Helvetica Neue', sans-serif;
-            font-weight: 500;
-            position: relative;
-            overflow: hidden;
-            white-space: nowrap;
-            flex: 1;
-            min-width: 0;
-            max-width: 180px;
+            color: rgba(255, 255, 255, 0.8);
         }
 
-        .bar-left-text-content {
-            display: inline-block;
-            transition: transform 0.3s ease;
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: #7d5eff; /* Purple/Blue dot */
+            box-shadow: 0 0 8px rgba(125, 94, 255, 0.6);
         }
 
-        .bar-left-text-content.slide-in {
-            animation: slideIn 0.3s ease forwards;
-        }
-
-        .insight-mode-toggle {
+        .timer-display {
             display: flex;
+            align-items: center;
             gap: 6px;
-            margin-left: 12px;
-            align-items: center;
-            margin-right: 8px;
-            flex-shrink: 0;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.6);
         }
 
-        .mode-button {
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid transparent;
-            color: rgba(255, 255, 255, 0.75);
-            padding: 4px 10px;
-            font-size: 11px;
-            border-radius: 16px;
-            cursor: pointer;
-            transition: all 0.2s ease;
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 4px;
         }
-
-        .mode-button:hover {
-            background: rgba(255, 255, 255, 0.15);
-        }
-
-        .mode-button.active {
-            background: rgba(0, 122, 255, 0.18);
-            border-color: rgba(0, 122, 255, 0.55);
-            color: rgba(255, 255, 255, 0.95);
-        }
-
-        .bar-controls {
-            display: flex;
-            gap: 4px;
-            align-items: center;
-            flex-shrink: 1;
-            width: auto;
-            justify-content: flex-end;
-            box-sizing: border-box;
-            padding: 4px;
-        }
-
-        .toggle-button {
-            display: flex;
-            align-items: center;
-            gap: 5px;
+        ::-webkit-scrollbar-track {
             background: transparent;
-            color: rgba(255, 255, 255, 0.9);
-            border: none;
-            outline: none;
-            box-shadow: none;
-            padding: 4px 8px;
-            border-radius: 5px;
-            font-size: 11px;
-            font-weight: 500;
-            cursor: pointer;
-            height: 24px;
-            white-space: nowrap;
-            transition: background-color 0.15s ease;
-            justify-content: center;
         }
-
-        .toggle-button:hover {
+        ::-webkit-scrollbar-thumb {
             background: rgba(255, 255, 255, 0.1);
-        }
-
-        .toggle-button svg {
-            flex-shrink: 0;
-            width: 12px;
-            height: 12px;
-        }
-
-        .copy-button {
-            background: transparent;
-            color: rgba(255, 255, 255, 0.9);
-            border: none;
-            outline: none;
-            box-shadow: none;
-            padding: 4px;
-            border-radius: 3px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 24px;
-            height: 24px;
-            flex-shrink: 0;
-            transition: background-color 0.15s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .copy-button:hover {
-            background: rgba(255, 255, 255, 0.15);
-        }
-
-        .copy-button svg {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
-        }
-
-        .copy-button .check-icon {
-            opacity: 0;
-            transform: translate(-50%, -50%) scale(0.5);
-        }
-
-        .copy-button.copied .copy-icon {
-            opacity: 0;
-            transform: translate(-50%, -50%) scale(0.5);
-        }
-
-        .copy-button.copied .check-icon {
-            opacity: 1;
-            transform: translate(-50%, -50%) scale(1);
-        }
-
-        .timer {
-            font-family: 'Monaco', 'Menlo', monospace;
-            font-size: 10px;
-            color: rgba(255, 255, 255, 0.7);
-        }
-        
-        /* ────────────────[ GLASS BYPASS ]─────────────── */
-        :host-context(body.has-glass) .assistant-container,
-        :host-context(body.has-glass) .top-bar,
-        :host-context(body.has-glass) .toggle-button,
-        :host-context(body.has-glass) .copy-button,
-        :host-context(body.has-glass) .transcription-container,
-        :host-context(body.has-glass) .insights-container,
-        :host-context(body.has-glass) .stt-message,
-        :host-context(body.has-glass) .outline-item,
-        :host-context(body.has-glass) .request-item,
-        :host-context(body.has-glass) .markdown-content,
-        :host-context(body.has-glass) .insights-container pre,
-        :host-context(body.has-glass) .insights-container p code,
-        :host-context(body.has-glass) .insights-container pre code {
-            background: transparent !important;
-            border: none !important;
-            outline: none !important;
-            box-shadow: none !important;
-            filter: none !important;
-            backdrop-filter: none !important;
-        }
-
-        :host-context(body.has-glass) .assistant-container::before,
-        :host-context(body.has-glass) .assistant-container::after {
-            display: none !important;
-        }
-
-        :host-context(body.has-glass) .toggle-button:hover,
-        :host-context(body.has-glass) .copy-button:hover,
-        :host-context(body.has-glass) .outline-item:hover,
-        :host-context(body.has-glass) .request-item.clickable:hover,
-        :host-context(body.has-glass) .markdown-content:hover {
-            background: transparent !important;
-            transform: none !important;
-        }
-
-        :host-context(body.has-glass) .transcription-container::-webkit-scrollbar-track,
-        :host-context(body.has-glass) .transcription-container::-webkit-scrollbar-thumb,
-        :host-context(body.has-glass) .insights-container::-webkit-scrollbar-track,
-        :host-context(body.has-glass) .insights-container::-webkit-scrollbar-thumb {
-            background: transparent !important;
-        }
-        :host-context(body.has-glass) * {
-            animation: none !important;
-            transition: none !important;
-            transform: none !important;
-            filter: none !important;
-            backdrop-filter: none !important;
-            box-shadow: none !important;
-        }
-
-        :host-context(body.has-glass) .assistant-container,
-        :host-context(body.has-glass) .stt-message,
-        :host-context(body.has-glass) .toggle-button,
-        :host-context(body.has-glass) .copy-button {
-            border-radius: 0 !important;
-        }
-
-        :host-context(body.has-glass) ::-webkit-scrollbar,
-        :host-context(body.has-glass) ::-webkit-scrollbar-track,
-        :host-context(body.has-glass) ::-webkit-scrollbar-thumb {
-            background: transparent !important;
-            width: 0 !important;      /* Hide scrollbar itself */
-        }
-        :host-context(body.has-glass) .assistant-container,
-        :host-context(body.has-glass) .top-bar,
-        :host-context(body.has-glass) .toggle-button,
-        :host-context(body.has-glass) .copy-button,
-        :host-context(body.has-glass) .transcription-container,
-        :host-context(body.has-glass) .insights-container,
-        :host-context(body.has-glass) .stt-message,
-        :host-context(body.has-glass) .outline-item,
-        :host-context(body.has-glass) .request-item,
-        :host-context(body.has-glass) .markdown-content,
-        :host-context(body.has-glass) .insights-container pre,
-        :host-context(body.has-glass) .insights-container p code,
-        :host-context(body.has-glass) .insights-container pre code {
-            background: transparent !important;
-            border: none !important;
-            outline: none !important;
-            box-shadow: none !important;
-            filter: none !important;
-            backdrop-filter: none !important;
-        }
-
-        :host-context(body.has-glass) .assistant-container::before,
-        :host-context(body.has-glass) .assistant-container::after {
-            display: none !important;
-        }
-
-        :host-context(body.has-glass) .toggle-button:hover,
-        :host-context(body.has-glass) .copy-button:hover,
-        :host-context(body.has-glass) .outline-item:hover,
-        :host-context(body.has-glass) .request-item.clickable:hover,
-        :host-context(body.has-glass) .markdown-content:hover {
-            background: transparent !important;
-            transform: none !important;
-        }
-
-        :host-context(body.has-glass) .transcription-container::-webkit-scrollbar-track,
-        :host-context(body.has-glass) .transcription-container::-webkit-scrollbar-thumb,
-        :host-context(body.has-glass) .insights-container::-webkit-scrollbar-track,
-        :host-context(body.has-glass) .insights-container::-webkit-scrollbar-thumb {
-            background: transparent !important;
-        }
-        :host-context(body.has-glass) * {
-            animation: none !important;
-            transition: none !important;
-            transform: none !important;
-            filter: none !important;
-            backdrop-filter: none !important;
-            box-shadow: none !important;
-        }
-
-        :host-context(body.has-glass) .assistant-container,
-        :host-context(body.has-glass) .stt-message,
-        :host-context(body.has-glass) .toggle-button,
-        :host-context(body.has-glass) .copy-button {
-            border-radius: 0 !important;
-        }
-
-        :host-context(body.has-glass) ::-webkit-scrollbar,
-        :host-context(body.has-glass) ::-webkit-scrollbar-track,
-        :host-context(body.has-glass) ::-webkit-scrollbar-thumb {
-            background: transparent !important;
-            width: 0 !important;
+            border-radius: 2px;
         }
     `;
 
@@ -529,7 +218,8 @@ export class ListenView extends LitElement {
                     }
                 }
                 this.requestUpdate();
-                this.adjustWindowHeightThrottled();
+                // We no longer adjust window height dynamically as it should match MainHeader
+                // this.adjustWindowHeightThrottled(); 
             };
             window.api.listenView.onSetView?.(this._setViewListener);
         }
@@ -573,37 +263,19 @@ export class ListenView extends LitElement {
     }
 
     adjustWindowHeight() {
+        // Disabled dynamic height adjustment to keep it consistent with MainHeader
+        /*
         if (!window.api) return;
 
         this.updateComplete
             .then(() => {
-                const topBar = this.shadowRoot.querySelector('.top-bar');
-                let activeContent;
-                if (this.viewMode === 'transcript') {
-                    activeContent = this.shadowRoot.querySelector('stt-view');
-                } else if (this.insightsMode === 'live') {
-                    activeContent = this.shadowRoot.querySelector('live-answer-view');
-                } else {
-                    activeContent = this.shadowRoot.querySelector('summary-view');
-                }
-
-                if (!topBar || !activeContent) return;
-
-                const topBarHeight = topBar.offsetHeight;
-                const contentHeight = activeContent.scrollHeight;
-                const idealHeight = topBarHeight + contentHeight;
-
-                const targetHeight = Math.min(700, idealHeight);
-
-                console.log(
-                    `[Height Adjusted] Mode: ${this.viewMode}, TopBar: ${topBarHeight}px, Content: ${contentHeight}px, Ideal: ${idealHeight}px, Target: ${targetHeight}px`
-                );
-
-                window.api.listenView.adjustWindowHeight('listen', targetHeight);
+                // ... logic removed ...
+                // window.api.listenView.adjustWindowHeight('listen', targetHeight);
             })
             .catch(error => {
                 console.error('Error in adjustWindowHeight:', error);
             });
+        */
     }
 
     setInsightsMode(mode) {
@@ -613,7 +285,6 @@ export class ListenView extends LitElement {
             this.viewMode = 'insights';
         }
         this.requestUpdate();
-        this.adjustWindowHeightThrottled();
     }
 
     toggleViewMode() {
@@ -622,7 +293,6 @@ export class ListenView extends LitElement {
             this.insightsMode = 'live';
         }
         this.requestUpdate();
-        this.adjustWindowHeightThrottled();
     }
 
     handleCopyHover(isHovering) {
@@ -636,117 +306,67 @@ export class ListenView extends LitElement {
     }
 
     async handleCopy() {
-        if (this.copyState === 'copied') return;
-
-        let textToCopy = '';
-
-        if (this.viewMode === 'transcript') {
-            const sttView = this.shadowRoot.querySelector('stt-view');
-            textToCopy = sttView ? sttView.getTranscriptText() : '';
-        } else if (this.insightsMode === 'summary') {
-            const summaryView = this.shadowRoot.querySelector('summary-view');
-            textToCopy = summaryView ? summaryView.getSummaryText() : '';
-        } else {
-            const liveView = this.shadowRoot.querySelector('live-answer-view');
-            textToCopy = liveView ? liveView.getAnswersText() : '';
-        }
-
-        try {
-            await navigator.clipboard.writeText(textToCopy);
-            console.log('Content copied to clipboard');
-
-            this.copyState = 'copied';
-            this.requestUpdate();
-
-            if (this.copyTimeout) {
-                clearTimeout(this.copyTimeout);
-            }
-
-            this.copyTimeout = setTimeout(() => {
-                this.copyState = 'idle';
-                this.requestUpdate();
-            }, 1500);
-        } catch (err) {
-            console.error('Failed to copy:', err);
-        }
+        // ... (Copy logic remains if needed, but UI controls are removed)
     }
 
     adjustWindowHeightThrottled() {
-        if (this.isThrottled) {
-            return;
-        }
-
-        this.adjustWindowHeight();
-
-        this.isThrottled = true;
-
-        this.adjustHeightThrottle = setTimeout(() => {
-            this.isThrottled = false;
-        }, 16);
+        // Disabled
     }
 
     updated(changedProperties) {
         super.updated(changedProperties);
-
-        if (changedProperties.has('viewMode') || changedProperties.has('insightsMode')) {
-            this.adjustWindowHeight();
-        }
+        // Disabled height adjustment
     }
 
     handleSttMessagesUpdated(event) {
-        // Handle messages update from SttView if needed
-        this.adjustWindowHeightThrottled();
+        // Disabled height adjustment
     }
 
     handleLiveAnswerUpdated() {
-        this.adjustWindowHeightThrottled();
+        // Disabled height adjustment
     }
 
     firstUpdated() {
         super.firstUpdated();
-        setTimeout(() => this.adjustWindowHeight(), 200);
+        // Ensure we set the height to match MainHeader initially if needed, 
+        // but CSS height: 640px should handle it for now.
+        if (window.api) {
+            window.api.listenView.adjustWindowHeight('listen', 640);
+        }
     }
 
     render() {
-        const displayText = this.isHovering
-            ? this.viewMode === 'transcript'
-                ? 'Copy Transcript'
-                : this.insightsMode === 'summary'
-                    ? 'Copy Glass Analysis'
-                    : 'Copy Live Answer'
-            : this.viewMode === 'transcript'
-                ? `小抄 is Listening ${this.elapsedTime}`
-                : this.insightsMode === 'summary'
-                    ? 'Glass Summary'
-                    : 'Live Answers';
-
         return html`
             <div class="assistant-container">
-                <div class="top-bar">
-                    <div class="bar-left-text">
-                        <span class="bar-left-text-content ${this.isAnimating ? 'slide-in' : ''}">${displayText}</span>
-                    </div>
-                    <!-- Live toggle removed -->
-                    <div class="bar-controls">
-                        <!-- Controls removed as per request -->
-                    </div>
+                <div class="content-area">
+                    <div class="status-headline">聆听对方发言中...</div>
+                    
+                    <stt-view 
+                        .isVisible=${this.viewMode === 'transcript'}
+                        @stt-messages-updated=${this.handleSttMessagesUpdated}
+                    ></stt-view>
+
+                    <live-answer-view
+                        .isVisible=${this.viewMode === 'insights' && this.insightsMode === 'live'}
+                        ?hidden=${!(this.viewMode === 'insights' && this.insightsMode === 'live')}
+                        @live-answer-updated=${this.handleLiveAnswerUpdated}
+                    ></live-answer-view>
+
+                    <summary-view 
+                        .isVisible=${this.viewMode === 'insights' && this.insightsMode === 'summary'}
+                        .hasCompletedRecording=${this.hasCompletedRecording}
+                    ></summary-view>
                 </div>
 
-                <stt-view 
-                    .isVisible=${this.viewMode === 'transcript'}
-                    @stt-messages-updated=${this.handleSttMessagesUpdated}
-                ></stt-view>
-
-                <live-answer-view
-                    .isVisible=${this.viewMode === 'insights' && this.insightsMode === 'live'}
-                    ?hidden=${!(this.viewMode === 'insights' && this.insightsMode === 'live')}
-                    @live-answer-updated=${this.handleLiveAnswerUpdated}
-                ></live-answer-view>
-
-                <summary-view 
-                    .isVisible=${this.viewMode === 'insights' && this.insightsMode === 'summary'}
-                    .hasCompletedRecording=${this.hasCompletedRecording}
-                ></summary-view>
+                <div class="bottom-bar">
+                    <div class="status-indicator">
+                        <div class="status-dot"></div>
+                        <span>聆听中...</span>
+                    </div>
+                    <div class="timer-display">
+                        <span>🕒 剩余 67分钟</span>
+                    </div>
+                </div>
             </div>
         `;
     }

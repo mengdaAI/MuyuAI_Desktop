@@ -15,7 +15,7 @@ export class SttView extends LitElement {
             display: flex;
             flex-direction: column;
             gap: 8px;
-            min-height: 150px;
+            min-height: 0;
             max-height: 600px;
             position: relative;
             z-index: 1;
@@ -95,6 +95,7 @@ export class SttView extends LitElement {
 
     connectedCallback() {
         super.connectedCallback();
+        console.log('[SttView] Connected');
         if (window.api) {
             window.api.sttView.onSttUpdate(this.handleSttUpdate);
         }
@@ -114,6 +115,7 @@ export class SttView extends LitElement {
     }
 
     handleSttUpdate(event, { speaker, text, isFinal, isPartial }) {
+        console.log('[SttView] Received update:', { speaker, text, isFinal });
         if (text === undefined) return;
 
         const container = this.shadowRoot.querySelector('.transcription-container');
@@ -167,7 +169,7 @@ export class SttView extends LitElement {
         }
 
         this.sttMessages = newMessages;
-        
+
         // Notify parent component about message updates
         this.dispatchEvent(new CustomEvent('stt-messages-updated', {
             detail: { messages: this.sttMessages },
@@ -211,13 +213,13 @@ export class SttView extends LitElement {
         return html`
             <div class="transcription-container">
                 ${this.sttMessages.length === 0
-                    ? html`<div class="empty-state">Waiting for speech...</div>`
-                    : this.sttMessages.map(msg => html`
+                ? html`<div class="empty-state">Waiting for speech...</div>`
+                : this.sttMessages.map(msg => html`
                         <div class="stt-message ${this.getSpeakerClass(msg.speaker)}">
                             ${msg.text}
                         </div>
                     `)
-                }
+            }
             </div>
         `;
     }

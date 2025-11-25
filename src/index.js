@@ -17,11 +17,10 @@ if (require('electron-squirrel-startup')) {
 const { app, BrowserWindow, shell, ipcMain, dialog, desktopCapturer, session } = require('electron');
 const { createWindows } = require('./window/windowManager.js');
 const listenService = require('./features/listen/listenService');
-const { initializeFirebase } = require('./features/common/services/firebaseClient');
+
 const databaseInitializer = require('./features/common/services/databaseInitializer');
 const authService = require('./features/common/services/authService');
 const path = require('node:path');
-const express = require('express');
 const fetch = require('node-fetch');
 const { autoUpdater } = require('electron-updater');
 const { EventEmitter } = require('events');
@@ -34,16 +33,20 @@ const windowBridge = require('./bridge/windowBridge');
 
 // Global variables
 const eventBridge = new EventEmitter();
-let WEB_PORT = 3000;
 let isShuttingDown = false; // Flag to prevent infinite shutdown loop
+
+console.log('>>> [DEBUG] Starting index.js execution');
 
 //////// after_modelStateService ////////
 global.modelStateService = modelStateService;
 //////// after_modelStateService ////////
 
 // Import and initialize OllamaService
+console.log('>>> [DEBUG] Requiring ollamaService');
 const ollamaService = require('./features/common/services/ollamaService');
+console.log('>>> [DEBUG] Requiring ollamaModelRepository');
 const ollamaModelRepository = require('./features/common/repositories/ollamaModel');
+console.log('>>> [DEBUG] Requires complete');
 
 // Native deep link handling - cross-platform compatible
 let pendingDeepLinkUrl = null;
@@ -68,17 +71,17 @@ function setupProtocolHandling() {
     // Handle protocol URLs on Windows/Linux
     app.on('second-instance', (event, commandLine, workingDirectory) => {
         console.log('[Protocol] Second instance command line:', commandLine);
-        
+
         focusMainWindow();
-        
+
         let protocolUrl = null;
-        
+
         // Search through all command line arguments for a valid protocol URL
         for (const arg of commandLine) {
             if (arg && typeof arg === 'string' && arg.startsWith('pickleglass://')) {
                 // Clean up the URL by removing problematic characters
                 const cleanUrl = arg.replace(/[\\₩]/g, '');
-                
+
                 // Additional validation for Windows
                 if (process.platform === 'win32') {
                     // On Windows, ensure the URL doesn't contain file path indicators
@@ -92,7 +95,7 @@ function setupProtocolHandling() {
                 }
             }
         }
-        
+
         if (protocolUrl) {
             console.log('[Protocol] Valid URL found from second instance:', protocolUrl);
             handleCustomUrl(protocolUrl);
@@ -106,7 +109,7 @@ function setupProtocolHandling() {
     app.on('open-url', (event, url) => {
         event.preventDefault();
         console.log('[Protocol] Received URL via open-url:', url);
-        
+
         if (!url || !url.startsWith('pickleglass://')) {
             console.warn('[Protocol] Invalid URL format:', url);
             return;
@@ -131,7 +134,7 @@ function focusMainWindow() {
             return true;
         }
     }
-    
+
     // Fallback: focus any available window
     const windows = BrowserWindow.getAllWindows();
     if (windows.length > 0) {
@@ -142,7 +145,7 @@ function focusMainWindow() {
             return true;
         }
     }
-    
+
     return false;
 }
 
@@ -151,7 +154,7 @@ if (process.platform === 'win32') {
         if (arg && typeof arg === 'string' && arg.startsWith('pickleglass://')) {
             // Clean up the URL by removing problematic characters (korean characters issue...)
             const cleanUrl = arg.replace(/[\\₩]/g, '');
-            
+
             if (!cleanUrl.includes(':') || cleanUrl.indexOf('://') === cleanUrl.lastIndexOf(':')) {
                 console.log('[Protocol] Found protocol URL in initial arguments:', cleanUrl);
                 pendingDeepLinkUrl = cleanUrl;
@@ -159,7 +162,7 @@ if (process.platform === 'win32') {
             }
         }
     }
-    
+
     console.log('[Protocol] Initial process.argv:', process.argv);
 }
 
@@ -172,7 +175,9 @@ if (!gotTheLock) {
 // setup protocol after single instance lock
 setupProtocolHandling();
 
+console.log('>>> [DEBUG] Waiting for app.whenReady()');
 app.whenReady().then(async () => {
+    console.log('>>> [DEBUG] app.whenReady() fired');
 
     // Setup native loopback audio capture for Windows
     session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
@@ -186,12 +191,11 @@ app.whenReady().then(async () => {
     });
 
     // Initialize core services
-    initializeFirebase();
-    
+
     try {
         await databaseInitializer.initialize();
         console.log('>>> [index.js] Database initialized successfully');
-        
+
         // Clean up zombie sessions from previous runs first - MOVED TO authService
         // sessionRepository.endAllActiveSessions();
 
@@ -201,7 +205,7 @@ app.whenReady().then(async () => {
         await modelStateService.initialize();
         //////// after_modelStateService ////////
 
-featureBridge.initialize();  // Added: initialize featureBridge
+        featureBridge.initialize();  // Added: initialize featureBridge
         windowBridge.initialize();
         setupWebDataHandlers();
 
@@ -219,10 +223,11 @@ featureBridge.initialize();  // Added: initialize featureBridge
         }, 2000); // Wait 2 seconds after app start
 
         // Start web server and create windows ONLY after all initializations are successful
-        WEB_PORT = await startWebStack();
-        console.log('Web front-end listening on', WEB_PORT);
-        
+        console.log('All services initialized successfully');
+
+        console.log('[index.js] Creating windows...');
         createWindows();
+        console.log('[index.js] Windows creation completed');
 
     } catch (err) {
         console.error('>>> [index.js] Database initialization failed - some features may not work', err);
@@ -250,20 +255,20 @@ app.on('before-quit', async (event) => {
         console.log('[Shutdown] 🔄 Shutdown already in progress, allowing quit...');
         return;
     }
-    
+
     console.log('[Shutdown] App is about to quit. Starting graceful shutdown...');
-    
+
     // Set shutdown flag to prevent infinite loop
     isShuttingDown = true;
-    
+
     // Prevent immediate quit to allow graceful shutdown
     event.preventDefault();
-    
+
     try {
         // 1. Stop audio capture first (immediate)
         await listenService.closeSession();
         console.log('[Shutdown] Audio capture stopped');
-        
+
         // 2. End all active sessions (database operations) - with error handling
         try {
             await sessionRepository.endAllActiveSessions();
@@ -271,14 +276,14 @@ app.on('before-quit', async (event) => {
         } catch (dbError) {
             console.warn('[Shutdown] Could not end active sessions (database may be closed):', dbError.message);
         }
-        
+
         // 3. Shutdown Ollama service (potentially time-consuming)
         console.log('[Shutdown] shutting down Ollama service...');
         const ollamaShutdownSuccess = await Promise.race([
             ollamaService.shutdown(false), // Graceful shutdown
             new Promise(resolve => setTimeout(() => resolve(false), 8000)) // 8s timeout
         ]);
-        
+
         if (ollamaShutdownSuccess) {
             console.log('[Shutdown] Ollama service shut down gracefully');
         } else {
@@ -290,7 +295,7 @@ app.on('before-quit', async (event) => {
                 console.warn('[Shutdown] Force shutdown also failed:', forceShutdownError.message);
             }
         }
-        
+
         // 4. Close database connections (final cleanup)
         try {
             databaseInitializer.close();
@@ -298,9 +303,9 @@ app.on('before-quit', async (event) => {
         } catch (closeError) {
             console.warn('[Shutdown] Error closing database:', closeError.message);
         }
-        
+
         console.log('[Shutdown] Graceful shutdown completed successfully');
-        
+
     } catch (error) {
         console.error('[Shutdown] Error during graceful shutdown:', error);
         // Continue with shutdown even if there were errors
@@ -313,7 +318,7 @@ app.on('before-quit', async (event) => {
 
 app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-        createWindows();
+        createMainOnlyWindow();
     }
 });
 
@@ -359,14 +364,14 @@ function setupWebDataHandlers() {
                     }
                     result = { id };
                     break;
-                
+
                 // USER
                 case 'get-user-profile':
                     // Adapter injects UID
                     result = await userRepository.getById();
                     break;
                 case 'update-user-profile':
-                     // Adapter injects UID
+                    // Adapter injects UID
                     result = await userRepository.update(payload);
                     break;
                 case 'find-or-create-user':
@@ -406,12 +411,12 @@ function setupWebDataHandlers() {
                     result = await presetRepository.delete(payload);
                     settingsService.notifyPresetUpdate('deleted', payload);
                     break;
-                
+
                 // BATCH
                 case 'get-batch-data':
                     const includes = payload ? payload.split(',').map(item => item.trim()) : ['profile', 'presets', 'sessions'];
                     const promises = {};
-            
+
                     if (includes.includes('profile')) {
                         // Adapter injects UID
                         promises.profile = userRepository.getById();
@@ -424,7 +429,7 @@ function setupWebDataHandlers() {
                         // Adapter injects UID
                         promises.sessions = sessionRepository.getAllByUserId();
                     }
-                    
+
                     const batchResult = {};
                     const promiseResults = await Promise.all(Object.values(promises));
                     Object.keys(promises).forEach((key, index) => {
@@ -443,40 +448,36 @@ function setupWebDataHandlers() {
             eventBridge.emit(responseChannel, { success: false, error: error.message });
         }
     };
-    
+
     eventBridge.on('web-data-request', handleRequest);
 }
 
 async function handleCustomUrl(url) {
     try {
         console.log('[Custom URL] Processing URL:', url);
-        
+
         // Validate and clean URL
         if (!url || typeof url !== 'string' || !url.startsWith('pickleglass://')) {
             console.error('[Custom URL] Invalid URL format:', url);
             return;
         }
-        
+
         // Clean up URL by removing problematic characters
         const cleanUrl = url.replace(/[\\₩]/g, '');
-        
+
         // Additional validation
         if (cleanUrl !== url) {
             console.log('[Custom URL] Cleaned URL from:', url, 'to:', cleanUrl);
             url = cleanUrl;
         }
-        
+
         const urlObj = new URL(url);
         const action = urlObj.hostname;
         const params = Object.fromEntries(urlObj.searchParams);
-        
+
         console.log('[Custom URL] Action:', action, 'Params:', params);
 
         switch (action) {
-            case 'login':
-            case 'auth-success':
-                await handleFirebaseAuthCallback(params);
-                break;
             case 'personalize':
                 handlePersonalizeFromUrl(params);
                 break;
@@ -486,7 +487,7 @@ async function handleCustomUrl(url) {
                 if (header) {
                     if (header.isMinimized()) header.restore();
                     header.focus();
-                    
+
                     const targetUrl = `http://localhost:${WEB_PORT}/${action}`;
                     console.log(`[Custom URL] Navigating webview to: ${targetUrl}`);
                     header.webContents.loadURL(targetUrl);
@@ -498,86 +499,22 @@ async function handleCustomUrl(url) {
     }
 }
 
-async function handleFirebaseAuthCallback(params) {
-    const userRepository = require('./features/common/repositories/user');
-    const { token: idToken } = params;
 
-    if (!idToken) {
-        console.error('[Auth] Firebase auth callback is missing ID token.');
-        // No need to send IPC, the UI won't transition without a successful auth state change.
-        return;
-    }
-
-    console.log('[Auth] Received ID token from deep link, exchanging for custom token...');
-
-    try {
-        const functionUrl = 'https://us-west1-pickle-3651a.cloudfunctions.net/pickleGlassAuthCallback';
-        const response = await fetch(functionUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: idToken })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok || !data.success) {
-            throw new Error(data.error || 'Failed to exchange token.');
-        }
-
-        const { customToken, user } = data;
-        console.log('[Auth] Successfully received custom token for user:', user.uid);
-
-        const firebaseUser = {
-            uid: user.uid,
-            email: user.email || 'no-email@example.com',
-            displayName: user.name || 'User',
-            photoURL: user.picture
-        };
-
-        // 1. Sync user data to local DB
-        userRepository.findOrCreate(firebaseUser);
-        console.log('[Auth] User data synced with local DB.');
-
-        // 2. Sign in using the authService in the main process
-        await authService.signInWithCustomToken(customToken);
-        console.log('[Auth] Main process sign-in initiated. Waiting for onAuthStateChanged...');
-
-        // 3. Focus the app window
-        const { windowPool } = require('./window/windowManager.js');
-        const header = windowPool.get('header');
-        if (header) {
-            if (header.isMinimized()) header.restore();
-            header.focus();
-        } else {
-            console.error('[Auth] Header window not found after auth callback.');
-        }
-        
-    } catch (error) {
-        console.error('[Auth] Error during custom token exchange or sign-in:', error);
-        // The UI will not change, and the user can try again.
-        // Optionally, send a generic error event to the renderer.
-        const { windowPool } = require('./window/windowManager.js');
-        const header = windowPool.get('header');
-        if (header) {
-            header.webContents.send('auth-failed', { message: error.message });
-        }
-    }
-}
 
 function handlePersonalizeFromUrl(params) {
     console.log('[Custom URL] Personalize params:', params);
-    
+
     const { windowPool } = require('./window/windowManager.js');
     const header = windowPool.get('header');
-    
+
     if (header) {
         if (header.isMinimized()) header.restore();
         header.focus();
-        
+
         const personalizeUrl = `http://localhost:${WEB_PORT}/settings`;
         console.log(`[Custom URL] Navigating to personalize page: ${personalizeUrl}`);
         header.webContents.loadURL(personalizeUrl);
-        
+
         BrowserWindow.getAllWindows().forEach(win => {
             win.webContents.send('enter-personalize-mode', {
                 message: 'Personalization mode activated',
@@ -590,111 +527,7 @@ function handlePersonalizeFromUrl(params) {
 }
 
 
-async function startWebStack() {
-  console.log('NODE_ENV =', process.env.NODE_ENV); 
-  const isDev = !app.isPackaged;
 
-  const getAvailablePort = () => {
-    return new Promise((resolve, reject) => {
-      const server = require('net').createServer();
-      server.listen(0, (err) => {
-        if (err) reject(err);
-        const port = server.address().port;
-        server.close(() => resolve(port));
-      });
-    });
-  };
-
-  const apiPort = await getAvailablePort();
-  const frontendPort = await getAvailablePort();
-
-  console.log(`🔧 Allocated ports: API=${apiPort}, Frontend=${frontendPort}`);
-
-  process.env.MUYU_API_PORT = apiPort.toString();
-  process.env.MUYU_API_URL = `http://localhost:${apiPort}`;
-  process.env.MUYU_WEB_PORT = frontendPort.toString();
-  process.env.MUYU_WEB_URL = `http://localhost:${frontendPort}`;
-
-  console.log(`🌍 Environment variables set:`, {
-    MUYU_API_URL: process.env.MUYU_API_URL,
-    MUYU_WEB_URL: process.env.MUYU_WEB_URL
-  });
-
-  const createBackendApp = require('../pickleglass_web/backend_node');
-  const nodeApi = createBackendApp(eventBridge);
-
-  const staticDir = app.isPackaged
-    ? path.join(process.resourcesPath, 'out')
-    : path.join(__dirname, '..', 'pickleglass_web', 'out');
-
-  const fs = require('fs');
-
-  if (!fs.existsSync(staticDir)) {
-    console.error(`============================================================`);
-    console.error(`[ERROR] Frontend build directory not found!`);
-    console.error(`Path: ${staticDir}`);
-    console.error(`Please run 'npm run build' inside the 'pickleglass_web' directory first.`);
-    console.error(`============================================================`);
-    app.quit();
-    return;
-  }
-
-  const runtimeConfig = {
-    API_URL: `http://localhost:${process.env.MUYU_API_PORT}`,
-    WEB_URL: `http://localhost:${process.env.MUYU_WEB_PORT}`,
-    timestamp: Date.now()
-  };
-  
-// Create runtime config file in a writable temporary folder
-  const tempDir = app.getPath('temp');
-  const configPath = path.join(tempDir, 'runtime-config.json');
-  fs.writeFileSync(configPath, JSON.stringify(runtimeConfig, null, 2));
-  console.log(`📝 Runtime config created in temp location: ${configPath}`);
-
-  const frontSrv = express();
-  
-// When the frontend requests /runtime-config.json, serve the temporary folder file
-  frontSrv.get('/runtime-config.json', (req, res) => {
-    res.sendFile(configPath);
-  });
-
-  frontSrv.use((req, res, next) => {
-    if (req.path.indexOf('.') === -1 && req.path !== '/') {
-      const htmlPath = path.join(staticDir, req.path + '.html');
-      if (fs.existsSync(htmlPath)) {
-        return res.sendFile(htmlPath);
-      }
-    }
-    next();
-  });
-  
-  frontSrv.use(express.static(staticDir));
-  
-  const frontendServer = await new Promise((resolve, reject) => {
-    const server = frontSrv.listen(frontendPort, '127.0.0.1', () => resolve(server));
-    server.on('error', reject);
-    app.once('before-quit', () => server.close());
-  });
-
-  console.log(`✅ Frontend server started on http://localhost:${frontendPort}`);
-
-  const apiSrv = express();
-  apiSrv.use(nodeApi);
-
-  const apiServer = await new Promise((resolve, reject) => {
-    const server = apiSrv.listen(apiPort, '127.0.0.1', () => resolve(server));
-    server.on('error', reject);
-    app.once('before-quit', () => server.close());
-  });
-
-  console.log(`✅ API server started on http://localhost:${apiPort}`);
-
-  console.log(`🚀 All services ready:
-   Frontend: http://localhost:${frontendPort}
-   API:      http://localhost:${apiPort}`);
-
-  return frontendPort;
-}
 
 // Auto-update initialization
 async function initAutoUpdater() {

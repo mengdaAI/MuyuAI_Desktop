@@ -15,7 +15,7 @@ const baseConfig = {
 
 const entryPoints = [
     { in: 'src/ui/app/HeaderController.js', out: 'public/build/header' },
-    { in: 'src/ui/app/PickleGlassApp.js', out: 'public/build/content' },
+    { in: 'src/ui/app/MuyuApp.js', out: 'public/build/content' },
 ];
 
 async function build() {
@@ -40,7 +40,7 @@ async function watch() {
             entryPoints: [point.in],
             outfile: `${point.out}.js`,
         })));
-        
+
         console.log('Watching for changes...');
         await Promise.all(contexts.map(context => context.watch()));
 

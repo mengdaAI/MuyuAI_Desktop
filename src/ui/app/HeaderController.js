@@ -5,18 +5,18 @@ import './WelcomeHeader.js';
 
 class HeaderTransitionManager {
     constructor() {
-        this.headerContainer      = document.getElementById('header-container');
-        this.currentHeaderType    = null;   // 'welcome' | 'apikey' | 'main' | 'permission'
-        this.welcomeHeader        = null;
-        this.apiKeyHeader         = null;
-        this.mainHeader            = null;
-        this.permissionHeader      = null;
-        this.passcodeUnlocked      = false;
+        this.headerContainer = document.getElementById('header-container');
+        this.currentHeaderType = null;   // 'welcome' | 'apikey' | 'main' | 'permission'
+        this.welcomeHeader = null;
+        this.apiKeyHeader = null;
+        this.mainHeader = null;
+        this.permissionHeader = null;
+        this.passcodeUnlocked = false;
         this.passcodeStatusChecked = false;
-        this.pendingUserState      = null;
-        this.lastKnownUserState    = null;
+        this.pendingUserState = null;
+        this.lastKnownUserState = null;
         this.interviewStartTimestamp = null;
-        this._onPasscodeVerified   = this._handlePasscodeVerified.bind(this);
+        this._onPasscodeVerified = this._handlePasscodeVerified.bind(this);
 
         /**
          * only one header window is allowed
@@ -30,7 +30,7 @@ class HeaderTransitionManager {
             }
 
             this.headerContainer.innerHTML = '';
-            
+
             this.welcomeHeader = null;
             this.apiKeyHeader = null;
             this.mainHeader = null;
@@ -47,14 +47,14 @@ class HeaderTransitionManager {
                 this.apiKeyHeader.stateUpdateCallback = (userState) => this.handleStateUpdate(userState);
                 this.apiKeyHeader.backCallback = () => this.transitionToWelcomeHeader();
                 this.apiKeyHeader.addEventListener('request-resize', e => {
-                    this._resizeForApiKey(e.detail.height); 
+                    this._resizeForApiKey(e.detail.height);
                 });
                 this.headerContainer.appendChild(this.apiKeyHeader);
                 console.log('[HeaderController] ensureHeader: Header of type:', type, 'created.');
             } else if (type === 'permission') {
                 this.permissionHeader = document.createElement('permission-setup');
                 this.permissionHeader.addEventListener('request-resize', e => {
-                    this._resizeForPermissionHeader(e.detail.height); 
+                    this._resizeForPermissionHeader(e.detail.height);
                 });
                 this.permissionHeader.continueCallback = async () => {
                     if (window.api && window.api.headerController) {
@@ -109,7 +109,7 @@ class HeaderTransitionManager {
                     await this._resizeForApiKey();
                     this.ensureHeader('apikey');
                 }
-            });            
+            });
         }
     }
 
@@ -178,10 +178,9 @@ class HeaderTransitionManager {
 
     // WelcomeHeader callback methods
     async handleLoginOption() {
-        console.log('[HeaderController] Login option selected');
-        if (window.api) {
-            await window.api.common.startFirebaseAuth();
-        }
+        console.log('[HeaderController] Login option selected - Firebase removed');
+        // Firebase authentication has been removed
+        // Users should use interview passcode or local mode
     }
 
     async handleApiKeyOption() {
@@ -217,7 +216,7 @@ class HeaderTransitionManager {
                 const permissionsCompleted = await window.api.headerController.checkPermissionsCompleted();
                 if (permissionsCompleted) {
                     console.log('[HeaderController] Permissions were previously completed, checking current status...');
-                    
+
                     // Double check current permission status
                     const permissionResult = await this.checkPermissions();
                     if (permissionResult.success) {
@@ -225,7 +224,7 @@ class HeaderTransitionManager {
                         this.transitionToMainHeader();
                         return;
                     }
-                    
+
                     console.log('[HeaderController] Permissions were revoked, showing setup again');
                 }
             } catch (error) {
@@ -259,7 +258,9 @@ class HeaderTransitionManager {
     }
 
     async _ensurePasscodeUnlocked() {
+
         if (!window.api?.passcode) {
+            console.warn('[HeaderController] Passcode API not available, skipping gate');
             this.passcodeUnlocked = true;
             return true;
         }
@@ -274,11 +275,15 @@ class HeaderTransitionManager {
 
         try {
             const status = await window.api.passcode.getStatus();
+
             this.passcodeStatusChecked = true;
             this.passcodeUnlocked = !status?.required || !!status?.verified;
+
         } catch (error) {
             console.error('[HeaderController] Failed to check passcode status:', error);
-            this.passcodeUnlocked = true;
+            // FIX: Be conservative - assume passcode is required on error
+            this.passcodeUnlocked = false;
+            this.passcodeStatusChecked = true;
         }
 
         if (!this.passcodeUnlocked) {
@@ -340,38 +345,38 @@ class HeaderTransitionManager {
         const width = 72;
         const height = 700;
         console.log(`[HeaderController] _resizeForMain: Resizing window to ${width}x${height}`);
-        return window.api.headerController.resizeHeaderWindow({ width, height }).catch(() => {});
+        return window.api.headerController.resizeHeaderWindow({ width, height }).catch(() => { });
     }
 
     async _resizeForApiKey(height = 370) {
         if (!window.api) return;
         console.log(`[HeaderController] _resizeForApiKey: Resizing window to 456x${height}`);
-        return window.api.headerController.resizeHeaderWindow({ width: 456, height: height }).catch(() => {});
+        return window.api.headerController.resizeHeaderWindow({ width: 456, height: height }).catch(() => { });
     }
 
     async _resizeForPermissionHeader(height) {
         if (!window.api) return;
         const finalHeight = height || 220;
         return window.api.headerController.resizeHeaderWindow({ width: 285, height: finalHeight })
-            .catch(() => {});
+            .catch(() => { });
     }
 
     async _resizeForWelcome() {
         if (!window.api) return;
         console.log('[HeaderController] _resizeForWelcome: Resizing window to 456x370');
         return window.api.headerController.resizeHeaderWindow({ width: 456, height: 364 })
-            .catch(() => {});
+            .catch(() => { });
     }
 
     async checkPermissions() {
         if (!window.api) {
             return { success: true };
         }
-        
+
         try {
             const permissions = await window.api.headerController.checkSystemPermissions();
             console.log('[HeaderController] Current permissions:', permissions);
-            
+
             if (!permissions.needsSetup) {
                 return { success: true };
             }
@@ -380,16 +385,16 @@ class HeaderTransitionManager {
             if (!permissions.microphone && !permissions.screen) {
                 errorMessage = 'Microphone and screen recording access required';
             }
-            
-            return { 
-                success: false, 
+
+            return {
+                success: false,
                 error: errorMessage
             };
         } catch (error) {
             console.error('[HeaderController] Error checking permissions:', error);
-            return { 
-                success: false, 
-                error: 'Failed to check permissions' 
+            return {
+                success: false,
+                error: 'Failed to check permissions'
             };
         }
     }

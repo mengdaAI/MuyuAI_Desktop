@@ -20,10 +20,10 @@ module.exports = {
     // Settings Service
     ipcMain.handle('settings:getPresets', async () => await settingsService.getPresets());
     ipcMain.handle('settings:get-auto-update', async () => await settingsService.getAutoUpdateSetting());
-    ipcMain.handle('settings:set-auto-update', async (event, isEnabled) => await settingsService.setAutoUpdateSetting(isEnabled));  
+    ipcMain.handle('settings:set-auto-update', async (event, isEnabled) => await settingsService.setAutoUpdateSetting(isEnabled));
     ipcMain.handle('settings:get-model-settings', async () => await settingsService.getModelSettings());
     ipcMain.handle('settings:clear-api-key', async (e, { provider }) => await settingsService.clearApiKey(provider));
-    ipcMain.handle('settings:set-selected-model', async (e, { type, modelId }) => await settingsService.setSelectedModel(type, modelId));    
+    ipcMain.handle('settings:set-selected-model', async (e, { type, modelId }) => await settingsService.setSelectedModel(type, modelId));
 
     ipcMain.handle('settings:get-ollama-status', async () => await settingsService.getOllamaStatus());
     ipcMain.handle('settings:ensure-ollama-ready', async () => await settingsService.ensureOllamaReady());
@@ -44,15 +44,13 @@ module.exports = {
     ipcMain.handle('mark-keychain-completed', async () => await permissionService.markKeychainCompleted());
     ipcMain.handle('check-keychain-completed', async () => await permissionService.checkKeychainCompleted());
     ipcMain.handle('initialize-encryption-key', async () => {
-        const userId = authService.getCurrentUserId();
-        await encryptionService.initializeKey(userId);
-        return { success: true };
+      const userId = authService.getCurrentUserId();
+      await encryptionService.initializeKey(userId);
+      return { success: true };
     });
 
     // User/Auth
     ipcMain.handle('get-current-user', () => authService.getCurrentUser());
-    ipcMain.handle('start-firebase-auth', async () => await authService.startFirebaseAuthFlow());
-    ipcMain.handle('firebase-logout', async () => await authService.signOut());
     ipcMain.handle('passcode:get-status', () => passcodeService.getStatus());
     ipcMain.handle('passcode:verify', (event, input) => passcodeService.verify(input));
     ipcMain.handle('passcode:stop-session', (event, sessionId) => passcodeService.stopActiveSession(sessionId));
@@ -63,7 +61,7 @@ module.exports = {
     // Whisper
     ipcMain.handle('whisper:download-model', async (event, modelId) => await whisperService.handleDownloadModel(modelId));
     ipcMain.handle('whisper:get-installed-models', async () => await whisperService.handleGetInstalledModels());
-       
+
     // General
     ipcMain.handle('get-preset-templates', () => presetRepository.getPresetTemplates());
     ipcMain.handle('get-web-url', () => process.env.pickleglass_WEB_URL || 'http://localhost:3000');
@@ -86,31 +84,31 @@ module.exports = {
     ipcMain.handle('ask:sendQuestionFromAsk', async (event, userPrompt, options) => await askService.sendMessage(userPrompt, [], options));
     ipcMain.handle('ask:sendQuestionFromSummary', async (event, userPrompt) => await askService.sendMessage(userPrompt));
     ipcMain.handle('ask:toggleAskButton', async () => await askService.toggleAskButton());
-    ipcMain.handle('ask:closeAskWindow',  async () => await askService.closeAskWindow());
-    
+    ipcMain.handle('ask:closeAskWindow', async () => await askService.closeAskWindow());
+
     // Listen
     ipcMain.handle('listen:sendMicAudio', async (event, { data, mimeType }) => await listenService.handleSendMicAudioContent(data, mimeType));
     ipcMain.handle('listen:sendSystemAudio', async (event, { data, mimeType }) => {
-        const result = await listenService.sttService.sendSystemAudioContent(data, mimeType);
-        if(result.success) {
-            listenService.sendToRenderer('system-audio-data', { data });
-        }
-        return result;
+      const result = await listenService.sttService.sendSystemAudioContent(data, mimeType);
+      if (result.success) {
+        listenService.sendToRenderer('system-audio-data', { data });
+      }
+      return result;
     });
     ipcMain.handle('listen:startMacosSystemAudio', async () => await listenService.handleStartMacosAudio());
     ipcMain.handle('listen:stopMacosSystemAudio', async () => await listenService.handleStopMacosAudio());
     ipcMain.handle('update-google-search-setting', async (event, enabled) => await listenService.handleUpdateGoogleSearchSetting(enabled));
     ipcMain.handle('listen:showLiveView', async () => {
-        listenService.showLiveInsightsView();
-        return { success: true };
+      listenService.showLiveInsightsView();
+      return { success: true };
     });
     ipcMain.handle('listen:showTranscriptView', async () => {
-        listenService.showTranscriptView();
-        return { success: true };
+      listenService.showTranscriptView();
+      return { success: true };
     });
     ipcMain.handle('listen:toggleTranscriptView', async () => {
-        listenService.toggleTranscriptView();
-        return { success: true };
+      listenService.toggleTranscriptView();
+      return { success: true };
     });
     ipcMain.handle('listen:isSessionActive', async () => await listenService.isSessionActive());
     ipcMain.handle('listen:getTurnState', async () => listenService.getTurnState());
@@ -235,12 +233,12 @@ module.exports = {
     ipcMain.handle('localai:repair-service', async (event, service) => {
       return await localAIManager.repairService(service);
     });
-    
+
     // Error handling handlers
     ipcMain.handle('localai:handle-error', async (event, { service, errorType, details }) => {
       return await localAIManager.handleError(service, errorType, details);
     });
-    
+
     // Retrieve all service states
     ipcMain.handle('localai:get-all-states', async (event) => {
       return await localAIManager.getAllServiceStates();
