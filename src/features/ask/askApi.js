@@ -97,7 +97,7 @@ async function startAskStream(payload, { signal } = {}) {
                 const parsed = JSON.parse(errorBody);
                 message = parsed?.message || parsed?.error || message;
             }
-        } catch (_) {}
+        } catch (_) { }
         throw new Error(message);
     }
 
@@ -109,6 +109,56 @@ async function startAskStream(payload, { signal } = {}) {
     return reader;
 }
 
+/**
+ * Start screenshot analysis stream
+ * @param {Object} payload - { sessionId, imageUrl }
+ * @param {Object} options - { signal }
+ * @returns {Promise<ReadableStreamDefaultReader>}
+ */
+async function startScreenshotAnalysis(payload, { signal } = {}) {
+    const baseUrl = (config.get('apiUrl') || '').trim().replace(/\/$/, '');
+    if (!baseUrl) {
+        throw new Error('Ask API base URL is not configured.');
+    }
+    const endpoint = `${baseUrl}/api/v1/ask/screenshot`;
+
+    const headers = {
+        'Content-Type': 'application/json',
+    };
+
+    const interviewAuth = authService.getInterviewAuthState?.();
+    if (interviewAuth?.token) {
+        headers.Authorization = `Bearer ${interviewAuth.token}`;
+    }
+
+    const response = await fetchImpl(endpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+        signal,
+    });
+
+    if (!response.ok) {
+        let message = `Screenshot analysis request failed (${response.status})`;
+        try {
+            const errorBody = await response.text();
+            if (errorBody) {
+                const parsed = JSON.parse(errorBody);
+                message = parsed?.message || parsed?.error || message;
+            }
+        } catch (_) { }
+        throw new Error(message);
+    }
+
+    const reader = getReaderFromBody(response.body);
+    if (!reader) {
+        throw new Error('Streaming reader unavailable from screenshot API response.');
+    }
+
+    return reader;
+}
+
 module.exports = {
     startAskStream,
+    startScreenshotAnalysis,
 };

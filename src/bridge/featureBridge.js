@@ -86,6 +86,12 @@ module.exports = {
     ipcMain.handle('ask:toggleAskButton', async () => await askService.toggleAskButton());
     ipcMain.handle('ask:closeAskWindow', async () => await askService.closeAskWindow());
 
+    // Screenshot
+    ipcMain.handle('screenshot:analyze', async () => await askService.analyzeScreenshot());
+    ipcMain.handle('screenshot:toggle', async () => await askService.toggleScreenshotWindow());
+    ipcMain.handle('screenshot:close', async () => await askService.closeScreenshotWindow());
+
+
     // Listen
     ipcMain.handle('listen:sendMicAudio', async (event, { data, mimeType }) => await listenService.handleSendMicAudioContent(data, mimeType));
     ipcMain.handle('listen:sendSystemAudio', async (event, { data, mimeType }) => {

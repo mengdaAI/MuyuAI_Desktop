@@ -334,6 +334,7 @@ class SttService {
                 this.emitPartialTranscript('Me', {
                     text: this.myCompletionBuffer,
                     provider: this.modelInfo?.provider,
+                    isFinal: false
                 });
 
                 // Deepgram 
@@ -360,11 +361,24 @@ class SttService {
                     this.debounceMyCompletion(text);
                     if (this.modelInfo.provider === 'doubao') {
                         this.flushMyCompletion();
+                    } else {
+                        // For Deepgram/others that send isFinal but don't auto-flush in flushMyCompletion logic
+                        this.sendToRenderer('stt-update', {
+                            speaker: 'Me',
+                            text: text,
+                            isPartial: false,
+                            isFinal: true,
+                            timestamp: Date.now(),
+                        });
+                        this.emitPartialTranscript('Me', {
+                            text: text,
+                            provider: this.modelInfo?.provider,
+                            isFinal: true
+                        });
                     }
                 } else {
                     // For interim results, update the UI in real-time.
                     if (this.myCompletionTimer) clearTimeout(this.myCompletionTimer);
-                    this.myCompletionTimer = null;
 
                     this.myCurrentUtterance = text;
 
@@ -382,6 +396,11 @@ class SttService {
                         text: continuousText,
                         provider: this.modelInfo?.provider,
                     });
+
+                    // Set completion timer to auto-complete after silence
+                    this.myCompletionTimer = setTimeout(() => {
+                        this.flushMyCompletion();
+                    }, COMPLETION_DEBOUNCE_MS);
                 }
 
             } else {

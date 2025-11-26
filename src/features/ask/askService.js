@@ -66,7 +66,7 @@ async function captureScreenshot(options = {}) {
                     console.warn('Sharp module failed, falling back to basic image processing:', sharpError.message);
                 }
             }
-            
+
             // Fallback: Return the original image without resizing
             console.log('[AskService] Using fallback image processing (no resize/compression)');
             return {
@@ -163,27 +163,219 @@ class AskService {
         }
     }
 
-    async closeAskWindow () {
-            if (this.abortController) {
-                this.abortController.abort('Window closed by user');
-                this.abortController = null;
-            }
-    
-            this.state = {
-                isVisible      : false,
-                isLoading      : false,
-                isStreaming    : false,
-                currentQuestion: '',
-                currentResponse: '',
-                showTextInput  : true,
-            };
-            this._broadcastState();
-    
-            internalBridge.emit('window:requestVisibility', { name: 'ask', visible: false });
-    
-            return { success: true };
+    async closeAskWindow() {
+        if (this.abortController) {
+            this.abortController.abort('Window closed by user');
+            this.abortController = null;
         }
-    
+
+        this.state = {
+            isVisible: false,
+            isLoading: false,
+            isStreaming: false,
+            currentQuestion: '',
+            currentResponse: '',
+            showTextInput: true,
+        };
+        this._broadcastState();
+
+        internalBridge.emit('window:requestVisibility', { name: 'ask', visible: false });
+
+        return { success: true };
+    }
+
+    /**
+     * Toggle screenshot window: open and analyze if closed, close if open
+     */
+    async toggleScreenshotWindow() {
+        const screenshotWin = getWindowPool()?.get('screenshot');
+        if (screenshotWin && !screenshotWin.isDestroyed() && screenshotWin.isVisible()) {
+            return await this.closeScreenshotWindow();
+        } else {
+            return await this.analyzeScreenshot();
+        }
+    }
+
+    /**
+     * Close screenshot window and abort current analysis
+     */
+    async closeScreenshotWindow() {
+        console.log('[AskService] Closing screenshot window...');
+
+        if (this.screenshotAbortController) {
+            this.screenshotAbortController.abort('Window closed by user');
+            this.screenshotAbortController = null;
+        }
+
+        internalBridge.emit('window:requestVisibility', { name: 'screenshot', visible: false });
+
+        // Reset state
+        const screenshotState = {
+            isLoading: false,
+            isStreaming: false,
+            currentResponse: '',
+        };
+        this._broadcastScreenshotState(screenshotState);
+
+        return { success: true };
+    }
+
+
+    /**
+     * Analyze screenshot: capture, upload, and get AI analysis
+     * @returns {Promise<{success: boolean, error?: string}>}
+     */
+    async analyzeScreenshot() {
+        console.log('[AskService] Starting screenshot analysis...');
+
+        // 1. Show ScreenshotView window
+        internalBridge.emit('window:requestVisibility', { name: 'screenshot', visible: true });
+
+        // 2. Set loading state
+        const screenshotState = {
+            isLoading: true,
+            isStreaming: false,
+            currentResponse: '',
+        };
+        this._broadcastScreenshotState(screenshotState);
+
+        if (this.screenshotAbortController) {
+            this.screenshotAbortController.abort('New screenshot analysis request.');
+        }
+        this.screenshotAbortController = new AbortController();
+        const { signal } = this.screenshotAbortController;
+
+        try {
+            // 3. Capture screenshot
+            console.log('[AskService] Capturing screenshot...');
+            const screenshotResult = await captureScreenshot({ quality: 'medium' });
+            if (!screenshotResult.success) {
+                throw new Error(screenshotResult.error || 'Screenshot capture failed');
+            }
+
+            // 4. Upload to OSS
+            console.log('[AskService] Uploading screenshot to OSS...');
+            const uploadedScreenshot = await this._uploadScreenshotToOss(screenshotResult);
+            if (!uploadedScreenshot || !uploadedScreenshot.url) {
+                throw new Error('Screenshot upload failed');
+            }
+
+            console.log('[AskService] Screenshot uploaded:', uploadedScreenshot.url);
+
+            // 5. Get or create session
+            const sessionId = await sessionRepository.getOrCreateActive('ask');
+            await askRepository.addAiMessage({
+                sessionId,
+                role: 'user',
+                content: '截屏分析请求'
+            });
+
+            // 6. Call screenshot analysis API
+            const payload = {
+                sessionId,
+                imageUrl: uploadedScreenshot.url
+            };
+
+            console.log('[AskService] Calling screenshot analysis API...');
+            const reader = await askApi.startScreenshotAnalysis(payload, { signal });
+
+            const screenshotWin = getWindowPool()?.get('screenshot');
+            if (!screenshotWin || screenshotWin.isDestroyed()) {
+                console.error('[AskService] Screenshot window is not available.');
+                if (typeof reader.cancel === 'function') {
+                    reader.cancel('screenshot-window-missing').catch(() => { });
+                }
+                return { success: false, error: 'Screenshot window is not available.' };
+            }
+
+            signal.addEventListener('abort', () => {
+                console.log(`[AskService] Aborting screenshot analysis. Reason: ${signal.reason}`);
+                reader.cancel(signal.reason).catch(() => { /* ignore */ });
+            });
+
+            // 7. Process streaming response
+            await this._processScreenshotStream(reader, screenshotWin, sessionId, signal);
+
+            return { success: true };
+
+        } catch (error) {
+            console.error('[AskService] Screenshot analysis error:', error);
+
+            const screenshotWin = getWindowPool()?.get('screenshot');
+            if (screenshotWin && !screenshotWin.isDestroyed()) {
+                const errorMessage = error.message || 'Screenshot analysis failed';
+                screenshotWin.webContents.send('screenshot-stream-error', { error: errorMessage });
+            }
+
+            return { success: false, error: error.message };
+        }
+    }
+
+    _broadcastScreenshotState(state) {
+        const screenshotWin = getWindowPool()?.get('screenshot');
+        if (screenshotWin && !screenshotWin.isDestroyed()) {
+            screenshotWin.webContents.send('screenshot:stateUpdate', state);
+        }
+    }
+
+    async _processScreenshotStream(reader, win, sessionId, signal) {
+        const decoder = new TextDecoder();
+        let accumulatedText = '';
+
+        try {
+            while (true) {
+                const { done, value } = await reader.read();
+
+                if (signal.aborted) {
+                    console.log('[AskService] Screenshot stream aborted by signal.');
+                    break;
+                }
+
+                if (done) {
+                    console.log('[AskService] Screenshot stream complete.');
+                    break;
+                }
+
+                const chunk = decoder.decode(value, { stream: true });
+                accumulatedText += chunk;
+
+                if (win && !win.isDestroyed()) {
+                    win.webContents.send('screenshot:stateUpdate', {
+                        isLoading: false,
+                        isStreaming: true,
+                        currentResponse: accumulatedText,
+                    });
+                }
+            }
+
+            // Save final response
+            if (accumulatedText) {
+                await askRepository.addAiMessage({
+                    sessionId,
+                    role: 'assistant',
+                    content: accumulatedText
+                });
+            }
+
+            // Mark streaming as complete
+            if (win && !win.isDestroyed()) {
+                win.webContents.send('screenshot:stateUpdate', {
+                    isLoading: false,
+                    isStreaming: false,
+                    currentResponse: accumulatedText,
+                });
+            }
+
+        } catch (error) {
+            console.error('[AskService] Error processing screenshot stream:', error);
+            if (win && !win.isDestroyed()) {
+                win.webContents.send('screenshot-stream-error', { error: error.message });
+            }
+            throw error;
+        }
+    }
+
+
 
     /**
      * 
@@ -305,7 +497,7 @@ class AskService {
             sessionId = await sessionRepository.getOrCreateActive('ask');
             await askRepository.addAiMessage({ sessionId, role: 'user', content: trimmedPrompt });
             console.log(`[AskService] DB: Saved user prompt to session ${sessionId}`);
-            
+
             const screenshotResult = await captureScreenshot({ quality: 'medium' });
             if (!screenshotResult.success) {
                 console.warn('[AskService] Screenshot capture failed:', screenshotResult.error);
@@ -331,7 +523,7 @@ class AskService {
             if (!askWin || askWin.isDestroyed()) {
                 console.error('[AskService] Ask window is not available to send stream to.');
                 if (typeof reader.cancel === 'function') {
-                    reader.cancel('ask-window-missing').catch(() => {});
+                    reader.cancel('ask-window-missing').catch(() => { });
                 }
                 return { success: false, error: 'Ask window is not available.' };
             }
@@ -348,7 +540,7 @@ class AskService {
                     internalBridge.emit('window:requestVisibility', { name: 'ask', visible: false });
                     this.state.isVisible = false;
                     this._broadcastState();
-                } catch (_) {}
+                } catch (_) { }
             }
             return { success: true };
 
@@ -374,7 +566,7 @@ class AskService {
                     internalBridge.emit('window:requestVisibility', { name: 'ask', visible: false });
                     this.state.isVisible = false;
                     this._broadcastState();
-                } catch (_) {}
+                } catch (_) { }
             }
             return { success: false, error: error.message };
         }
@@ -412,7 +604,7 @@ class AskService {
                     if (!data) continue;
                     if (data === '[DONE]') {
                         shouldStop = true;
-                        reader.cancel().catch(() => {});
+                        reader.cancel().catch(() => { });
                         break;
                     }
 
@@ -452,10 +644,10 @@ class AskService {
             this.state.currentResponse = fullResponse;
             this._broadcastState();
             if (fullResponse) {
-                 try {
+                try {
                     await askRepository.addAiMessage({ sessionId, role: 'assistant', content: fullResponse });
                     console.log(`[AskService] DB: Saved partial or full assistant response to session ${sessionId} after stream ended.`);
-                } catch(dbError) {
+                } catch (dbError) {
                     console.error("[AskService] DB: Failed to save assistant response after stream ended:", dbError);
                 }
             }

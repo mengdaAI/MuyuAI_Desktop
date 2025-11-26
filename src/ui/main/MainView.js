@@ -8,6 +8,7 @@ export class MainView extends LitElement {
         listenSessionStatus: { type: String, state: true },
         interviewStartTime: { type: Number, state: true },
         interviewElapsedSeconds: { type: Number, state: true },
+        totalInterviewSeconds: { type: Number, state: true },
         isVisible: { type: Boolean, state: true },
         isAnimating: { type: Boolean, state: true },
         _scale: { type: Number, state: true },
@@ -26,6 +27,7 @@ export class MainView extends LitElement {
         this.listenSessionStatus = 'beforeSession';
         this.interviewStartTime = null;
         this.interviewElapsedSeconds = 0;
+        this.totalInterviewSeconds = 0;
         this._interviewTimerInterval = null;
         this._interviewStartListener = null;
         this._scale = 1;
@@ -535,6 +537,23 @@ export class MainView extends LitElement {
             // STT Listeners
             window.api.sttView.onSttUpdate(this.handleSttUpdate);
 
+            // User state listener for totalInterviewSeconds
+            this._userStateListener = (event, userState) => {
+                if (userState?.totalInterviewSeconds) {
+                    this.totalInterviewSeconds = userState.totalInterviewSeconds;
+                    console.log('[MainView] Updated totalInterviewSeconds:', this.totalInterviewSeconds);
+                }
+            };
+            window.api.common.onUserStateChanged(this._userStateListener);
+
+            // Fetch initial user state
+            window.api.common.getCurrentUser().then(userState => {
+                if (userState?.totalInterviewSeconds) {
+                    this.totalInterviewSeconds = userState.totalInterviewSeconds;
+                    console.log('[MainView] Initial totalInterviewSeconds:', this.totalInterviewSeconds);
+                }
+            }).catch(() => { });
+
             // Live Insights Listeners
             if (window.api.liveInsights) {
                 window.api.liveInsights.onTurnUpdate(this._handleTurnUpdate);
@@ -616,6 +635,11 @@ export class MainView extends LitElement {
                 window.api.liveInsights.removeOnTurnUpdate(this._handleTurnUpdate);
                 window.api.liveInsights.removeOnLiveAnswer(this._handleLiveAnswer);
                 window.api.liveInsights.removeOnTurnStateReset(this._handleTurnReset);
+            }
+
+            // Remove user state listener
+            if (this._userStateListener) {
+                window.api.common.removeOnUserStateChanged(this._userStateListener);
             }
         }
     }
@@ -829,11 +853,10 @@ export class MainView extends LitElement {
 
     async _handleScreenshotAskClick() {
         if (this.wasJustDragged) return;
-        const prompt = '请分析当前屏幕内容，并给出关键信息与可执行建议';
         try {
-            await window.api?.askView?.sendMessage?.(prompt);
+            await window.api?.screenshotView?.toggle?.();
         } catch (error) {
-            console.error('IPC invoke for screenshot ask failed:', error);
+            console.error('Screenshot toggle failed:', error);
         }
     }
 
@@ -962,7 +985,7 @@ export class MainView extends LitElement {
                                 </div>
                                 <div class="time-remaining">
                                     <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
-                                    <span>${panelState === 'idle' ? '计时 00:00' : `计时 ${elapsed}`}</span>
+                                    <span>${this.totalInterviewSeconds > 0 ? `剩余 ${Math.max(0, Math.ceil((this.totalInterviewSeconds - this.interviewElapsedSeconds) / 60))} 分钟` : (panelState === 'idle' ? '计时 00:00' : `计时 ${elapsed}`)}</span>
                                 </div>
                             </div>
                     </div>

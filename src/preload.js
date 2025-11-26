@@ -195,6 +195,22 @@ contextBridge.exposeInMainWorld('api', {
     removeOnScrollResponseDown: (callback) => ipcRenderer.removeListener('aks:scrollResponseDown', callback)
   },
 
+  // src/ui/screenshot/ScreenshotView.js
+  screenshotView: {
+    // Analysis
+    analyze: () => ipcRenderer.invoke('screenshot:analyze'),
+    toggle: () => ipcRenderer.invoke('screenshot:toggle'),
+    close: () => ipcRenderer.invoke('screenshot:close'),
+
+    // Listeners
+    onStateUpdate: (callback) => ipcRenderer.on('screenshot:stateUpdate', callback),
+    removeOnStateUpdate: (callback) => ipcRenderer.removeListener('screenshot:stateUpdate', callback),
+
+    onStreamError: (callback) => ipcRenderer.on('screenshot-stream-error', callback),
+    removeOnStreamError: (callback) => ipcRenderer.removeListener('screenshot-stream-error', callback)
+  },
+
+
   // src/ui/listen/ListenView.js
   listenView: {
     // Window Management
