@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Screenshot Analysis</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: transparent;
+        }
+
+        body {
+            -webkit-app-region: drag;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        screenshot-view {
+            display: block;
+            width: 100%;
+            height: 100%;
+            -webkit-app-region: no-drag;
+        }
+    </style>
+
+    <!-- External Libraries -->
+    <script src="../assets/marked.min.js"></script>
+    <script src="../assets/highlight.min.js"></script>
+    <script src="../assets/purify.min.js"></script>
+</head>
+
+<body>
+    <screenshot-view></screenshot-view>
+
+    <script type="module">
+        import { ScreenshotView } from './ScreenshotView.js';
+    </script>
+</body>
+
+</html>

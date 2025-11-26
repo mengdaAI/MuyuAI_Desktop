@@ -176,14 +176,15 @@ export class AskView extends LitElement {
             flex-direction: column;
             height: 100%;
             width: 100%;
-            background: rgba(0, 0, 0, 0.6);
-            border-radius: 12px;
-            outline: 0.5px rgba(255, 255, 255, 0.3) solid;
+            background: linear-gradient(180deg, rgba(45, 40, 55, 0.95), rgba(35, 30, 45, 0.98));
+            border-radius: 20px;
+            outline: 1px rgba(255, 255, 255, 0.1) solid;
             outline-offset: -1px;
-            backdrop-filter: blur(1px);
+            backdrop-filter: blur(10px);
             box-sizing: border-box;
             position: relative;
             overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
         }
 
         .ask-container::before {
@@ -203,16 +204,6 @@ export class AskView extends LitElement {
         }
 
         .response-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 16px;
-            background: transparent;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            flex-shrink: 0;
-        }
-
-        .response-header.hidden {
             display: none;
         }
 
@@ -362,19 +353,12 @@ export class AskView extends LitElement {
 
         .response-container {
             flex: 1;
-            padding: 16px;
-            padding-left: 48px;
+            padding: 20px;
             overflow-y: auto;
             font-size: 14px;
             line-height: 1.6;
             background: transparent;
-            min-height: 0;
-            max-height: 400px;
             position: relative;
-        }
-
-        .response-container.hidden {
-            display: none;
         }
 
         .response-container::-webkit-scrollbar {
@@ -489,46 +473,39 @@ export class AskView extends LitElement {
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 12px 16px;
-            background: rgba(0, 0, 0, 0.1);
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            background: transparent;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
             flex-shrink: 0;
-            transition: opacity 0.1s ease-in-out, transform 0.1s ease-in-out;
-            transform-origin: bottom;
-        }
-
-        .text-input-container.hidden {
-            opacity: 0;
-            transform: scaleY(0);
-            padding: 0;
-            height: 0;
-            overflow: hidden;
-            border-top: none;
-        }
-
-        .text-input-container.no-response {
-            border-top: none;
+            order: -1;
         }
 
         #textInput {
             flex: 1;
-            padding: 10px 14px;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 20px;
+            padding: 14px 20px;
+            background: transparent;
+            border-radius: 12px;
             outline: none;
-            border: none;
-            color: white;
-            font-size: 14px;
-            font-family: 'Helvetica Neue', sans-serif;
+            border: 2px solid transparent;
+            background-image: linear-gradient(rgba(40, 35, 50, 0.6), rgba(40, 35, 50, 0.6)), 
+                              linear-gradient(135deg, rgba(193, 127, 255, 0.6), rgba(255, 120, 180, 0.6));
+            background-origin: border-box;
+            background-clip: padding-box, border-box;
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 15px;
+            font-family: 'PingFang SC', 'Helvetica Neue', -apple-system, sans-serif;
             font-weight: 400;
+            transition: all 0.2s ease;
         }
 
         #textInput::placeholder {
-            color: rgba(255, 255, 255, 0.5);
+            color: rgba(255, 255, 255, 0.4);
         }
 
         #textInput:focus {
             outline: none;
+            background-image: linear-gradient(rgba(40, 35, 50, 0.8), rgba(40, 35, 50, 0.8)), 
+                              linear-gradient(135deg, rgba(193, 127, 255, 0.8), rgba(255, 120, 180, 0.8));
         }
 
         .response-line h1,
@@ -595,8 +572,9 @@ export class AskView extends LitElement {
             align-items: center;
             justify-content: center;
             height: 100%;
-            color: rgba(255, 255, 255, 0.5);
+            color: rgba(255, 255, 255, 0.35);
             font-size: 14px;
+            font-weight: 400;
         }
 
         .btn-gap {
@@ -644,45 +622,7 @@ export class AskView extends LitElement {
         }
 
         .submit-btn, .clear-btn {
-            display: flex;
-            align-items: center;
-            background: transparent;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            margin-left: 8px;
-            font-size: 13px;
-            font-family: 'Helvetica Neue', sans-serif;
-            font-weight: 500;
-            overflow: hidden;
-            cursor: pointer;
-            transition: background 0.15s;
-            height: 32px;
-            padding: 0 10px;
-            box-shadow: none;
-        }
-        .submit-btn:hover, .clear-btn:hover {
-            background: rgba(255,255,255,0.1);
-        }
-        .btn-label {
-            margin-right: 8px;
-            display: flex;
-            align-items: center;
-            height: 100%;
-        }
-        .btn-icon {
-            background: rgba(255,255,255,0.1);
-            border-radius: 13%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 18px;
-            height: 18px;
-        }
-        .btn-icon img, .btn-icon svg {
-            width: 13px;
-            height: 13px;
-            display: block;
+            display: none;
         }
         .header-clear-btn {
             background: transparent;
@@ -750,7 +690,7 @@ export class AskView extends LitElement {
     connectedCallback() {
         super.connectedCallback();
 
-console.log('📱 AskView connectedCallback - Set up IPC event listeners');
+        console.log('📱 AskView connectedCallback - Set up IPC event listeners');
 
         document.addEventListener('keydown', this.handleEscKey);
 
@@ -779,9 +719,9 @@ console.log('📱 AskView connectedCallback - Set up IPC event listeners');
                 if (!this.showTextInput) {
                     this.showTextInput = true;
                     this.updateComplete.then(() => this.focusTextInput());
-                  } else {
+                } else {
                     this.focusTextInput();
-                  }
+                }
             });
 
             window.api.askView.onScrollResponseUp(() => this.handleScroll('up'));
@@ -789,21 +729,21 @@ console.log('📱 AskView connectedCallback - Set up IPC event listeners');
             window.api.askView.onAskStateUpdate((event, newState) => {
                 this.currentResponse = newState.currentResponse;
                 this.currentQuestion = newState.currentQuestion;
-                this.isLoading       = newState.isLoading;
-                this.isStreaming     = newState.isStreaming;
-              
+                this.isLoading = newState.isLoading;
+                this.isStreaming = newState.isStreaming;
+
                 const wasHidden = !this.showTextInput;
                 this.showTextInput = newState.showTextInput;
-              
+
                 if (newState.showTextInput) {
-                  if (wasHidden) {
-                    this.updateComplete.then(() => this.focusTextInput());
-                  } else {
-                    this.focusTextInput();
-                  }
+                    if (wasHidden) {
+                        this.updateComplete.then(() => this.focusTextInput());
+                    } else {
+                        this.focusTextInput();
+                    }
                 }
-              });
-console.log('AskView: IPC event listeners registered');
+            });
+            console.log('AskView: IPC event listeners registered');
         }
     }
 
@@ -811,7 +751,7 @@ console.log('AskView: IPC event listeners registered');
         super.disconnectedCallback();
         this.resizeObserver?.disconnect();
 
-console.log('📱 AskView disconnectedCallback - Remove IPC event listeners');
+        console.log('📱 AskView disconnectedCallback - Remove IPC event listeners');
 
         document.removeEventListener('keydown', this.handleEscKey);
 
@@ -834,7 +774,7 @@ console.log('📱 AskView disconnectedCallback - Remove IPC event listeners');
             window.api.askView.removeOnShowTextInput(this.handleShowTextInput);
             window.api.askView.removeOnScrollResponseUp(this.handleScroll);
             window.api.askView.removeOnScrollResponseDown(this.handleScroll);
-console.log('✅ AskView: IPC event listener removal needed');
+            console.log('✅ AskView: IPC event listener removal needed');
         }
     }
 
@@ -993,7 +933,7 @@ console.log('✅ AskView: IPC event listener removal needed');
     renderContent() {
         const responseContainer = this.shadowRoot.getElementById('responseContainer');
         if (!responseContainer) return;
-    
+
         // Check loading state
         if (this.isLoading) {
             responseContainer.innerHTML = `
@@ -1005,14 +945,14 @@ console.log('✅ AskView: IPC event listener removal needed');
             this.resetStreamingParser();
             return;
         }
-        
+
         // If there is no response, show empty state
         if (!this.currentResponse) {
-            responseContainer.innerHTML = `<div class="empty-state">...</div>`;
+            responseContainer.innerHTML = `<div class="empty-state">此处将展示生成的回答...</div>`;
             this.resetStreamingParser();
             return;
         }
-        
+
         // Set streaming markdown parser
         this.renderStreamingMarkdown(responseContainer);
 
@@ -1032,7 +972,7 @@ console.log('✅ AskView: IPC event listener removal needed');
             if (!this.smdParser || this.smdContainer !== responseContainer) {
                 this.smdContainer = responseContainer;
                 this.smdContainer.innerHTML = '';
-                
+
                 // Use smd.js default_renderer
                 const renderer = default_renderer(this.smdContainer);
                 this.smdParser = parser(renderer);
@@ -1042,7 +982,7 @@ console.log('✅ AskView: IPC event listener removal needed');
             // Process only new text (streaming optimization)
             const currentText = this.currentResponse;
             const newText = currentText.slice(this.lastProcessedLength);
-            
+
             if (newText.length > 0) {
                 // Send the new text chunk to the parser
                 parser_write(this.smdParser, newText);
@@ -1066,7 +1006,7 @@ console.log('✅ AskView: IPC event listener removal needed');
 
             // Scroll to the bottom
             responseContainer.scrollTop = responseContainer.scrollHeight;
-            
+
         } catch (error) {
             console.error('Error rendering streaming markdown:', error);
             // Fallback to basic text rendering on error
@@ -1076,7 +1016,7 @@ console.log('✅ AskView: IPC event listener removal needed');
 
     renderFallbackContent(responseContainer) {
         const textToRender = this.currentResponse || '';
-        
+
         if (this.isLibrariesLoaded && this.marked && this.DOMPurify) {
             try {
                 // Parse Markdown
@@ -1300,16 +1240,16 @@ console.log('✅ AskView: IPC event listener removal needed');
 
     updated(changedProperties) {
         super.updated(changedProperties);
-    
+
         // ✨ Redraw the view whenever isLoading or currentResponse changes.
         if (changedProperties.has('isLoading') || changedProperties.has('currentResponse')) {
             this.renderContent();
         }
-    
+
         if (changedProperties.has('showTextInput') || changedProperties.has('isLoading') || changedProperties.has('currentResponse')) {
             this.adjustWindowHeightThrottled();
         }
-    
+
         if (changedProperties.has('showTextInput') && this.showTextInput) {
             this.focusTextInput();
         }
@@ -1329,102 +1269,31 @@ console.log('✅ AskView: IPC event listener removal needed');
 
 
     render() {
-        const hasResponse = this.isLoading || this.currentResponse || this.isStreaming;
-        const headerText = this.isLoading ? 'Thinking...' : 'AI Response';
-
         return html`
             <div class="ask-container">
-                <!-- Response Header -->
-                <div class="response-header ${!hasResponse ? 'hidden' : ''}">
-                    <div class="header-left">
-                        <div class="response-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
-                                <path d="M8 12l2 2 4-4" />
-                            </svg>
-                        </div>
-                        <span class="response-label">${headerText}</span>
-                    </div>
-                    <div class="header-right">
-                        <span class="question-text">${this.getTruncatedQuestion(this.currentQuestion)}</span>
-                        <div class="header-controls">
-                            <button class="copy-button ${this.copyState === 'copied' ? 'copied' : ''}" @click=${this.handleCopy}>
-                                <svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-                                </svg>
-                                <svg
-                                    class="check-icon"
-                                    width="16"
-                                    height="16"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2.5"
-                                >
-                                    <path d="M20 6L9 17l-5-5" />
-                                </svg>
-                            </button>
-                            <button class="close-button" @click=${this.handleCloseAskWindow}>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <line x1="18" y1="6" x2="6" y2="18" />
-                                    <line x1="6" y1="6" x2="18" y2="18" />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Response Container -->
-                <div class="response-container ${!hasResponse ? 'hidden' : ''}" id="responseContainer">
-                    <!-- Content is dynamically generated in updateResponseContent() -->
-                </div>
-
-                <!-- Text Input Container -->
-                <div class="text-input-container ${!hasResponse ? 'no-response' : ''} ${!this.showTextInput ? 'hidden' : ''}">
+                <!-- Text Input Container (Always at top) -->
+                <div class="text-input-container">
                     <input
                         type="text"
                         id="textInput"
-                        placeholder="Ask about your screen or audio"
+                        placeholder="输入你想问的任何问题"
                         @keydown=${this.handleTextKeydown}
                         @focus=${this.handleInputFocus}
                     />
-                    <button
-                        class="submit-btn"
-                        @click=${this.handleSendText}
-                    >
-                        <span class="btn-label">Submit</span>
-                        <span class="btn-icon">
-                            ↵
-                        </span>
-                    </button>
+                </div>
+
+                <!-- Response Container (Always visible below input) -->
+                <div class="response-container" id="responseContainer">
+                    <!-- Content is dynamically generated in updateResponseContent() -->
                 </div>
             </div>
         `;
     }
 
-    // Dynamically resize the BrowserWindow to fit current content
+    // Disabled: Fixed height window, no dynamic adjustment needed
     adjustWindowHeight() {
-        if (!window.api) return;
-
-        this.updateComplete.then(() => {
-            const headerEl = this.shadowRoot.querySelector('.response-header');
-            const responseEl = this.shadowRoot.querySelector('.response-container');
-            const inputEl = this.shadowRoot.querySelector('.text-input-container');
-
-            if (!headerEl || !responseEl) return;
-
-            const headerHeight = headerEl.classList.contains('hidden') ? 0 : headerEl.offsetHeight;
-            const responseHeight = responseEl.scrollHeight;
-            const inputHeight = (inputEl && !inputEl.classList.contains('hidden')) ? inputEl.offsetHeight : 0;
-
-            const idealHeight = headerHeight + responseHeight + inputHeight;
-
-            const targetHeight = Math.min(700, idealHeight);
-
-            window.api.askView.adjustWindowHeight("ask", targetHeight);
-
-        }).catch(err => console.error('AskView adjustWindowHeight error:', err));
+        // Window height is fixed at 393px to match MainView
+        return;
     }
 
     // Throttled wrapper to avoid excessive IPC spam (executes at most once per animation frame)

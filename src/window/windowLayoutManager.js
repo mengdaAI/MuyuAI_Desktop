@@ -153,8 +153,10 @@ class WindowLayoutManager {
 
         const askVis = visibility.ask && ask && !ask.isDestroyed();
         const listenVis = visibility.listen && listen && !listen.isDestroyed();
+        const transcript = this.windowPool.get('transcript');
+        const transcriptVis = visibility.transcript && transcript && !transcript.isDestroyed();
 
-        if (!askVis && !listenVis) return {};
+        if (!askVis && !listenVis && !transcriptVis) return {};
 
         const clampX = (targetX, winWidth) => {
             const maxX = workAreaX + screenWidth - winWidth;
@@ -186,15 +188,62 @@ class WindowLayoutManager {
         }
 
         if (askVis) {
+            const mainWin = this.windowPool.get('main');
             const askBounds = ask.getBounds();
-            const alignedY = clampY(targetTop, askBounds.height);
-            const alignedX = clampX(headerRight, askBounds.width);
-            layout.ask = {
-                x: Math.round(alignedX),
-                y: Math.round(alignedY),
-                width: askBounds.width,
-                height: askBounds.height,
-            };
+
+            if (mainWin && !mainWin.isDestroyed() && mainWin.isVisible()) {
+                // Position Ask window to the right of MainView
+                const mainBounds = mainWin.getBounds();
+                const alignedY = clampY(mainBounds.y, askBounds.height);
+                const alignedX = clampX(mainBounds.x + mainBounds.width, askBounds.width);
+                layout.ask = {
+                    x: Math.round(alignedX),
+                    y: Math.round(alignedY),
+                    width: askBounds.width,
+                    height: askBounds.height,
+                };
+            } else {
+                // Fallback to header positioning if MainView not available
+                const alignedY = clampY(targetTop, askBounds.height);
+                const alignedX = clampX(headerRight, askBounds.width);
+                layout.ask = {
+                    x: Math.round(alignedX),
+                    y: Math.round(alignedY),
+                    width: askBounds.width,
+                    height: askBounds.height,
+                };
+            }
+        }
+
+        // const transcript = this.windowPool.get('transcript'); // Already declared
+        // const transcriptVis = visibility.transcript && transcript && !transcript.isDestroyed(); // Already declared
+
+        if (transcriptVis) {
+            const mainWin = this.windowPool.get('main');
+            const transcriptBounds = transcript.getBounds();
+
+            if (mainWin && !mainWin.isDestroyed() && mainWin.isVisible()) {
+                // Position Transcript window to the right of MainView
+                const mainBounds = mainWin.getBounds();
+                const alignedY = clampY(mainBounds.y, transcriptBounds.height);
+                const alignedX = clampX(mainBounds.x + mainBounds.width, transcriptBounds.width);
+                layout.transcript = {
+                    x: Math.round(alignedX),
+                    y: Math.round(alignedY),
+                    width: transcriptBounds.width,
+                    height: transcriptBounds.height,
+                };
+            } else {
+                // Fallback to header positioning if MainView not available
+                const alignedY = clampY(targetTop, transcriptBounds.height);
+                const alignedX = clampX(headerRight, transcriptBounds.width);
+                layout.transcript = {
+                    x: Math.round(alignedX),
+                    y: Math.round(alignedY),
+                    width: transcriptBounds.width,
+                    height: transcriptBounds.height,
+                };
+            }
         }
 
         return layout;

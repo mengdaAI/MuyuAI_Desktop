@@ -69,13 +69,14 @@ class AuthService {
                 isLoggedIn: true,
                 authToken: this.interviewAuth?.token || null,
                 profile: this.interviewAuth?.user || null,
+                totalInterviewSeconds: this.interviewAuth?.raw?.totalInterviewSeconds || 0,
             };
         }
 
         // Local mode (default)
         return {
             uid: this.currentUserId, // returns 'default_user'
-            email: 'contact@pickle.com',
+            email: 'contact@muyu.ai',
             displayName: 'Default User',
             mode: 'local',
             isLoggedIn: false,

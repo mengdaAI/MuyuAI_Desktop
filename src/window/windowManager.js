@@ -401,13 +401,52 @@ async function handleWindowVisibilityRequest(windowPool, layoutManager, movement
             delete otherWindowsLayout[name];
             movementManager.animateLayout(otherWindowsLayout);
         }
+        return;
+    }
+
+    // Handle screenshot window
+    if (name === 'screenshot') {
+        if (shouldBeVisible) {
+            const targetLayout = layoutManager.calculateFeatureWindowLayout({ ask: true });
+            const targetBounds = targetLayout.ask; // Use same position as ask window
+
+            if (targetBounds) {
+                win.setOpacity(0);
+                win.setBounds(targetBounds);
+                win.show();
+                movementManager.fade(win, { to: 1 });
+            }
+        } else {
+            if (win && win.isVisible()) {
+                movementManager.fade(win, { to: 0, onComplete: () => win.hide() });
+            }
+        }
+        return;
+    }
+
+    if (name === 'transcript') {
+        if (shouldBeVisible) {
+            const targetLayout = layoutManager.calculateFeatureWindowLayout({ transcript: true });
+            const targetBounds = targetLayout.transcript; // Use calculated position
+
+            if (targetBounds) {
+                win.setOpacity(0);
+                win.setBounds(targetBounds);
+                win.show();
+                movementManager.fade(win, { to: 1 });
+            }
+        } else {
+            if (win && win.isVisible()) {
+                movementManager.fade(win, { to: 0, onComplete: () => win.hide() });
+            }
+        }
+        return;
     }
 }
 
-
 const setContentProtection = (status) => {
     isContentProtectionOn = status;
-    console.log(`[Protection] Content protection toggled to: ${isContentProtectionOn}`);
+    console.log(`[Protection] Content protection toggled to: ${isContentProtectionOn} `);
     windowPool.forEach(win => {
         if (win && !win.isDestroyed()) {
             win.setContentProtection(isContentProtectionOn);
@@ -523,7 +562,13 @@ function createFeatureWindows(header, namesToCreate) {
 
             // ask
             case 'ask': {
-                const ask = new BrowserWindow({ ...commonChildOptions, width: 600 });
+                const ask = new BrowserWindow({
+                    ...commonChildOptions,
+                    width: 600,
+                    height: 393,
+                    maxHeight: 393,
+                    minHeight: 393
+                });
                 ask.setContentProtection(isContentProtectionOn);
                 ask.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
                 if (process.platform === 'darwin') {
@@ -553,6 +598,55 @@ function createFeatureWindows(header, namesToCreate) {
                 windowPool.set('ask', ask);
                 break;
             }
+
+            // screenshot
+            case 'screenshot': {
+                const screenshot = new BrowserWindow({
+                    ...commonChildOptions,
+                    width: 600,
+                    height: 393,
+                    maxHeight: 393,
+                    minHeight: 393
+                });
+                screenshot.setContentProtection(isContentProtectionOn);
+                screenshot.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+                if (process.platform === 'darwin') {
+                    screenshot.setWindowButtonVisibility(false);
+                }
+                screenshot.loadFile(path.join(__dirname, '../ui/screenshot/screenshot.html'));
+
+                // DevTools in development
+                if (!app.isPackaged) {
+                    screenshot.webContents.openDevTools({ mode: 'detach' });
+                }
+                windowPool.set('screenshot', screenshot);
+                break;
+            }
+
+            // transcript
+            case 'transcript': {
+                const transcript = new BrowserWindow({
+                    ...commonChildOptions,
+                    width: 400,
+                    height: 600,
+                    maxHeight: 900,
+                    minHeight: 300
+                });
+                transcript.setContentProtection(isContentProtectionOn);
+                transcript.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+                if (process.platform === 'darwin') {
+                    transcript.setWindowButtonVisibility(false);
+                }
+                transcript.loadFile(path.join(__dirname, '../ui/transcript/transcript.html'));
+
+                // DevTools in development
+                if (!app.isPackaged) {
+                    transcript.webContents.openDevTools({ mode: 'detach' });
+                }
+                windowPool.set('transcript', transcript);
+                break;
+            }
+
 
             // settings
             case 'settings': {
@@ -750,7 +844,7 @@ function createWindows() {
     setupWindowController(windowPool, layoutManager, movementManager);
 
     if (currentHeaderState === 'main') {
-        createFeatureWindows(header, ['main', 'listen', 'ask', 'settings', 'shortcut-settings']);
+        createFeatureWindows(header, ['main', 'listen', 'ask', 'screenshot', 'transcript', 'settings', 'shortcut-settings']);
     }
 
     header.setContentProtection(isContentProtectionOn);
@@ -869,12 +963,12 @@ function setupIpcHandlers(windowPool, layoutManager) {
 
 
 const handleHeaderStateChanged = (state) => {
-    console.log(`[WindowManager] Header state changed to: ${state}`);
+    console.log(`[WindowManager] Header state changed to: ${state} `);
     currentHeaderState = state;
     const header = windowPool.get('header');
 
     if (state === 'main') {
-        createFeatureWindows(header, ['main', 'listen', 'ask', 'settings', 'shortcut-settings']);
+        createFeatureWindows(header, ['main', 'listen', 'ask', 'screenshot', 'transcript', 'settings', 'shortcut-settings']);
 
         // Hide Header window visually but keep it as parent
         if (header && !header.isDestroyed()) {

@@ -125,29 +125,27 @@ class ListenService {
 
     showTranscriptView() {
         const { windowPool } = require('../../window/windowManager');
-        const listenWindow = windowPool?.get('listen');
-        if (!listenWindow || listenWindow.isDestroyed()) {
-            internalBridge.emit('window:requestVisibility', { name: 'listen', visible: true });
-        } else if (!listenWindow.isVisible()) {
-            internalBridge.emit('window:requestVisibility', { name: 'listen', visible: true });
+        const transcriptWindow = windowPool?.get('transcript');
+        if (!transcriptWindow || transcriptWindow.isDestroyed()) {
+            internalBridge.emit('window:requestVisibility', { name: 'transcript', visible: true });
+        } else if (!transcriptWindow.isVisible()) {
+            internalBridge.emit('window:requestVisibility', { name: 'transcript', visible: true });
         }
-        this.sendToRenderer('listen:set-view', { view: 'transcript' });
+        // this.sendToRenderer('listen:set-view', { view: 'transcript' });
     }
 
     toggleTranscriptView() {
         const { windowPool } = require('../../window/windowManager');
-        const listenWindow = windowPool?.get('listen');
-        if (!listenWindow || listenWindow.isDestroyed()) {
-            internalBridge.emit('window:requestVisibility', { name: 'listen', visible: true });
-            this.sendToRenderer('listen:set-view', { view: 'transcript' });
+        const transcriptWindow = windowPool?.get('transcript');
+        if (!transcriptWindow || transcriptWindow.isDestroyed()) {
+            internalBridge.emit('window:requestVisibility', { name: 'transcript', visible: true });
             return;
         }
 
-        if (listenWindow.isVisible()) {
-            internalBridge.emit('window:requestVisibility', { name: 'listen', visible: false });
+        if (transcriptWindow.isVisible()) {
+            internalBridge.emit('window:requestVisibility', { name: 'transcript', visible: false });
         } else {
-            internalBridge.emit('window:requestVisibility', { name: 'listen', visible: true });
-            this.sendToRenderer('listen:set-view', { view: 'transcript' });
+            internalBridge.emit('window:requestVisibility', { name: 'transcript', visible: true });
         }
     }
 
@@ -336,12 +334,16 @@ class ListenService {
         const { windowPool } = require('../../window/windowManager');
         const listenWindow = windowPool?.get('listen');
         const mainWindow = windowPool?.get('main');
+        const transcriptWindow = windowPool?.get('transcript');
 
         if (listenWindow && !listenWindow.isDestroyed()) {
             listenWindow.webContents.send(channel, data);
         }
         if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send(channel, data);
+        }
+        if (transcriptWindow && !transcriptWindow.isDestroyed()) {
+            transcriptWindow.webContents.send(channel, data);
         }
     }
 
@@ -414,6 +416,9 @@ class ListenService {
         if (!partial || !partial.text) return;
 
         const speaker = partial.speaker === 'Me' ? 'Me' : 'Them';
+        if (speaker === 'Me') {
+            console.log('[ListenService] Me partial:', { text: partial.text, isFinal: partial.isFinal });
+        }
         const timestamp = partial.timestamp || Date.now();
         const provider = partial.provider || this.sttService?.modelInfo?.provider || null;
 
@@ -434,6 +439,14 @@ class ListenService {
         }
 
         if (!hasMeaningfulText && !partial.isFinal) {
+            return;
+        }
+
+        if (partial.isFinal) {
+            this.finalizeTurn(speaker, mergedPartial, {
+                timestamp,
+                provider
+            });
             return;
         }
 
