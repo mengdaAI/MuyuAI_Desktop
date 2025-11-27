@@ -232,12 +232,12 @@ class HeaderTransitionManager {
             }
         }
 
-        let initialHeight = 220;
+        let initialHeight = 430;
         if (window.api) {
             try {
                 const userState = await window.api.common.getCurrentUser();
                 if (userState.mode === 'firebase') {
-                    initialHeight = 280;
+                    initialHeight = 520;
                 }
             } catch (e) {
                 console.error('Could not get user state for resize', e);
@@ -356,8 +356,8 @@ class HeaderTransitionManager {
 
     async _resizeForPermissionHeader(height) {
         if (!window.api) return;
-        const finalHeight = height || 220;
-        return window.api.headerController.resizeHeaderWindow({ width: 285, height: finalHeight })
+        const finalHeight = height || 430;
+        return window.api.headerController.resizeHeaderWindow({ width: 710, height: finalHeight })
             .catch(() => { });
     }
 
