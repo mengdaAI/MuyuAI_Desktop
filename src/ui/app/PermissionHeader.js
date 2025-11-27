@@ -19,7 +19,7 @@ export class PermissionHeader extends LitElement {
         }
 
         * {
-            font-family: 'Helvetica Neue', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: 'PingFang SC', 'Helvetica Neue', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             cursor: default;
             user-select: none;
             box-sizing: border-box;
@@ -27,16 +27,17 @@ export class PermissionHeader extends LitElement {
 
         .container {
             -webkit-app-region: drag;
-            width: 285px;
-            /* height is now set dynamically */
-            padding: 18px 20px;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 16px;
+            width: 650px;
+            padding: 40px 50px 35px;
+            background: linear-gradient(135deg, rgba(88, 70, 120, 0.85) 0%, rgba(70, 80, 130, 0.85) 50%, rgba(60, 70, 110, 0.85) 100%);
+            border-radius: 24px;
             overflow: hidden;
             position: relative;
             display: flex;
             flex-direction: column;
             align-items: center;
+            backdrop-filter: blur(40px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         }
 
         .container::after {
@@ -46,9 +47,9 @@ export class PermissionHeader extends LitElement {
             left: 0;
             right: 0;
             bottom: 0;
-            border-radius: 16px;
-            padding: 1px;
-            background: linear-gradient(169deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 50%, rgba(255, 255, 255, 0.5) 100%);
+            border-radius: 24px;
+            padding: 1.5px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0.2) 100%);
             -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
             -webkit-mask-composite: destination-out;
             mask-composite: exclude;
@@ -58,19 +59,19 @@ export class PermissionHeader extends LitElement {
         .close-button {
             -webkit-app-region: no-drag;
             position: absolute;
-            top: 10px;
-            right: 10px;
-            width: 14px;
-            height: 14px;
+            top: 20px;
+            right: 20px;
+            width: 28px;
+            height: 28px;
             background: rgba(255, 255, 255, 0.1);
-            border: none;
-            border-radius: 3px;
-            color: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 50%;
+            color: rgba(255, 255, 255, 0.6);
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.15s ease;
+            transition: all 0.2s ease;
             z-index: 10;
             font-size: 14px;
             line-height: 1;
@@ -79,136 +80,186 @@ export class PermissionHeader extends LitElement {
 
         .close-button:hover {
             background: rgba(255, 255, 255, 0.2);
-            color: rgba(255, 255, 255, 0.9);
+            border-color: rgba(255, 255, 255, 0.3);
+            color: rgba(255, 255, 255, 0.95);
+            transform: scale(1.05);
         }
 
         .close-button:active {
-            transform: scale(0.95);
+            transform: scale(0.98);
+        }
+
+        .header-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 35px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+        .logo-icon {
+            width: 38px;
+            height: 38px;
         }
 
         .title {
             color: white;
-            font-size: 16px;
-            font-weight: 500;
+            font-size: 26px;
+            font-weight: 600;
             margin: 0;
             text-align: center;
-            flex-shrink: 0;
-        }
-
-        .form-content {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            width: 100%;
-            margin-top: auto;
-        }
-
-        .form-content.all-granted {
-            flex-grow: 1;
-            justify-content: center;
-            margin-top: 0;
+            letter-spacing: 0.5px;
         }
 
         .subtitle {
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 11px;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 12.5px;
             font-weight: 400;
             text-align: center;
-            margin-bottom: 12px;
-            line-height: 1.3;
+            margin: 0;
+            line-height: 1.6;
         }
 
-        .permission-status {
+        .permissions-list {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 100%;
+        }
+
+        .permission-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 24px;
+            width: 100%;
+        }
+
+        .permission-info {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            flex: 1;
+        }
+
+        .permission-icon-wrapper {
+            width: 44px;
+            height: 44px;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
-            margin-bottom: 12px;
-            min-height: 20px;
-        }
-
-        .permission-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            color: rgba(255, 255, 255, 0.8);
-            font-size: 11px;
-            font-weight: 400;
-        }
-
-        .permission-item.granted {
-            color: rgba(34, 197, 94, 0.9);
+            background: rgba(255, 255, 255, 0.12);
+            border-radius: 11px;
+            flex-shrink: 0;
+            border: 1px solid rgba(255, 255, 255, 0.15);
         }
 
         .permission-icon {
-            width: 12px;
-            height: 12px;
-            opacity: 0.8;
+            width: 26px;
+            height: 26px;
+            color: rgba(255, 255, 255, 0.9);
         }
 
-        .check-icon {
-            width: 12px;
-            height: 12px;
-            color: rgba(34, 197, 94, 0.9);
-        }
-
-        .action-button {
-            -webkit-app-region: no-drag;
-            width: 100%;
-            height: 34px;
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            border-radius: 10px;
+        .permission-label {
             color: white;
-            font-size: 12px;
+            font-size: 16px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+        }
+
+        .permission-button {
+            -webkit-app-region: no-drag;
+            min-width: 110px;
+            height: 42px;
+            padding: 0 28px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1.5px solid rgba(160, 140, 200, 0.5);
+            border-radius: 22px;
+            color: white;
+            font-size: 14px;
             font-weight: 500;
             cursor: pointer;
-            transition: background 0.15s ease;
+            transition: all 0.2s ease;
             position: relative;
-            overflow: hidden;
-            margin-bottom: 6px;
+            overflow: visible;
+            flex-shrink: 0;
         }
 
-        .action-button::after {
+        .permission-button::before {
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            border-radius: 10px;
-            padding: 1px;
-            background: linear-gradient(169deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 50%, rgba(255, 255, 255, 0.5) 100%);
-            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            -webkit-mask-composite: destination-out;
-            mask-composite: exclude;
-            pointer-events: none;
+            top: -1px;
+            left: -1px;
+            right: -1px;
+            bottom: -1px;
+            border-radius: 22px;
+            background: linear-gradient(135deg, rgba(180, 160, 220, 0.4) 0%, rgba(140, 120, 200, 0.2) 100%);
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.2s ease;
         }
 
-        .action-button:hover:not(:disabled) {
-            background: rgba(255, 255, 255, 0.3);
+        .permission-button:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(180, 160, 220, 0.7);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(140, 120, 200, 0.3);
         }
 
-        .action-button:disabled {
+        .permission-button:hover:not(:disabled)::before {
+            opacity: 1;
+        }
+
+        .permission-button:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .permission-button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
         }
 
+        .permission-button.granted {
+            background: rgba(34, 197, 94, 0.25);
+            border-color: rgba(34, 197, 94, 0.6);
+            cursor: default;
+        }
+
+        .permission-button.granted:hover {
+            background: rgba(34, 197, 94, 0.25);
+            transform: none;
+            box-shadow: none;
+        }
+
+        .continue-section {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            margin-top: 36px;
+        }
+
         .continue-button {
             -webkit-app-region: no-drag;
-            width: 100%;
-            height: 34px;
-            background: rgba(34, 197, 94, 0.8);
-            border: none;
-            border-radius: 10px;
+            min-width: 200px;
+            height: 48px;
+            padding: 0 48px;
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.9) 0%, rgba(34, 197, 94, 0.85) 100%);
+            border: 1.5px solid rgba(34, 197, 94, 0.7);
+            border-radius: 24px;
             color: white;
-            font-size: 12px;
-            font-weight: 500;
+            font-size: 15px;
+            font-weight: 600;
             cursor: pointer;
-            transition: background 0.15s ease;
+            transition: all 0.25s ease;
             position: relative;
             overflow: hidden;
-            margin-top: 4px;
+            box-shadow: 0 4px 16px rgba(34, 197, 94, 0.25);
         }
 
         .continue-button::after {
@@ -218,29 +269,48 @@ export class PermissionHeader extends LitElement {
             left: 0;
             right: 0;
             bottom: 0;
-            border-radius: 10px;
-            padding: 1px;
-            background: linear-gradient(169deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 50%, rgba(255, 255, 255, 0.5) 100%);
-            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            -webkit-mask-composite: destination-out;
-            mask-composite: exclude;
+            border-radius: 24px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 100%);
             pointer-events: none;
         }
 
         .continue-button:hover:not(:disabled) {
-            background: rgba(34, 197, 94, 0.9);
+            background: linear-gradient(135deg, rgba(34, 197, 94, 1) 0%, rgba(34, 197, 94, 0.95) 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(34, 197, 94, 0.4);
+            border-color: rgba(34, 197, 94, 0.9);
+        }
+
+        .continue-button:active:not(:disabled) {
+            transform: translateY(0);
         }
 
         .continue-button:disabled {
             background: rgba(255, 255, 255, 0.2);
             cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .keychain-hint {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            text-align: center;
+            margin-top: 8px;
+            line-height: 1.6;
+            max-width: 600px;
+        }
+
+        .keychain-hint b {
+            color: rgba(255, 255, 255, 0.95);
+            font-weight: 600;
         }
         
         /* ────────────────[ GLASS BYPASS ]─────────────── */
         :host-context(body.has-glass) .container,
-        :host-context(body.has-glass) .action-button,
+        :host-context(body.has-glass) .permission-button,
         :host-context(body.has-glass) .continue-button,
-        :host-context(body.has-glass) .close-button {
+        :host-context(body.has-glass) .close-button,
+        :host-context(body.has-glass) .permission-icon-wrapper {
             background: transparent !important;
             border: none !important;
             box-shadow: none !important;
@@ -249,12 +319,12 @@ export class PermissionHeader extends LitElement {
         }
 
         :host-context(body.has-glass) .container::after,
-        :host-context(body.has-glass) .action-button::after,
+        :host-context(body.has-glass) .permission-button::before,
         :host-context(body.has-glass) .continue-button::after {
             display: none !important;
         }
 
-        :host-context(body.has-glass) .action-button:hover,
+        :host-context(body.has-glass) .permission-button:hover,
         :host-context(body.has-glass) .continue-button:hover,
         :host-context(body.has-glass) .close-button:hover {
             background: transparent !important;
@@ -282,9 +352,23 @@ export class PermissionHeader extends LitElement {
 
     updated(changedProperties) {
         super.updated(changedProperties);
-        if (changedProperties.has('userMode')) {
-            const newHeight = this.userMode === 'firebase' ? 280 : 220;
-            console.log(`[PermissionHeader] User mode changed to ${this.userMode}, requesting resize to ${newHeight}px`);
+        if (changedProperties.has('userMode') || changedProperties.has('microphoneGranted') || changedProperties.has('screenGranted') || changedProperties.has('keychainGranted')) {
+            const isKeychainRequired = this.userMode === 'firebase';
+            const keychainOk = !isKeychainRequired || this.keychainGranted === 'granted';
+            const allGranted = this.microphoneGranted === 'granted' && this.screenGranted === 'granted' && keychainOk;
+            
+            // Base height: header (140px) + 2 permissions (88px each) + padding (40px)
+            let newHeight = 430;
+            
+            if (isKeychainRequired && !keychainOk) {
+                newHeight += 90; // Extra row for keychain + hint text
+            }
+            
+            if (allGranted) {
+                newHeight += 70; // Add continue button section
+            }
+            
+            console.log(`[PermissionHeader] State changed, requesting resize to ${newHeight}px`);
             this.dispatchEvent(new CustomEvent('request-resize', {
                 detail: { height: newHeight },
                 bubbles: true,
@@ -478,106 +562,111 @@ export class PermissionHeader extends LitElement {
 
     render() {
         const isKeychainRequired = this.userMode === 'firebase';
-        const containerHeight = isKeychainRequired ? 280 : 220;
         const keychainOk = !isKeychainRequired || this.keychainGranted === 'granted';
         const allGranted = this.microphoneGranted === 'granted' && this.screenGranted === 'granted' && keychainOk;
 
         return html`
-            <div class="container" style="height: ${containerHeight}px">
-                <button class="close-button" @click=${this.handleClose} title="Close application">
-                    <svg width="8" height="8" viewBox="0 0 10 10" fill="currentColor">
-                        <path d="M1 1L9 9M9 1L1 9" stroke="currentColor" stroke-width="1.2" />
+            <div class="container">
+                <button class="close-button" @click=${this.handleClose} title="关闭应用">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <path d="M2 2L10 10M10 2L2 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
                     </svg>
                 </button>
-                <h1 class="title">Permission Setup Required</h1>
 
-                <div class="form-content ${allGranted ? 'all-granted' : ''}">
-                    ${!allGranted ? html`
-                        <div class="subtitle">Grant access to microphone, screen recording${isKeychainRequired ? ' and keychain' : ''} to continue</div>
-                        
-                        <div class="permission-status">
-                            <div class="permission-item ${this.microphoneGranted === 'granted' ? 'granted' : ''}">
-                                ${this.microphoneGranted === 'granted' ? html`
-                                    <svg class="check-icon" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                                    </svg>
-                                    <span>Microphone ✓</span>
-                                ` : html`
-                                    <svg class="permission-icon" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clip-rule="evenodd" />
-                                    </svg>
-                                    <span>Microphone</span>
-                                `}
-                            </div>
-                            
-                            <div class="permission-item ${this.screenGranted === 'granted' ? 'granted' : ''}">
-                                ${this.screenGranted === 'granted' ? html`
-                                    <svg class="check-icon" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                                    </svg>
-                                    <span>Screen ✓</span>
-                                ` : html`
-                                    <svg class="permission-icon" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fill-rule="evenodd" d="M3 5a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2h-2.22l.123.489.804.804A1 1 0 0113 18H7a1 1 0 01-.707-1.707l.804-.804L7.22 15H5a2 2 0 01-2-2V5zm5.771 7H5V5h10v7H8.771z" clip-rule="evenodd" />
-                                    </svg>
-                                    <span>Screen Recording</span>
-                                `}
-                            </div>
+                <div class="header-section">
+                    <div class="logo">
+                        <svg class="logo-icon" viewBox="0 0 48 48" fill="none">
+                            <rect width="48" height="48" rx="12" fill="url(#logo-gradient)" />
+                            <path d="M14 18L20 24L14 30M24 30H34" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                            <defs>
+                                <linearGradient id="logo-gradient" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#8B5CF6" />
+                                    <stop offset="1" stop-color="#6366F1" />
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                        <h1 class="title">慕语提问器</h1>
+                    </div>
+                    <p class="subtitle">请为慕语提问器开启麦克风与屏幕获取权限后开始使用</p>
+                </div>
 
-                            ${isKeychainRequired ? html`
-                                <div class="permission-item ${this.keychainGranted === 'granted' ? 'granted' : ''}">
-                                    ${this.keychainGranted === 'granted' ? html`
-                                        <svg class="check-icon" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                                        </svg>
-                                        <span>Data Encryption ✓</span>
-                                    ` : html`
-                                        <svg class="permission-icon" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fill-rule="evenodd" d="M18 8a6 6 0 01-7.744 5.668l-1.649 1.652c-.63.63-1.706.19-1.706-.742V12.18a.75.75 0 00-1.5 0v2.696c0 .932-1.075 1.372-1.706.742l-1.649-1.652A6 6 0 112 8zm-4 0a.75.75 0 00.75-.75A3.75 3.75 0 018.25 4a.75.75 0 000 1.5 2.25 2.25 0 012.25 2.25.75.75 0 00.75.75z" clip-rule="evenodd" />
-                                        </svg>
-                                        <span>Data Encryption</span>
-                                    `}
-                                </div>
-                            ` : ''}
+                <div class="permissions-list">
+                    <!-- Microphone Permission -->
+                    <div class="permission-row">
+                        <div class="permission-info">
+                            <div class="permission-icon-wrapper">
+                                <svg class="permission-icon" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                                    <path d="M19 10v2a7 7 0 0 1-14 0v-2H3v2a9 9 0 0 0 8 8.94V23h2v-2.06A9 9 0 0 0 21 12v-2h-2z"/>
+                                </svg>
+                            </div>
+                            <span class="permission-label">麦克风</span>
                         </div>
-
                         <button 
-                            class="action-button" 
+                            class="permission-button ${this.microphoneGranted === 'granted' ? 'granted' : ''}"
                             @click=${this.handleMicrophoneClick}
                             ?disabled=${this.microphoneGranted === 'granted'}
                         >
-                            ${this.microphoneGranted === 'granted' ? 'Microphone Access Granted' : 'Grant Microphone Access'}
+                            ${this.microphoneGranted === 'granted' ? '✓ 已开启' : '开启权限'}
                         </button>
+                    </div>
 
+                    <!-- Screen Recording Permission -->
+                    <div class="permission-row">
+                        <div class="permission-info">
+                            <div class="permission-icon-wrapper">
+                                <svg class="permission-icon" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M21 2H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h7v2H8v2h8v-2h-2v-2h7c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H3V4h18v12z"/>
+                                </svg>
+                            </div>
+                            <span class="permission-label">屏幕</span>
+                        </div>
                         <button 
-                            class="action-button" 
+                            class="permission-button ${this.screenGranted === 'granted' ? 'granted' : ''}"
                             @click=${this.handleScreenClick}
                             ?disabled=${this.screenGranted === 'granted'}
                         >
-                            ${this.screenGranted === 'granted' ? 'Screen Recording Granted' : 'Grant Screen Recording Access'}
+                            ${this.screenGranted === 'granted' ? '✓ 已开启' : '开启权限'}
                         </button>
+                    </div>
 
-                        ${isKeychainRequired ? html`
+                    <!-- Keychain Permission (if required) -->
+                    ${isKeychainRequired ? html`
+                        <div class="permission-row">
+                            <div class="permission-info">
+                                <div class="permission-icon-wrapper">
+                                    <svg class="permission-icon" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6zm9 14H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"/>
+                                    </svg>
+                                </div>
+                                <span class="permission-label">数据加密</span>
+                            </div>
                             <button 
-                                class="action-button" 
+                                class="permission-button ${this.keychainGranted === 'granted' ? 'granted' : ''}"
                                 @click=${this.handleKeychainClick}
                                 ?disabled=${this.keychainGranted === 'granted'}
                             >
-                                ${this.keychainGranted === 'granted' ? 'Encryption Enabled' : 'Enable Encryption'}
+                                ${this.keychainGranted === 'granted' ? '✓ 已开启' : '开启权限'}
                             </button>
-                            <div class="subtitle" style="visibility: ${this.keychainGranted === 'granted' ? 'hidden' : 'visible'}">
-                                Stores the key to encrypt your data. Press "<b>Always Allow</b>" to continue.
+                        </div>
+                        ${this.keychainGranted !== 'granted' ? html`
+                            <div class="keychain-hint">
+                                存储用于加密数据的密钥。请点击"<b>始终允许</b>"以继续。
                             </div>
                         ` : ''}
-                    ` : html`
+                    ` : ''}
+                </div>
+
+                ${allGranted ? html`
+                    <div class="continue-section">
                         <button 
                             class="continue-button" 
                             @click=${this.handleContinue}
                         >
-                            Continue to Pickle Glass
+                            继续使用
                         </button>
-                    `}
-                </div>
+                    </div>
+                ` : ''}
             </div>
         `;
     }
