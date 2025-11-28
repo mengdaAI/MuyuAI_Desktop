@@ -790,6 +790,7 @@ function createWindows() {
         resizable: false,
         focusable: true,
         acceptFirstMouse: true,
+        show: true, // 确保窗口默认显示
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
@@ -849,6 +850,10 @@ function createWindows() {
 
     header.setContentProtection(isContentProtectionOn);
     header.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    
+    // 确保窗口显示
+    header.show();
+    console.log('[WindowManager] Header window created and shown');
 
     // DevTools disabled in development to avoid auto-opening
     if (!app.isPackaged) {
