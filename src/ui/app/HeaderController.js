@@ -1,7 +1,7 @@
 import './MainHeader.js';
 import './ApiKeyHeader.js';
 import './PermissionHeader.js';
-import './WelcomeHeader.js';
+import './WelcomeHeader.tsx';
 
 class HeaderTransitionManager {
     constructor() {
@@ -37,11 +37,30 @@ class HeaderTransitionManager {
             this.permissionHeader = null;
             // Create new header element
             if (type === 'welcome') {
-                this.welcomeHeader = document.createElement('welcome-header');
-                this.welcomeHeader.addEventListener('passcode-verified', this._onPasscodeVerified);
-                this.headerContainer.appendChild(this.welcomeHeader);
-                this._syncWelcomePasscodeState();
-                console.log('[HeaderController] ensureHeader: Header of type:', type, 'created.');
+                // 确保窗口大小适合 welcome 界面
+                this._resizeForWelcome().then(() => {
+                    try {
+                        this.welcomeHeader = document.createElement('welcome-header');
+                        this.welcomeHeader.addEventListener('passcode-verified', this._onPasscodeVerified);
+                        this.headerContainer.appendChild(this.welcomeHeader);
+                        this._syncWelcomePasscodeState();
+                        console.log('[HeaderController] ensureHeader: Header of type:', type, 'created.');
+                    } catch (error) {
+                        console.error('[HeaderController] Failed to create welcome-header:', error);
+                    }
+                }).catch(error => {
+                    console.error('[HeaderController] Failed to resize for welcome:', error);
+                    // 即使调整大小失败，也尝试创建组件
+                    try {
+                        this.welcomeHeader = document.createElement('welcome-header');
+                        this.welcomeHeader.addEventListener('passcode-verified', this._onPasscodeVerified);
+                        this.headerContainer.appendChild(this.welcomeHeader);
+                        this._syncWelcomePasscodeState();
+                    } catch (createError) {
+                        console.error('[HeaderController] Failed to create welcome-header after resize error:', createError);
+                    }
+                });
+                return;
             } else if (type === 'apikey') {
                 this.apiKeyHeader = document.createElement('apikey-header');
                 this.apiKeyHeader.stateUpdateCallback = (userState) => this.handleStateUpdate(userState);
@@ -136,6 +155,7 @@ class HeaderTransitionManager {
             this.handleStateUpdate(userState);
         } else {
             // Fallback for non-electron environment (testing/web)
+            await this._resizeForWelcome();
             this.ensureHeader('welcome');
         }
     }

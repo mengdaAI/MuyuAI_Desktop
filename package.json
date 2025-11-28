@@ -47,6 +47,8 @@
         "node-fetch": "^2.7.0",
         "openai": "^4.70.0",
         "portkey-ai": "^1.10.1",
+        "react": "^19.2.0",
+        "react-dom": "^19.2.0",
         "react-hot-toast": "^2.5.2",
         "sharp": "^0.34.2",
         "validator": "^13.11.0",
@@ -56,12 +58,19 @@
     "devDependencies": {
         "@electron/fuses": "^1.8.0",
         "@electron/notarize": "^2.5.0",
+        "@types/react": "^19.2.7",
+        "@types/react-dom": "^19.2.3",
+        "autoprefixer": "^10.4.22",
+        "chokidar": "^4.0.3",
         "electron": "^30.5.1",
         "electron-builder": "^26.0.12",
         "electron-reloader": "^1.2.3",
         "esbuild": "^0.25.5",
         "eslint": "^9.39.1",
-        "prettier": "^3.6.2"
+        "postcss": "^8.5.6",
+        "postcss-cli": "^11.0.1",
+        "prettier": "^3.6.2",
+        "tailwindcss": "^3.4.18"
     },
     "optionalDependencies": {
         "electron-liquid-glass": "^1.0.1"
