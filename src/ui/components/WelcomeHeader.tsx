@@ -11,6 +11,7 @@ declare global {
             common?: {
                 quitApplication: () => Promise<void>;
                 openExternal: (url: string) => Promise<void>;
+                getWebUrl?: () => Promise<string>;
             };
         };
     }
@@ -84,8 +85,16 @@ export function WelcomeHeader({
         window.api?.common?.quitApplication();
     };
 
-    const handleCreateInterview = () => {
-        window.api?.common?.openExternal?.('https://muyu.mengdaai.com/');
+    const handleCreateInterview = async () => {
+        // 优先从主进程配置获取 Web URL，回退到默认官网地址
+        const fallback = 'https://muyu.mengdaai.com/';
+        try {
+            const webUrl = await window.api?.common?.getWebUrl?.();
+            const baseUrl = (webUrl || fallback).replace(/\/$/, '');
+            window.api?.common?.openExternal?.(baseUrl + '/');
+        } catch {
+            window.api?.common?.openExternal?.(fallback);
+        }
     };
 
     return (

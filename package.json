@@ -7,7 +7,7 @@
     "scripts": {
         "start": "npm run build:renderer && node ./node_modules/electron/cli.js .",
         "dev": "npm-run-all -p watch:renderer dev:main",
-        "dev:main": "ENABLE_ELECTRON_RELOAD=false NODE_ENV=development nodemon --watch src --ext js,ts,json --exec \"node ./node_modules/electron/cli.js .\"",
+        "dev:main": "ENABLE_ELECTRON_RELOAD=false NODE_ENV=development nodemon --watch src --ext js,ts,tsx,json --exec \"node ./node_modules/electron/cli.js .\"",
         "package": "npm run build:all && electron-builder --dir",
         "make": "npm run build:renderer && electron-forge make",
         "build": "npm run build:all && electron-builder --config electron-builder.yml --publish never",
