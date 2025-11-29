@@ -1,9 +1,9 @@
 import { html, css, LitElement } from '../assets/lit-core-2.7.4.min.js';
-import { SettingsView } from '../settings/SettingsView.js';
+import '../settings/SettingsViewElement'; // 使用新的 React 版本
 import { ListenView } from '../listen/ListenView.js';
-import { AskView } from '../ask/AskView.js';
-import { ShortcutSettingsView } from '../settings/ShortCutSettingsView.js';
-import '../main/MainView.js';
+import '../ask/AskViewElement'; // 使用新的 React 版本
+import '../settings/ShortCutSettingsViewElement'; // 使用新的 React 版本
+import '../main/MainViewElement'; // 使用新的 React 版本
 
 import '../listen/audioCore/renderer.js';
 

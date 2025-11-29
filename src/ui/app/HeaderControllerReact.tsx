@@ -308,11 +308,7 @@ export function HeaderController({ containerRef }: HeaderControllerProps) {
             }
             container.appendChild(permissionHeader);
         } else if (currentHeaderType === 'main') {
-            const mainHeader = document.createElement('main-header');
-            container.appendChild(mainHeader);
-            if ('startSlideInAnimation' in mainHeader && typeof (mainHeader as any).startSlideInAnimation === 'function') {
-                (mainHeader as any).startSlideInAnimation();
-            }
+            console.warn('[HeaderController] main header type not supported in this version');
         }
     }, [currentHeaderType, handleStateUpdate, transitionToWelcomeHeader, transitionToMainHeader]);
 

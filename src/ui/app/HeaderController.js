@@ -1,4 +1,3 @@
-import './MainHeader.js';
 import './ApiKeyHeader.js';
 import './PermissionHeader.js';
 import './WelcomeHeader.tsx';
@@ -33,7 +32,6 @@ class HeaderTransitionManager {
 
             this.welcomeHeader = null;
             this.apiKeyHeader = null;
-            this.mainHeader = null;
             this.permissionHeader = null;
             // Create new header element
             if (type === 'welcome') {
@@ -84,9 +82,7 @@ class HeaderTransitionManager {
                 };
                 this.headerContainer.appendChild(this.permissionHeader);
             } else {
-                this.mainHeader = document.createElement('main-header');
-                this.headerContainer.appendChild(this.mainHeader);
-                this.mainHeader.startSlideInAnimation?.();
+                console.warn('[HeaderController] main header type not supported in this version');
             }
 
             this.currentHeaderType = type;
