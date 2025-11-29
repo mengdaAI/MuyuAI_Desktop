@@ -4,7 +4,9 @@ import { MuyuLogo } from './MuyuLogo';
 // SVG 路径数据 - 如果导入失败，使用备用数据
 let svgPathsStartup: any;
 try {
-  svgPathsStartup = require("../imports/svg-7hkh1j06cm");
+  const mod = require('../imports/svg-7hkh1j06cm');
+  // 兼容 default 导出和 CommonJS 导出
+  svgPathsStartup = mod.default || mod;
 } catch {
   // 备用 SVG 路径数据
   svgPathsStartup = {
