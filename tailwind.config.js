@@ -6,7 +6,89 @@ module.exports = {
     "./src/ui/app/**/*.{js,jsx,ts,tsx,html}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        // Muyu brand colors
+        'muyu': {
+          'purple': {
+            50: '#f5f3ff',
+            100: '#ede9fe',
+            200: '#ddd6fe',
+            300: '#c4b5fd',
+            400: '#a78bfa',
+            500: '#8b5cf6',
+            600: '#7c3aed',
+            700: '#6d28d9',
+            800: '#5b21b6',
+            900: '#4c1d95',
+          },
+          'dark': {
+            50: 'rgba(255, 255, 255, 0.05)',
+            100: 'rgba(255, 255, 255, 0.1)',
+            200: 'rgba(255, 255, 255, 0.2)',
+            300: 'rgba(255, 255, 255, 0.3)',
+            400: 'rgba(255, 255, 255, 0.4)',
+            500: 'rgba(255, 255, 255, 0.5)',
+            600: 'rgba(0, 0, 0, 0.2)',
+            700: 'rgba(0, 0, 0, 0.35)',
+            800: 'rgba(20, 20, 20, 0.8)',
+            850: 'rgba(20, 20, 20, 0.9)',
+            900: 'rgba(20, 10, 30, 0.98)',
+            950: 'rgba(30, 20, 40, 0.95)',
+          },
+          'blue': {
+            500: 'rgba(0, 122, 255, 0.8)',
+            600: 'rgba(0, 122, 255, 1)',
+          },
+          'red': {
+            100: 'rgba(255, 100, 100, 0.15)',
+            200: 'rgba(255, 100, 100, 0.25)',
+            300: 'rgba(100, 50, 200, 0.15)',
+          },
+        },
+      },
+      borderRadius: {
+        'muyu': '12px',
+        'muyu-sm': '8px',
+        'muyu-lg': '20px',
+        'muyu-xl': '28px',
+      },
+      spacing: {
+        '18': '4.5rem',
+        '88': '22rem',
+        '128': '32rem',
+      },
+      fontSize: {
+        '2xs': ['10px', '14px'],
+        'xs': ['11px', '16px'],
+        'sm': ['12px', '18px'],
+        'base': ['13px', '19.5px'],
+        'md': ['14px', '21px'],
+        'lg': ['15px', '22.5px'],
+      },
+      boxShadow: {
+        'muyu': '0 8px 32px rgba(0, 0, 0, 0.3)',
+        'muyu-lg': '0 20px 50px rgba(0,0,0,0.5)',
+      },
+      animation: {
+        'pulse-slow': 'pulse 1.5s ease-in-out infinite',
+        'slide-up': 'slideUp 0.3s cubic-bezier(0.4, 0, 0.6, 1) forwards',
+        'slide-down': 'slideDown 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+      },
+      keyframes: {
+        slideUp: {
+          '0%': { transform: 'translateY(0) scale(1)', opacity: '1' },
+          '100%': { transform: 'translateY(-150%) scale(0.85)', opacity: '0' },
+        },
+        slideDown: {
+          '0%': { transform: 'translateY(-150%) scale(0.85)', opacity: '0' },
+          '100%': { transform: 'translateY(0) scale(1)', opacity: '1' },
+        },
+      },
+      backdropBlur: {
+        xs: '2px',
+      },
+    },
   },
   plugins: [],
   // 确保所有 Tailwind 工具类都被包含

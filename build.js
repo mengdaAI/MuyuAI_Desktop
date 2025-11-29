@@ -33,24 +33,42 @@ if (!fs.existsSync('public/build')) {
 async function buildTailwind() {
     try {
         console.log('Building Tailwind CSS...');
-        // 使用 tailwindcss 的 Node.js API
-        const tailwindcss = require('tailwindcss');
-        const postcss = require('postcss');
-        const fs = require('fs');
         
         const inputPath = path.join(__dirname, 'src/ui/styles/tailwind.css');
         const outputPath = path.join(__dirname, 'public/build/tailwind.css');
+        
+        // 检查输入文件是否存在
+        if (!fs.existsSync(inputPath)) {
+            console.warn('⚠️  Tailwind input file not found:', inputPath);
+            return;
+        }
+        
+        // 读取输入文件
         const input = fs.readFileSync(inputPath, 'utf8');
         
-        const result = await postcss([
-            tailwindcss(require('./tailwind.config.js')),
-            require('autoprefixer')
-        ]).process(input, { from: inputPath, to: outputPath });
-        
-        fs.writeFileSync(outputPath, result.css);
-        console.log('✅ Tailwind CSS build successful!');
+        // 尝试使用 postcss + tailwindcss
+        try {
+            const postcss = require('postcss');
+            const tailwindcss = require('tailwindcss');
+            const autoprefixer = require('autoprefixer');
+            
+            const result = await postcss([
+                tailwindcss,
+                autoprefixer
+            ]).process(input, { 
+                from: inputPath, 
+                to: outputPath 
+            });
+            
+            fs.writeFileSync(outputPath, result.css);
+            console.log('✅ Tailwind CSS build successful!');
+        } catch (requireError) {
+            // 如果模块未找到，创建一个简单的占位文件
+            console.warn('⚠️  Tailwind modules not available, creating placeholder CSS');
+            fs.writeFileSync(outputPath, `/* Tailwind CSS placeholder */\n${input}`);
+        }
     } catch (e) {
-        console.warn('⚠️  Tailwind CSS build failed, continuing without it:', e.message);
+        console.warn('⚠️  Tailwind CSS build failed:', e.message);
     }
 }
 

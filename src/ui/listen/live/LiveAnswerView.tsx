@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useIpcListener } from '../../hooks';
-import './LiveAnswerView.css';
 
 interface Turn {
   id: string;
@@ -166,28 +165,29 @@ export const LiveAnswerView = React.forwardRef<{ getAnswersText: () => string },
 
     const renderStatus = useCallback((turn: Turn) => {
       let statusText = '';
-      let statusClass = 'status-dot';
+      let dotClass = 'w-2 h-2 rounded-full';
       
       switch (turn.status) {
         case 'completed':
           statusText = 'Completed';
-          statusClass += ' completed';
+          dotClass += ' bg-[rgba(46,204,113,0.7)]';
           break;
         case 'error':
           statusText = 'Error';
-          statusClass += ' error';
+          dotClass += ' bg-[rgba(231,76,60,0.75)]';
           break;
         case 'aborted':
           statusText = 'Cancelled';
-          statusClass += ' error';
+          dotClass += ' bg-[rgba(231,76,60,0.75)]';
           break;
         default:
           statusText = 'Listening...';
+          dotClass += ' bg-[rgba(0,122,255,0.6)] animate-pulse-slow';
       }
       
       return (
-        <div className="status-row">
-          <span className={statusClass}></span>
+        <div className="flex items-center gap-2 text-white/55 text-2xs">
+          <span className={dotClass}></span>
           <span>{statusText}</span>
         </div>
       );
@@ -195,8 +195,10 @@ export const LiveAnswerView = React.forwardRef<{ getAnswersText: () => string },
 
     if (!turns || turns.length === 0) {
       return (
-        <div className="answers-container">
-          <div className="empty-state">等待对方发言以生成实时洞察...</div>
+        <div className="flex flex-col gap-3 p-3 pr-4 pb-4 h-full max-h-none overflow-y-auto box-border">
+          <div className="flex items-center justify-center min-h-[150px] text-white/60 text-sm italic px-3">
+            等待对方发言以生成实时洞察...
+          </div>
         </div>
       );
     }
@@ -204,23 +206,52 @@ export const LiveAnswerView = React.forwardRef<{ getAnswersText: () => string },
     const latestTurnId = turns[turns.length - 1]?.id;
 
     return (
-      <div className="answers-container">
+      <div className="flex flex-col gap-3 p-3 pr-4 pb-4 h-full max-h-none overflow-y-auto box-border">
         {turns.map(turn => (
           <div
             key={turn.id}
-            className={`turn-card ${turn.id === latestTurnId && turn.status !== 'completed' ? 'active' : ''}`}
+            className={`
+              bg-black/35 rounded-muyu p-3 px-3.5 
+              border border-white/[0.06] flex flex-col gap-2.5
+              ${turn.id === latestTurnId && turn.status !== 'completed' 
+                ? 'border-blue-500/55 shadow-[0_0_12px_rgba(0,122,255,0.25)]' 
+                : ''
+              }
+            `}
           >
             <div>
-              <div className="question-label">对方</div>
-              <div className="question-text">{turn.question}</div>
+              <div className="text-2xs uppercase tracking-wider text-white/55">对方</div>
+              <div className="text-base text-white/92 leading-[1.45] whitespace-pre-wrap">
+                {turn.question}
+              </div>
             </div>
             <div>
-              <div className="answer-label">Live Insights</div>
-              <div className="answer-text">{turn.answer || '分析中...'}</div>
+              <div className="text-2xs uppercase tracking-wider text-white/55">Live Insights</div>
+              <div className="text-sm text-white/88 leading-relaxed whitespace-pre-wrap">
+                {turn.answer || '分析中...'}
+              </div>
             </div>
             {renderStatus(turn)}
           </div>
         ))}
+        
+        {/* Custom scrollbar styles */}
+        <style>{`
+          .answers-container::-webkit-scrollbar {
+            width: 8px;
+          }
+          .answers-container::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 4px;
+          }
+          .answers-container::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.25);
+            border-radius: 4px;
+          }
+          .answers-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.4);
+          }
+        `}</style>
       </div>
     );
   }
