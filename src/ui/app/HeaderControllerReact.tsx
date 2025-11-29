@@ -1,34 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { WelcomeHeader } from '../components/WelcomeHeader';
 
-// 扩展 Window 接口
-declare global {
-    interface Window {
-        api?: {
-            headerController?: {
-                sendHeaderStateChanged: (state: string) => void;
-                resizeHeaderWindow: (size: { width: number; height: number }) => Promise<void>;
-                checkSystemPermissions: () => Promise<{ needsSetup: boolean; microphone: boolean; screen: boolean }>;
-                checkPermissionsCompleted: () => Promise<boolean>;
-                reInitializeModelState: () => Promise<void>;
-                isDebugForceMainHeader: () => Promise<boolean>;
-                onUserStateChanged: (callback: (event: any, userState: any) => void) => void;
-                onAuthFailed: (callback: (event: any, data: { message: string }) => void) => void;
-                onForceShowApiKeyHeader: (callback: () => void) => void;
-            };
-            apiKeyHeader?: {
-                areProvidersConfigured: () => Promise<boolean>;
-            };
-            common?: {
-                getCurrentUser: () => Promise<any>;
-            };
-            passcode?: {
-                getStatus: () => Promise<{ required?: boolean; verified?: boolean }>;
-            };
-        };
-    }
-}
-
 type HeaderType = 'welcome' | 'apikey' | 'main' | 'permission';
 
 interface HeaderControllerProps {
@@ -51,39 +23,39 @@ export function HeaderController({ containerRef }: HeaderControllerProps) {
     // 通知主进程 header 状态变化
     const notifyHeaderState = useCallback((state: HeaderType) => {
         const normalizedState = state === 'permission' ? 'apikey' : state;
-        window.api?.headerController?.sendHeaderStateChanged(normalizedState);
+        (window as any).api?.headerController?.sendHeaderStateChanged(normalizedState);
     }, []);
 
     // 调整窗口大小
     const resizeForWelcome = useCallback(async () => {
-        if (!window.api) return;
+        if (!(window as any).api) return;
         console.log('[HeaderController] _resizeForWelcome: Resizing window to 456x364');
-        return window.api.headerController?.resizeHeaderWindow({ width: 456, height: 364 }).catch(() => {});
+        return (window as any).api.headerController?.resizeHeaderWindow({ width: 456, height: 364 }).catch(() => { });
     }, []);
 
     const resizeForApiKey = useCallback(async (height = 370) => {
-        if (!window.api) return;
+        if (!(window as any).api) return;
         console.log(`[HeaderController] _resizeForApiKey: Resizing window to 456x${height}`);
-        return window.api.headerController?.resizeHeaderWindow({ width: 456, height }).catch(() => {});
+        return (window as any).api.headerController?.resizeHeaderWindow({ width: 456, height }).catch(() => { });
     }, []);
 
     const resizeForPermissionHeader = useCallback(async (height: number) => {
-        if (!window.api) return;
+        if (!(window as any).api) return;
         const finalHeight = height || 430;
-        return window.api.headerController?.resizeHeaderWindow({ width: 710, height: finalHeight }).catch(() => {});
+        return (window as any).api.headerController?.resizeHeaderWindow({ width: 710, height: finalHeight }).catch(() => { });
     }, []);
 
     const resizeForMain = useCallback(async () => {
-        if (!window.api) return;
+        if (!(window as any).api) return;
         const width = 72;
         const height = 700;
         console.log(`[HeaderController] _resizeForMain: Resizing window to ${width}x${height}`);
-        return window.api.headerController?.resizeHeaderWindow({ width, height }).catch(() => {});
+        return (window as any).api.headerController?.resizeHeaderWindow({ width, height }).catch(() => { });
     }, []);
 
     // 确保密码解锁
     const ensurePasscodeUnlocked = useCallback(async (): Promise<boolean> => {
-        if (!window.api?.passcode) {
+        if (!(window as any).api?.passcode) {
             console.warn('[HeaderController] Passcode API not available, skipping gate');
             setPasscodeUnlocked(true);
             return true;
@@ -98,7 +70,7 @@ export function HeaderController({ containerRef }: HeaderControllerProps) {
         }
 
         try {
-            const status = await window.api.passcode.getStatus();
+            const status = await (window as any).api.passcode.getStatus();
             setPasscodeStatusChecked(true);
             const unlocked = !status?.required || !!status?.verified;
             setPasscodeUnlocked(unlocked);
@@ -137,40 +109,14 @@ export function HeaderController({ containerRef }: HeaderControllerProps) {
         return timestamp;
     }, []);
 
-    // 处理密码验证成功
-    const handlePasscodeVerified = useCallback(async () => {
-        console.log('[HeaderController] Passcode verified, resuming normal flow.');
-        setPasscodeUnlocked(true);
-        setPasscodeStatusChecked(true);
-        setPasscodeRequired(false);
-        setPasscodeVerified(true);
-        recordInterviewStart();
-
-        const nextState = pendingUserState || lastKnownUserState;
-        if (nextState) {
-            setPendingUserState(null);
-            await handleStateUpdate(nextState);
-            return;
-        }
-
-        if (window.api) {
-            const userState = await window.api.common?.getCurrentUser();
-            if (userState) {
-                await handleStateUpdate(userState);
-            }
-        } else {
-            setCurrentHeaderType('welcome');
-        }
-    }, [pendingUserState, lastKnownUserState, recordInterviewStart]);
-
     // 检查权限
     const checkPermissions = useCallback(async () => {
-        if (!window.api) {
+        if (!(window as any).api) {
             return { success: true };
         }
 
         try {
-            const permissions = await window.api.headerController?.checkSystemPermissions();
+            const permissions = await (window as any).api.headerController?.checkSystemPermissions();
             if (!permissions) {
                 return { success: false, error: 'Failed to check permissions' };
             }
@@ -199,43 +145,6 @@ export function HeaderController({ containerRef }: HeaderControllerProps) {
         }
     }, []);
 
-    // 处理用户状态更新
-    const handleStateUpdate = useCallback(async (userState: any) => {
-        setLastKnownUserState(userState);
-        setPendingUserState(userState);
-
-        const passcodeReady = await ensurePasscodeUnlocked();
-        if (!passcodeReady) {
-            return;
-        }
-
-        setPendingUserState(null);
-        await applyUserState(userState);
-    }, [ensurePasscodeUnlocked]);
-
-    // 应用用户状态
-    const applyUserState = useCallback(async (userState: any) => {
-        if (!window.api?.apiKeyHeader) {
-            setCurrentHeaderType('welcome');
-            return;
-        }
-
-        const forceMain = await window.api?.headerController?.isDebugForceMainHeader?.();
-        if (forceMain) {
-            await resizeForMain();
-            setCurrentHeaderType('main');
-            return;
-        }
-
-        const permissionResult = await checkPermissions();
-        if (permissionResult.success) {
-            await resizeForMain();
-            setCurrentHeaderType('main');
-        } else {
-            await transitionToPermissionHeader();
-        }
-    }, [resizeForMain, checkPermissions]);
-
     // 转换到权限 header
     const transitionToPermissionHeader = useCallback(async () => {
         if (currentHeaderType === 'permission') {
@@ -243,9 +152,9 @@ export function HeaderController({ containerRef }: HeaderControllerProps) {
             return;
         }
 
-        if (window.api) {
+        if ((window as any).api) {
             try {
-                const permissionsCompleted = await window.api.headerController?.checkPermissionsCompleted();
+                const permissionsCompleted = await (window as any).api.headerController?.checkPermissionsCompleted();
                 if (permissionsCompleted) {
                     console.log('[HeaderController] Permissions were previously completed, checking current status...');
                     const permissionResult = await checkPermissions();
@@ -262,9 +171,9 @@ export function HeaderController({ containerRef }: HeaderControllerProps) {
         }
 
         let initialHeight = 430;
-        if (window.api) {
+        if ((window as any).api) {
             try {
-                const userState = await window.api.common?.getCurrentUser();
+                const userState = await (window as any).api.common?.getCurrentUser();
                 if (userState?.mode === 'firebase') {
                     initialHeight = 520;
                 }
@@ -277,6 +186,69 @@ export function HeaderController({ containerRef }: HeaderControllerProps) {
         setCurrentHeaderType('permission');
         notifyHeaderState('permission');
     }, [currentHeaderType, checkPermissions, resizeForMain, resizeForPermissionHeader, notifyHeaderState]);
+
+    // 应用用户状态
+    const applyUserState = useCallback(async (userState: any) => {
+        if (!(window as any).api?.apiKeyHeader) {
+            setCurrentHeaderType('welcome');
+            return;
+        }
+
+        const forceMain = await (window as any).api?.headerController?.isDebugForceMainHeader?.();
+        if (forceMain) {
+            await resizeForMain();
+            setCurrentHeaderType('main');
+            return;
+        }
+
+        const permissionResult = await checkPermissions();
+        if (permissionResult.success) {
+            await resizeForMain();
+            setCurrentHeaderType('main');
+        } else {
+            await transitionToPermissionHeader();
+        }
+    }, [resizeForMain, checkPermissions, transitionToPermissionHeader]);
+
+    // 处理用户状态更新
+    const handleStateUpdate = useCallback(async (userState: any) => {
+        setLastKnownUserState(userState);
+        setPendingUserState(userState);
+
+        const passcodeReady = await ensurePasscodeUnlocked();
+        if (!passcodeReady) {
+            return;
+        }
+
+        setPendingUserState(null);
+        await applyUserState(userState);
+    }, [ensurePasscodeUnlocked, applyUserState]);
+
+    // 处理密码验证成功
+    const handlePasscodeVerified = useCallback(async () => {
+        console.log('[HeaderController] Passcode verified, resuming normal flow.');
+        setPasscodeUnlocked(true);
+        setPasscodeStatusChecked(true);
+        setPasscodeRequired(false);
+        setPasscodeVerified(true);
+        recordInterviewStart();
+
+        const nextState = pendingUserState || lastKnownUserState;
+        if (nextState) {
+            setPendingUserState(null);
+            await handleStateUpdate(nextState);
+            return;
+        }
+
+        if ((window as any).api) {
+            const userState = await (window as any).api.common?.getCurrentUser();
+            if (userState) {
+                await handleStateUpdate(userState);
+            }
+        } else {
+            setCurrentHeaderType('welcome');
+        }
+    }, [pendingUserState, lastKnownUserState, recordInterviewStart, handleStateUpdate]);
 
     // 转换到欢迎 header
     const transitionToWelcomeHeader = useCallback(async () => {
@@ -327,9 +299,9 @@ export function HeaderController({ containerRef }: HeaderControllerProps) {
             const permissionHeader = document.createElement('permission-setup');
             if ('continueCallback' in permissionHeader) {
                 (permissionHeader as any).continueCallback = async () => {
-                    if (window.api?.headerController) {
+                    if ((window as any).api?.headerController) {
                         console.log('[HeaderController] Re-initializing model state after permission grant...');
-                        await window.api.headerController.reInitializeModelState();
+                        await (window as any).api.headerController.reInitializeModelState();
                     }
                     await transitionToMainHeader();
                 };
@@ -347,8 +319,8 @@ export function HeaderController({ containerRef }: HeaderControllerProps) {
     // 初始化
     useEffect(() => {
         const bootstrap = async () => {
-            if (window.api) {
-                const userState = await window.api.common?.getCurrentUser();
+            if ((window as any).api) {
+                const userState = await (window as any).api.common?.getCurrentUser();
                 console.log('[HeaderController] Bootstrapping with initial user state:', userState);
                 if (userState) {
                     await handleStateUpdate(userState);
@@ -362,23 +334,23 @@ export function HeaderController({ containerRef }: HeaderControllerProps) {
         bootstrap();
 
         // 监听用户状态变化
-        if (window.api?.headerController) {
-            window.api.headerController.onUserStateChanged((event, userState) => {
+        if ((window as any).api?.headerController) {
+            (window as any).api.headerController.onUserStateChanged((event: any, userState: any) => {
                 console.log('[HeaderController] Received user state change:', userState);
                 handleStateUpdate(userState);
             });
 
-            window.api.headerController.onAuthFailed((event, { message }) => {
+            (window as any).api.headerController.onAuthFailed((event: any, { message }: { message: string }) => {
                 console.error('[HeaderController] Received auth failure from main process:', message);
             });
 
-            window.api.headerController.onForceShowApiKeyHeader(async () => {
+            (window as any).api.headerController.onForceShowApiKeyHeader(async () => {
                 console.log('[HeaderController] Received broadcast to show apikey header. Switching now.');
                 if (!(await ensurePasscodeUnlocked())) {
                     console.log('[HeaderController] Passcode gate active. Ignoring forced switch.');
                     return;
                 }
-                const isConfigured = await window.api.apiKeyHeader?.areProvidersConfigured();
+                const isConfigured = await (window as any).api.apiKeyHeader?.areProvidersConfigured();
                 if (!isConfigured) {
                     await resizeForWelcome();
                     setCurrentHeaderType('welcome');
