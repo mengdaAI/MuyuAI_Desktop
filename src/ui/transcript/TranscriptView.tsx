@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useIpcListener } from '../hooks';
-import './TranscriptView.css';
 
 interface Turn {
   id: string;
@@ -77,8 +76,14 @@ export function TranscriptView() {
   const sortedMessages = Array.from(messages.values());
 
   return (
-    <div className="transcript-container">
-      <div className="messages-container" ref={messagesContainerRef}>
+    <div className="w-full h-full flex flex-col bg-muyu-dark-850 text-white font-sans">
+      <div 
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto p-4 flex flex-col gap-2"
+        style={{
+          scrollbarWidth: 'thin',
+        }}
+      >
         {sortedMessages.map(turn => {
           const text = turn.text || turn.finalText || turn.partialText || '';
           const isMe = turn.speaker === 'Me';
@@ -88,13 +93,40 @@ export function TranscriptView() {
             <div
               key={turn.id}
               id={`msg-${turn.id}`}
-              className={`message ${isMe ? 'me' : 'them'} ${isFinalized ? 'finalized' : ''}`}
+              className={`
+                px-3 py-2 rounded-muyu max-w-[80%] 
+                break-words leading-relaxed text-base
+                transition-opacity duration-200
+                ${isMe 
+                  ? 'bg-muyu-blue-500 text-white self-end ml-auto rounded-br-sm' 
+                  : 'bg-muyu-dark-100 text-white/90 self-start mr-auto rounded-bl-sm'
+                }
+                ${isFinalized ? 'opacity-100' : 'opacity-70'}
+              `}
             >
               {text}
             </div>
           );
         })}
       </div>
+      
+      {/* Custom scrollbar styles */}
+      <style>{`
+        .transcript-container::-webkit-scrollbar {
+          width: 8px;
+        }
+        .transcript-container::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.05);
+          border-radius: 4px;
+        }
+        .transcript-container::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 4px;
+        }
+        .transcript-container::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.3);
+        }
+      `}</style>
     </div>
   );
 }
