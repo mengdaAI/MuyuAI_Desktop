@@ -125,7 +125,7 @@ contextBridge.exposeInMainWorld('api', {
     },
   },
 
-  // src/ui/app/MainHeader.js
+  // src/ui/main/MainView.js (and other views that need header window management)
   mainHeader: {
     // Window Management
     getHeaderPosition: () => ipcRenderer.invoke('get-header-position'),

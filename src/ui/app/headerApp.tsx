@@ -2,10 +2,9 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { HeaderController } from './HeaderControllerReact';
 
-// 导入 Web Components（暂时保留，用于 apikey、permission、main header）
+// 导入 Web Components（暂时保留，用于 apikey、permission header）
 import './ApiKeyHeader.js';
 import './PermissionHeader.js';
-import './MainHeader.js';
 
 // 扩展 Window 接口
 declare global {
