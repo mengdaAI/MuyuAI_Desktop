@@ -84,6 +84,7 @@ class AuthService {
     }
 
     _getInterviewDomain() {
+        console.log('[AuthService] Interview domain:', process.env.INTERVIEW_API_DOMAIN);
         return (process.env.INTERVIEW_API_DOMAIN || DEFAULT_INTERVIEW_DOMAIN).trim().replace(/\/$/, '');
     }
 
@@ -100,6 +101,7 @@ class AuthService {
         }
 
         const endpoint = this._getInterviewLoginEndpoint();
+        console.log('[AuthService] Interview login endpoint:', endpoint);
         try {
             const response = await fetch(endpoint, {
                 method: 'POST',

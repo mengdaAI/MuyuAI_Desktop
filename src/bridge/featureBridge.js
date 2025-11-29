@@ -13,6 +13,7 @@ const listenService = require('../features/listen/listenService');
 const permissionService = require('../features/common/services/permissionService');
 const encryptionService = require('../features/common/services/encryptionService');
 const passcodeService = require('../features/common/services/passcodeService');
+const config = require('../features/common/config/config');
 
 module.exports = {
   // Receive requests from the renderer and forward them to services
@@ -64,7 +65,8 @@ module.exports = {
 
     // General
     ipcMain.handle('get-preset-templates', () => presetRepository.getPresetTemplates());
-    ipcMain.handle('get-web-url', () => process.env.pickleglass_WEB_URL || 'http://localhost:3000');
+    // 统一从配置系统获取 Web URL（内部已处理 MUYU_WEB_URL 等环境变量）
+    ipcMain.handle('get-web-url', () => config.get('webUrl'));
 
     // Ollama
     ipcMain.handle('ollama:get-status', async () => await ollamaService.handleGetStatus());
