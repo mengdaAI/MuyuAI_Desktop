@@ -2,21 +2,20 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useWindowDrag, useInterviewTimer, useSessionState, useIpcListener } from '../hooks';
 import { LiveAnswerPanel, StatusFooter, ActionSidebar } from './components';
 import type { Shortcuts, Turn, UserState } from '../types';
-import './MainView.css';
 
 export function MainView() {
   const { handleMouseDown, wasJustDragged } = useWindowDrag();
   const { interviewElapsedSeconds } = useInterviewTimer();
   const { listenSessionStatus, isTogglingSession, toggleSession } = useSessionState();
   
-  const [shortcuts, setShortcuts] = useState<Shortcuts>({});
+  const [shortcuts, setShortcuts] = useState({} as Shortcuts);
   const [totalInterviewSeconds, setTotalInterviewSeconds] = useState(0);
-  const [turns, setTurns] = useState<Turn[]>([]);
+  const [turns, setTurns] = useState([] as Turn[]);
   const [scale, setScale] = useState(1);
   
-  const turnMapRef = useRef<Map<string, Turn>>(new Map());
-  const resizeObserverRef = useRef<ResizeObserver | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const turnMapRef = useRef(new Map() as Map<string, Turn>);
+  const resizeObserverRef = useRef(null as ResizeObserver | null);
+  const containerRef = useRef(null as HTMLDivElement | null);
 
   // Shortcuts listener
   const handleShortcutsUpdate = useCallback((event: any, keybinds: Shortcuts) => {
@@ -53,9 +52,9 @@ export function MainView() {
   }, []);
 
   const sortTurns = useCallback(() => {
-    return Array.from(turnMapRef.current.values())
-      .filter(turn => turn.question && turn.question.trim().length > 0)
-      .sort((a, b) => a.startedAt - b.startedAt);
+    return (Array.from(turnMapRef.current.values()) as Turn[])
+      .filter((turn: Turn) => turn.question && turn.question.trim().length > 0)
+      .sort((a: Turn, b: Turn) => a.startedAt - b.startedAt);
   }, []);
 
   const handleTurnUpdate = useCallback((event: any, payload: any) => {
@@ -241,15 +240,33 @@ export function MainView() {
   }, [wasJustDragged]);
 
   return (
-    <div ref={containerRef} className="main-view-container">
-      <div className="scale-wrapper">
+    <div 
+      ref={containerRef} 
+      className="block w-full h-full text-white font-['PingFang_SC','Helvetica_Neue',-apple-system,BlinkMacSystemFont,'Segoe_UI',Roboto,sans-serif] overflow-hidden"
+    >
+      <div className="relative w-full h-full flex items-center justify-center bg-transparent">
         <div 
-          className="frame" 
+          className="relative w-[524px] h-[393px] flex flex-row rounded-muyu-lg overflow-hidden shadow-muyu-lg outline outline-1 outline-white/10"
+          style={{ 
+            transform: `scale(${scale})`,
+            transformOrigin: 'center center',
+            background: 'linear-gradient(180deg, rgba(30, 20, 40, 0.95), rgba(20, 10, 30, 0.98))'
+          }}
           onMouseDown={handleMouseDown}
-          style={{ transform: `scale(${scale})` }}
         >
-          <div className="main-content">
-            <div className="content-container">
+          {/* Background gradient effects */}
+          <div 
+            className="absolute inset-0 pointer-events-none z-0" 
+            style={{
+              background: `
+                radial-gradient(circle at 10% 20%, rgba(255, 100, 100, 0.15), transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(100, 50, 200, 0.15), transparent 40%)
+              `
+            }}
+          />
+
+          <div className="flex-1 relative p-6 flex flex-col justify-between z-[1] overflow-hidden">
+            <div className="flex-1 flex flex-col overflow-y-auto gap-3 min-h-0">
               <LiveAnswerPanel 
                 turns={turns} 
                 sessionStatus={listenSessionStatus}
