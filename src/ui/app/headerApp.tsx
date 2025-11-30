@@ -1,6 +1,6 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { HeaderController } from './HeaderControllerReact';
+import { StartupFlow } from './StartupFlow';
 
 // 扩展 Window 接口
 declare global {
@@ -9,25 +9,31 @@ declare global {
     }
 }
 
+console.log('[HeaderApp] Script loaded');
+
 function App() {
     const containerRef = React.useRef<HTMLDivElement>(null);
 
     return (
         <div id="header-container" ref={containerRef} style={{ width: '100%', height: '100%' }}>
-            <HeaderController containerRef={containerRef} />
+            <StartupFlow />
         </div>
     );
 }
 
 // 初始化 React 应用
+console.log('[HeaderApp] Setting up DOMContentLoaded listener');
 window.addEventListener('DOMContentLoaded', () => {
+    console.log('[HeaderApp] DOMContentLoaded fired');
     const container = document.getElementById('header-container');
     if (!container) {
         console.error('[HeaderApp] Container not found');
         return;
     }
 
+    console.log('[HeaderApp] Container found, creating React root');
     const root = createRoot(container);
+    console.log('[HeaderApp] Rendering App component');
     root.render(React.createElement(App));
 
     // 处理 glass 参数
@@ -35,5 +41,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (params.get('glass') === 'true') {
         document.body.classList.add('has-glass');
     }
+    
+    console.log('[HeaderApp] React app initialized');
 });
 

@@ -13,11 +13,7 @@ publish:
     repo: muyu-ai-desktop
     releaseType: draft
 
-# Protocols configuration for deep linking
-protocols:
-    name: MuyuAI Protocol
-    schemes: 
-        - muyuai
+
 
 # List of files to be included in the app package
 files:

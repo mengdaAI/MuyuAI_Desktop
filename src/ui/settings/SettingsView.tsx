@@ -147,7 +147,7 @@ export function SettingsView() {
       setPresets(presetsData || []);
       setIsContentProtectionOn(contentProtection);
       setShortcuts(shortcutsData || {});
-      
+
       if (presetsData && presetsData.length > 0) {
         const firstUserPreset = presetsData.find((p: Preset) => p.is_default === 0);
         if (firstUserPreset) setSelectedPreset(firstUserPreset);
@@ -286,7 +286,7 @@ export function SettingsView() {
 
   const selectModel = useCallback(async (type: 'llm' | 'stt', modelId: string) => {
     const provider = getProviderForModel(type, modelId);
-    
+
     if (provider === 'ollama') {
       const ollamaModel = ollamaModels.find(m => m.name === modelId);
       if (ollamaModel && !ollamaModel.installed && !ollamaModel.installing) {
@@ -522,7 +522,7 @@ export function SettingsView() {
     const resizeHandler = () => {
       updateScrollHeight();
     };
-    
+
     window.addEventListener('resize', resizeHandler);
     setTimeout(() => updateScrollHeight(), 100);
 
@@ -547,7 +547,8 @@ export function SettingsView() {
   useEffect(() => {
     loadInitialData();
     loadAutoUpdateSetting();
-  }, [loadInitialData, loadAutoUpdateSetting]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const getMainShortcuts = useCallback(() => {
     return [
@@ -664,9 +665,9 @@ export function SettingsView() {
       </div>
 
       <div className="buttons-section">
-        <button 
-          className="settings-button full-width" 
-          onClick={handleToggleAutoUpdate} 
+        <button
+          className="settings-button full-width"
+          onClick={handleToggleAutoUpdate}
           disabled={autoUpdateLoading}
         >
           <span>Automatic Updates: {autoUpdateEnabled ? 'On' : 'Off'}</span>

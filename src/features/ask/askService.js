@@ -129,6 +129,10 @@ class AskService {
             currentResponse: '',
             showTextInput: true,
         };
+        // Add tracking for screenshot window state
+        this.screenshotState = {
+            isVisible: false
+        };
         console.log('[AskService] Service instance created.');
     }
 
@@ -142,24 +146,17 @@ class AskService {
     async toggleAskButton() {
         const askWindow = getWindowPool()?.get('ask');
 
-        const hasContent = this.state.isLoading || this.state.isStreaming || (this.state.currentResponse && this.state.currentResponse.length > 0);
-
-        if (askWindow && askWindow.isVisible() && hasContent) {
-            this.state.showTextInput = !this.state.showTextInput;
-            this._broadcastState();
+        if (askWindow && askWindow.isVisible()) {
+            internalBridge.emit('window:requestVisibility', { name: 'ask', visible: false });
+            this.state.isVisible = false;
         } else {
-            if (askWindow && askWindow.isVisible()) {
-                internalBridge.emit('window:requestVisibility', { name: 'ask', visible: false });
-                this.state.isVisible = false;
-            } else {
-                console.log('[AskService] Showing hidden Ask window');
-                internalBridge.emit('window:requestVisibility', { name: 'ask', visible: true });
-                this.state.isVisible = true;
-            }
-            if (this.state.isVisible) {
-                this.state.showTextInput = true;
-                this._broadcastState();
-            }
+            console.log('[AskService] Showing hidden Ask window');
+            internalBridge.emit('window:requestVisibility', { name: 'ask', visible: true });
+            this.state.isVisible = true;
+        }
+        if (this.state.isVisible) {
+            this.state.showTextInput = true;
+            this._broadcastState();
         }
     }
 
@@ -189,7 +186,9 @@ class AskService {
      */
     async toggleScreenshotWindow() {
         const screenshotWin = getWindowPool()?.get('screenshot');
-        if (screenshotWin && !screenshotWin.isDestroyed() && screenshotWin.isVisible()) {
+        const isVisible = this.screenshotState.isVisible || (screenshotWin && !screenshotWin.isDestroyed() && screenshotWin.isVisible());
+
+        if (isVisible) {
             return await this.closeScreenshotWindow();
         } else {
             return await this.analyzeScreenshot();
@@ -201,6 +200,7 @@ class AskService {
      */
     async closeScreenshotWindow() {
         console.log('[AskService] Closing screenshot window...');
+        this.screenshotState.isVisible = false;
 
         if (this.screenshotAbortController) {
             this.screenshotAbortController.abort('Window closed by user');
@@ -227,6 +227,7 @@ class AskService {
      */
     async analyzeScreenshot() {
         console.log('[AskService] Starting screenshot analysis...');
+        this.screenshotState.isVisible = true;
 
         // 1. Show ScreenshotView window
         internalBridge.emit('window:requestVisibility', { name: 'screenshot', visible: true });
