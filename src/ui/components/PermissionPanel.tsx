@@ -215,11 +215,32 @@ export default function PermissionPanel({ onComplete, onClose, continueCallback 
         return;
       }
 
-      if (['not-determined', 'denied', 'unknown', 'restricted'].includes(result.microphone)) {
+      // 如果权限已经被拒绝，需要打开系统设置
+      if (result.microphone === 'denied') {
+        console.log('[PermissionPanel] Microphone permission denied, opening system preferences...');
+        await (window as any).api.permissionHeader.openSystemPreferences('microphone');
+        // 打开系统设置后，延迟检查权限状态
+        setTimeout(async () => {
+          const updatedResult = await (window as any).api.permissionHeader.checkSystemPermissions();
+          if (updatedResult.microphone === 'granted') {
+            setMicrophoneGranted('granted');
+          }
+        }, 1000);
+        return;
+      }
+
+      // 对于 not-determined、unknown、restricted 状态，尝试请求权限
+      if (['not-determined', 'unknown', 'restricted'].includes(result.microphone)) {
         const res = await (window as any).api.permissionHeader.requestMicrophonePermission();
+        console.log('[PermissionPanel] Request microphone permission response:', res);
         if (res.status === 'granted' || res.success === true) {
           setMicrophoneGranted('granted');
           return;
+        }
+        // 如果请求失败，可能是被拒绝了，打开系统设置
+        if (res.status === 'denied' || !res.success) {
+          console.log('[PermissionPanel] Microphone permission request failed, opening system preferences...');
+          await (window as any).api.permissionHeader.openSystemPreferences('microphone');
         }
       }
     } catch (error) {

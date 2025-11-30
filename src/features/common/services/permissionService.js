@@ -86,6 +86,10 @@ class PermissionService {
         }
         
         // await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture');
+      } else if (section === 'microphone') {
+        console.log('[Permissions] Opening system preferences for microphone...');
+        // 打开系统设置的麦克风权限页面
+        await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone');
       }
       return { success: true };
     } catch (error) {
