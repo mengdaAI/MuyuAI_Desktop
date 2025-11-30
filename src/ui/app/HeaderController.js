@@ -1,5 +1,8 @@
 import './ApiKeyHeader.js';
 import './WelcomeHeader.tsx';
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import PermissionPanel from '../components/PermissionPanel';
 
 class HeaderTransitionManager {
     constructor() {
@@ -9,6 +12,7 @@ class HeaderTransitionManager {
         this.apiKeyHeader = null;
         this.mainHeader = null;
         this.permissionHeader = null;
+        this.permissionHeaderRoot = null; // React root for PermissionPanel
         this.passcodeUnlocked = false;
         this.passcodeStatusChecked = false;
         this.pendingUserState = null;
@@ -32,6 +36,15 @@ class HeaderTransitionManager {
             this.welcomeHeader = null;
             this.apiKeyHeader = null;
             this.permissionHeader = null;
+            // 清理 React root 和事件监听器
+            if (this.permissionHeaderRoot) {
+                this.permissionHeaderRoot.unmount();
+                this.permissionHeaderRoot = null;
+            }
+            if (this._permissionResizeHandler) {
+                window.removeEventListener('request-resize', this._permissionResizeHandler);
+                this._permissionResizeHandler = null;
+            }
             // Create new header element
             if (type === 'welcome') {
                 // 确保窗口大小适合 welcome 界面
@@ -68,18 +81,40 @@ class HeaderTransitionManager {
                 this.headerContainer.appendChild(this.apiKeyHeader);
                 console.log('[HeaderController] ensureHeader: Header of type:', type, 'created.');
             } else if (type === 'permission') {
-                this.permissionHeader = document.createElement('permission-setup');
-                this.permissionHeader.addEventListener('request-resize', e => {
-                    this._resizeForPermissionHeader(e.detail.height);
-                });
-                this.permissionHeader.continueCallback = async () => {
-                    if (window.api && window.api.headerController) {
-                        console.log('[HeaderController] Re-initializing model state after permission grant...');
-                        await window.api.headerController.reInitializeModelState();
-                    }
-                    this.transitionToMainHeader();
-                };
+                // 创建容器元素用于渲染 React 组件
+                this.permissionHeader = document.createElement('div');
+                this.permissionHeader.style.width = '100%';
+                this.permissionHeader.style.height = '100%';
                 this.headerContainer.appendChild(this.permissionHeader);
+
+                // 创建 React root 并渲染 PermissionPanel
+                this.permissionHeaderRoot = createRoot(this.permissionHeader);
+                this.permissionHeaderRoot.render(
+                    React.createElement(PermissionPanel, {
+                        continueCallback: async () => {
+                            if (window.api && window.api.headerController) {
+                                console.log('[HeaderController] Re-initializing model state after permission grant...');
+                                await window.api.headerController.reInitializeModelState();
+                            }
+                            this.transitionToMainHeader();
+                        },
+                        onClose: () => {
+                            if (window.api) {
+                                window.api.common.quitApplication();
+                            }
+                        }
+                    })
+                );
+
+                // 监听 request-resize 事件
+                const handleRequestResize = (e) => {
+                    if (e.detail?.height) {
+                        this._resizeForPermissionHeader(e.detail.height);
+                    }
+                };
+                window.addEventListener('request-resize', handleRequestResize);
+                // 存储事件处理器以便后续清理
+                this._permissionResizeHandler = handleRequestResize;
             } else {
                 console.warn('[HeaderController] main header type not supported in this version');
             }
