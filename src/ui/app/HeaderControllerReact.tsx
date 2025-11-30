@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { WelcomeHeader } from '../components/WelcomeHeader';
+import PermissionPanel from '../components/PermissionPanel';
 
 type HeaderType = 'welcome' | 'apikey' | 'main' | 'permission';
 
@@ -234,6 +235,8 @@ export function HeaderController({ containerRef }: HeaderControllerProps) {
         recordInterviewStart();
 
         const nextState = pendingUserState || lastKnownUserState;
+        console.log('[HeaderController] nextState:', nextState, (window as any).api);
+
         if (nextState) {
             setPendingUserState(null);
             await handleStateUpdate(nextState);
@@ -278,7 +281,21 @@ export function HeaderController({ containerRef }: HeaderControllerProps) {
         notifyHeaderState('main');
     }, [currentHeaderType, resizeForMain, notifyHeaderState]);
 
-    // 处理 Web Components 的渲染
+    // 处理 request-resize 事件
+    useEffect(() => {
+        const handleRequestResize = (e: CustomEvent) => {
+            if (e.detail?.height) {
+                resizeForPermissionHeader(e.detail.height);
+            }
+        };
+
+        window.addEventListener('request-resize', handleRequestResize as EventListener);
+        return () => {
+            window.removeEventListener('request-resize', handleRequestResize as EventListener);
+        };
+    }, [resizeForPermissionHeader]);
+
+    // 处理 Web Components 的渲染（仅用于 apikey 和 main）
     useEffect(() => {
         if (!webComponentContainerRef.current) return;
 
@@ -295,22 +312,10 @@ export function HeaderController({ containerRef }: HeaderControllerProps) {
                 (apikeyHeader as any).backCallback = () => transitionToWelcomeHeader();
             }
             container.appendChild(apikeyHeader);
-        } else if (currentHeaderType === 'permission') {
-            const permissionHeader = document.createElement('permission-setup');
-            if ('continueCallback' in permissionHeader) {
-                (permissionHeader as any).continueCallback = async () => {
-                    if ((window as any).api?.headerController) {
-                        console.log('[HeaderController] Re-initializing model state after permission grant...');
-                        await (window as any).api.headerController.reInitializeModelState();
-                    }
-                    await transitionToMainHeader();
-                };
-            }
-            container.appendChild(permissionHeader);
         } else if (currentHeaderType === 'main') {
             console.warn('[HeaderController] main header type not supported in this version');
         }
-    }, [currentHeaderType, handleStateUpdate, transitionToWelcomeHeader, transitionToMainHeader]);
+    }, [currentHeaderType, handleStateUpdate, transitionToWelcomeHeader]);
 
     // 初始化
     useEffect(() => {
@@ -369,8 +374,24 @@ export function HeaderController({ containerRef }: HeaderControllerProps) {
                         onPasscodeVerified={handlePasscodeVerified}
                     />
                 );
-            case 'apikey':
             case 'permission':
+                return (
+                    <PermissionPanel
+                        continueCallback={async () => {
+                            if ((window as any).api?.headerController) {
+                                console.log('[HeaderController] Re-initializing model state after permission grant...');
+                                await (window as any).api.headerController.reInitializeModelState();
+                            }
+                            await transitionToMainHeader();
+                        }}
+                        onClose={() => {
+                            if ((window as any).api) {
+                                (window as any).api.common.quitApplication();
+                            }
+                        }}
+                    />
+                );
+            case 'apikey':
             case 'main':
                 // 暂时使用 Web Components，后续可以逐步迁移
                 return <div ref={webComponentContainerRef} style={{ width: '100%', height: '100%' }} />;
