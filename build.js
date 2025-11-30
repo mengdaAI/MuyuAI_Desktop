@@ -22,7 +22,9 @@ const baseConfig = {
 
 const entryPoints = [
     { in: 'src/ui/app/headerApp.tsx', out: 'public/build/header' },
-    { in: 'src/ui/app/MuyuApp.js', out: 'public/build/content' },
+    { in: 'src/ui/app/contentApp.tsx', out: 'public/build/content' },
+    { in: 'src/ui/screenshot/screenshotApp.tsx', out: 'public/build/screenshot' },
+    { in: 'src/ui/transcript/transcriptApp.tsx', out: 'public/build/transcript' },
 ];
 
 // 确保 public/build 目录存在

@@ -23,16 +23,23 @@ export function StatusFooter({ sessionStatus, elapsedSeconds, totalInterviewSeco
     completed: { status: '已结束' },
   };
   
+  const dotColors = {
+    idle: 'bg-status-idle shadow-[0_0_8px_rgba(255,199,143,0.8)]',
+    listening: 'bg-status-listening shadow-[0_0_8px_rgba(121,255,225,0.8)]',
+    completed: 'bg-status-completed shadow-[0_0_8px_rgba(143,222,255,0.8)]',
+  };
+  
   const stateCopy = stateCopyMap[panelState];
+  const dotColor = dotColors[panelState];
   const elapsed = formatElapsedTime(elapsedSeconds);
 
   return (
-    <div className="footer">
-      <div className="status-indicator">
-        <div className={`dot ${panelState}`}></div>
+    <div className="flex justify-between items-center text-sm text-white/60">
+      <div className="flex items-center gap-2">
+        <div className={`w-1.5 h-1.5 rounded-full ${dotColor}`}></div>
         <span>{stateCopy.status}</span>
       </div>
-      <div className="time-remaining">
+      <div className="flex items-center gap-1.5">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
           <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
         </svg>

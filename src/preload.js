@@ -125,7 +125,7 @@ contextBridge.exposeInMainWorld('api', {
     },
   },
 
-  // src/ui/main/MainView.js (and other views that need header window management)
+  // src/ui/main/MainView.tsx (and other views that need header window management)
   mainHeader: {
     // Window Management
     getHeaderPosition: () => ipcRenderer.invoke('get-header-position'),
@@ -172,7 +172,7 @@ contextBridge.exposeInMainWorld('api', {
     removeAllClickThroughListeners: () => ipcRenderer.removeAllListeners('click-through-toggled')
   },
 
-  // src/ui/ask/AskView.js
+  // src/ui/ask/AskView.tsx
   askView: {
     // Window Management
     closeAskWindow: () => ipcRenderer.invoke('ask:closeAskWindow'),
@@ -214,7 +214,7 @@ contextBridge.exposeInMainWorld('api', {
   },
 
 
-  // src/ui/listen/ListenView.js
+  // src/ui/listen/ListenView.js (deprecated - functionality moved to MainView.tsx)
   listenView: {
     // Window Management
     adjustWindowHeight: (winName, height) => ipcRenderer.invoke('adjust-window-height', { winName, height }),

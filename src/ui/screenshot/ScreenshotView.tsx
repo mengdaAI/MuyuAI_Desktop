@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useIpcListener, useStreamingMarkdown } from '../hooks';
+import { useIpcListener } from '../hooks';
+import { useStreamingMarkdownRenderer } from '../hooks/useStreamingMarkdown';
 
 export function ScreenshotView() {
   const [currentResponse, setCurrentResponse] = useState('');
@@ -8,14 +9,13 @@ export function ScreenshotView() {
   
   const responseContainerRef = useRef<HTMLDivElement>(null);
 
-  const { renderStreamingMarkdown, resetStreamingParser } = useStreamingMarkdown(
-    responseContainerRef,
-    currentResponse,
+  useStreamingMarkdownRenderer({
+    content: currentResponse,
     isStreaming,
     isLoading,
-    window.hljs,
-    typeof window.hljs !== 'undefined'
-  );
+    containerRef: responseContainerRef,
+    hljs: window.hljs,
+  });
 
   const handleStateUpdate = useCallback((event: any, state: any) => {
     if (state.isLoading !== undefined) setIsLoading(state.isLoading);

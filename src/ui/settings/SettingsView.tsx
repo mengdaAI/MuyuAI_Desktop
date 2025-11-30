@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import './SettingsView.css';
 
 interface ProviderConfig {
   name: string;

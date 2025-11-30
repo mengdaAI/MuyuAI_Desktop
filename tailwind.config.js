@@ -45,6 +45,18 @@ module.exports = {
             200: 'rgba(255, 100, 100, 0.25)',
             300: 'rgba(100, 50, 200, 0.15)',
           },
+          'status': {
+            'idle': '#ffd28f',
+            'listening': '#79ffe1',
+            'completed': '#8fdeff',
+            'error': '#e74c3c',
+          },
+          'primary': {
+            DEFAULT: '#8251FF',
+            light: '#C17FFF',
+            active: '#ff78b4',
+            done: '#54ffc9',
+          },
         },
       },
       borderRadius: {
@@ -72,6 +84,8 @@ module.exports = {
       },
       animation: {
         'pulse-slow': 'pulse 1.5s ease-in-out infinite',
+        'pulse-dot': 'pulseDot 1.4s ease-in-out infinite',
+        'spin-slow': 'spin 0.8s linear infinite',
         'slide-up': 'slideUp 0.3s cubic-bezier(0.4, 0, 0.6, 1) forwards',
         'slide-down': 'slideDown 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
       },
@@ -83,6 +97,10 @@ module.exports = {
         slideDown: {
           '0%': { transform: 'translateY(-150%) scale(0.85)', opacity: '0' },
           '100%': { transform: 'translateY(0) scale(1)', opacity: '1' },
+        },
+        pulseDot: {
+          '0%, 100%': { transform: 'scale(0.7)', opacity: '0.6' },
+          '50%': { transform: 'scale(1.2)', opacity: '1' },
         },
       },
       backdropBlur: {
