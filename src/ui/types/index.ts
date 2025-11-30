@@ -24,7 +24,7 @@ export interface UserState {
   uid: string;
   email: string;
   displayName: string;
-  mode: 'local' | 'firebase';
+  mode: 'local' | 'interview';
   isLoggedIn: boolean;
   totalInterviewSeconds?: number;
 }

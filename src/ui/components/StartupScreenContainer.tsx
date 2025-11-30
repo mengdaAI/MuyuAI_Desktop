@@ -17,19 +17,19 @@ declare global {
     }
 }
 
-interface WelcomeHeaderProps {
+interface StartupScreenContainerProps {
     passcodeRequired?: boolean;
     passcodeVerified?: boolean;
     onPasscodeVerified?: () => void;
     onContentChanged?: () => void;
 }
 
-export function WelcomeHeader({
+export function StartupScreenContainer({
     passcodeRequired = false,
     passcodeVerified = false,
     onPasscodeVerified,
     onContentChanged,
-}: WelcomeHeaderProps) {
+}: StartupScreenContainerProps) {
     const [passcodeValue, setPasscodeValue] = useState('');
     const [passcodeError, setPasscodeError] = useState('');
     const [isVerifyingPasscode, setIsVerifyingPasscode] = useState(false);

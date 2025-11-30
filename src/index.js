@@ -49,80 +49,10 @@ const ollamaModelRepository = require('./features/common/repositories/ollamaMode
 console.log('>>> [DEBUG] Requires complete');
 
 // Native deep link handling - cross-platform compatible
-let pendingDeepLinkUrl = null;
+// Protocol handling removed as per request
 
-function setupProtocolHandling() {
-    // Protocol registration - must be done before app is ready
-    try {
-        if (!app.isDefaultProtocolClient('pickleglass')) {
-            const success = app.setAsDefaultProtocolClient('pickleglass');
-            if (success) {
-                console.log('[Protocol] Successfully set as default protocol client for pickleglass://');
-            } else {
-                console.warn('[Protocol] Failed to set as default protocol client - this may affect deep linking');
-            }
-        } else {
-            console.log('[Protocol] Already registered as default protocol client for pickleglass://');
-        }
-    } catch (error) {
-        console.error('[Protocol] Error during protocol registration:', error);
-    }
 
-    // Handle protocol URLs on Windows/Linux
-    app.on('second-instance', (event, commandLine, workingDirectory) => {
-        console.log('[Protocol] Second instance command line:', commandLine);
 
-        focusMainWindow();
-
-        let protocolUrl = null;
-
-        // Search through all command line arguments for a valid protocol URL
-        for (const arg of commandLine) {
-            if (arg && typeof arg === 'string' && arg.startsWith('pickleglass://')) {
-                // Clean up the URL by removing problematic characters
-                const cleanUrl = arg.replace(/[\\₩]/g, '');
-
-                // Additional validation for Windows
-                if (process.platform === 'win32') {
-                    // On Windows, ensure the URL doesn't contain file path indicators
-                    if (!cleanUrl.includes(':') || cleanUrl.indexOf('://') === cleanUrl.lastIndexOf(':')) {
-                        protocolUrl = cleanUrl;
-                        break;
-                    }
-                } else {
-                    protocolUrl = cleanUrl;
-                    break;
-                }
-            }
-        }
-
-        if (protocolUrl) {
-            console.log('[Protocol] Valid URL found from second instance:', protocolUrl);
-            handleCustomUrl(protocolUrl);
-        } else {
-            console.log('[Protocol] No valid protocol URL found in command line arguments');
-            console.log('[Protocol] Command line args:', commandLine);
-        }
-    });
-
-    // Handle protocol URLs on macOS
-    app.on('open-url', (event, url) => {
-        event.preventDefault();
-        console.log('[Protocol] Received URL via open-url:', url);
-
-        if (!url || !url.startsWith('pickleglass://')) {
-            console.warn('[Protocol] Invalid URL format:', url);
-            return;
-        }
-
-        if (app.isReady()) {
-            handleCustomUrl(url);
-        } else {
-            pendingDeepLinkUrl = url;
-            console.log('[Protocol] App not ready, storing URL for later');
-        }
-    });
-}
 
 function focusMainWindow() {
     const { windowPool } = require('./window/windowManager.js');
@@ -149,22 +79,7 @@ function focusMainWindow() {
     return false;
 }
 
-if (process.platform === 'win32') {
-    for (const arg of process.argv) {
-        if (arg && typeof arg === 'string' && arg.startsWith('pickleglass://')) {
-            // Clean up the URL by removing problematic characters (korean characters issue...)
-            const cleanUrl = arg.replace(/[\\₩]/g, '');
 
-            if (!cleanUrl.includes(':') || cleanUrl.indexOf('://') === cleanUrl.lastIndexOf(':')) {
-                console.log('[Protocol] Found protocol URL in initial arguments:', cleanUrl);
-                pendingDeepLinkUrl = cleanUrl;
-                break;
-            }
-        }
-    }
-
-    console.log('[Protocol] Initial process.argv:', process.argv);
-}
 
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
@@ -173,7 +88,7 @@ if (!gotTheLock) {
 }
 
 // setup protocol after single instance lock
-setupProtocolHandling();
+// setupProtocolHandling(); // Removed
 
 console.log('>>> [DEBUG] Waiting for app.whenReady()');
 app.whenReady().then(async () => {
@@ -242,11 +157,11 @@ app.whenReady().then(async () => {
     initAutoUpdater();
 
     // Process any pending deep link after everything is initialized
-    if (pendingDeepLinkUrl) {
-        console.log('[Protocol] Processing pending URL:', pendingDeepLinkUrl);
-        handleCustomUrl(pendingDeepLinkUrl);
-        pendingDeepLinkUrl = null;
-    }
+    // if (pendingDeepLinkUrl) {
+    //     console.log('[Protocol] Processing pending URL:', pendingDeepLinkUrl);
+    //     handleCustomUrl(pendingDeepLinkUrl);
+    //     pendingDeepLinkUrl = null;
+    // }
 });
 
 app.on('before-quit', async (event) => {
@@ -452,79 +367,7 @@ function setupWebDataHandlers() {
     eventBridge.on('web-data-request', handleRequest);
 }
 
-async function handleCustomUrl(url) {
-    try {
-        console.log('[Custom URL] Processing URL:', url);
 
-        // Validate and clean URL
-        if (!url || typeof url !== 'string' || !url.startsWith('pickleglass://')) {
-            console.error('[Custom URL] Invalid URL format:', url);
-            return;
-        }
-
-        // Clean up URL by removing problematic characters
-        const cleanUrl = url.replace(/[\\₩]/g, '');
-
-        // Additional validation
-        if (cleanUrl !== url) {
-            console.log('[Custom URL] Cleaned URL from:', url, 'to:', cleanUrl);
-            url = cleanUrl;
-        }
-
-        const urlObj = new URL(url);
-        const action = urlObj.hostname;
-        const params = Object.fromEntries(urlObj.searchParams);
-
-        console.log('[Custom URL] Action:', action, 'Params:', params);
-
-        switch (action) {
-            case 'personalize':
-                handlePersonalizeFromUrl(params);
-                break;
-            default:
-                const { windowPool } = require('./window/windowManager.js');
-                const header = windowPool.get('header');
-                if (header) {
-                    if (header.isMinimized()) header.restore();
-                    header.focus();
-
-                    const targetUrl = `http://localhost:${WEB_PORT}/${action}`;
-                    console.log(`[Custom URL] Navigating webview to: ${targetUrl}`);
-                    header.webContents.loadURL(targetUrl);
-                }
-        }
-
-    } catch (error) {
-        console.error('[Custom URL] Error parsing URL:', error);
-    }
-}
-
-
-
-function handlePersonalizeFromUrl(params) {
-    console.log('[Custom URL] Personalize params:', params);
-
-    const { windowPool } = require('./window/windowManager.js');
-    const header = windowPool.get('header');
-
-    if (header) {
-        if (header.isMinimized()) header.restore();
-        header.focus();
-
-        const personalizeUrl = `http://localhost:${WEB_PORT}/settings`;
-        console.log(`[Custom URL] Navigating to personalize page: ${personalizeUrl}`);
-        header.webContents.loadURL(personalizeUrl);
-
-        BrowserWindow.getAllWindows().forEach(win => {
-            win.webContents.send('enter-personalize-mode', {
-                message: 'Personalization mode activated',
-                params: params
-            });
-        });
-    } else {
-        console.error('[Custom URL] Header window not found for personalize');
-    }
-}
 
 
 

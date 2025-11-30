@@ -75,7 +75,7 @@ class AuthService {
 
         // Local mode (default)
         return {
-            uid: this.currentUserId, // returns 'default_user'
+            uid: this.currentUserId,
             email: 'contact@muyu.ai',
             displayName: 'Default User',
             mode: 'local',

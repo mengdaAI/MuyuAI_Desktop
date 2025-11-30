@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
+import { Turn } from "../types";
 import { Frame1, Frame2, Frame3, Group4 } from "./icons";
 import { HideWindowButton } from "./buttons/HideWindowButton";
 import { Frame12 } from "./icons/Frame12";
@@ -33,6 +34,7 @@ interface MainInterfaceProps {
   onSend: () => void;
   onScreenshotAnswer: () => void;
   onExitInterview: () => void;
+  turns: Turn[];
 }
 
 export function MainInterface({
@@ -55,7 +57,16 @@ export function MainInterface({
   onSend,
   onScreenshotAnswer,
   onExitInterview,
+  turns,
 }: MainInterfaceProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [turns]);
+
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div
@@ -101,7 +112,38 @@ export function MainInterface({
         <HistoryButton onClick={onToggleHistoryPanel} isActive={activePanel === 'history'} />
 
         {/* 左侧内容区 */}
-        <p className="absolute font-['PingFang_SC:Semibold',sans-serif] leading-[normal] left-[93px] not-italic text-[rgba(255,255,255,0.7)] text-[14px] top-[96px] w-[420px]">点击右侧按钮开始收音，回答将展示在此区域</p>
+        <div 
+          ref={scrollRef}
+          className="absolute left-[93px] top-[96px] w-[420px] h-[400px] overflow-y-auto overflow-x-hidden pb-4" 
+          style={{ scrollbarWidth: 'none' }}
+        >
+          {turns.length === 0 && (
+            <p className="font-['PingFang_SC:Semibold',sans-serif] leading-[1.5] not-italic text-[rgba(255,255,255,0.7)] text-[14px] whitespace-pre-wrap">
+              点击右侧按钮开始收音，回答将展示在此区域
+            </p>
+          )}
+          {turns.map((turn) => (
+            <div key={turn.id} className="flex flex-col gap-2 mb-4">
+              {/* Them (Interviewer) */}
+              {turn.question && (
+                <div className="flex flex-row gap-2 items-start">
+                  <div className="text-[rgba(255,255,255,0.9)] text-[14px] font-['PingFang_SC:Semibold',sans-serif] leading-relaxed whitespace-pre-wrap">
+                    {turn.question}
+                  </div>
+                </div>
+              )}
+              
+              {/* Me (AI) */}
+              {turn.answer && (
+                <div className="flex flex-row gap-2 items-start justify-end mt-1">
+                  <div className="max-w-[90%] p-3 rounded-lg bg-[rgba(193,127,255,0.15)] text-white text-[14px] font-['PingFang_SC:Regular',sans-serif] leading-relaxed whitespace-pre-wrap border border-[rgba(193,127,255,0.3)]">
+                    {turn.answer}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
 
         {/* 右区域景 - 带动画 */}
         <div

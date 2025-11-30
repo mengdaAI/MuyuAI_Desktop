@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MainView } from '../main/MainView';
+import { MainInterfaceContainer } from '../components/MainInterfaceContainer';
 import { AskView } from '../ask/AskView';
 import { SettingsView } from '../settings/SettingsView';
 import { ShortCutSettingsView } from '../settings/ShortCutSettingsView';
@@ -75,11 +75,11 @@ export function App({ initialView }: AppProps = {}) {
   const renderView = () => {
     switch (currentView) {
       case 'main':
-        return <MainView />;
+        return <MainInterfaceContainer />;
       
       case 'listen':
         // ListenView functionality has been moved to MainView
-        return <MainView />;
+        return <MainInterfaceContainer />;
       
       case 'ask':
         return <AskView />;

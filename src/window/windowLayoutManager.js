@@ -84,8 +84,8 @@ class WindowLayoutManager {
         const PAD = 10;
         const headerCenterX = headerBounds.x + headerBounds.width / 2;
 
-        const x = headerCenterX - mainBounds.width / 2;
-        const y = headerBounds.y + headerBounds.height + PAD;
+        const x = headerBounds.x + (headerBounds.width - mainBounds.width) / 2;
+        const y = headerBounds.y + (headerBounds.height - mainBounds.height) / 2;
 
         const clampedX = Math.max(workAreaX + 10, Math.min(workAreaX + screenWidth - mainBounds.width - 10, x));
         const clampedY = Math.max(workAreaY + 10, Math.min(workAreaY + screenHeight - mainBounds.height - 10, y));

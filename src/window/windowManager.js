@@ -155,6 +155,15 @@ function setupWindowController(windowPool, layoutManager, movementManager) {
     });
 
     internalBridge.on('window:resizeHeaderWindow', ({ width, height }) => {
+        // Support resizing main window if it's active
+        const mainWin = windowPool.get('main');
+        if (mainWin && !mainWin.isDestroyed() && mainWin.isVisible()) {
+            const bounds = mainWin.getBounds();
+            const newX = bounds.x - Math.round((width - bounds.width) / 2);
+            mainWin.setBounds({ x: newX, y: bounds.y, width, height }, true);
+            return;
+        }
+
         const header = windowPool.get('header');
         if (!header || movementManager.isAnimating) return;
 
@@ -493,8 +502,8 @@ function createFeatureWindows(header, namesToCreate) {
             case 'main': {
                 const mainWin = new BrowserWindow({
                     ...commonChildOptions,
-                    width: 524,
-                    height: 393,
+                    width: 595,
+                    height: 600,
                     maxHeight: 900,
                 });
                 mainWin.setContentProtection(isContentProtectionOn);
@@ -855,9 +864,15 @@ function createWindows() {
     header.show();
     console.log('[WindowManager] Header window created and shown');
 
-    // DevTools disabled in development to avoid auto-opening
+    // DevTools in development - redirect console to main process
     if (!app.isPackaged) {
         header.webContents.openDevTools({ mode: 'detach' });
+        
+        // 转发渲染进程的 console 到主进程
+        header.webContents.on('console-message', (event, level, message, line, sourceId) => {
+            const prefix = level === 0 ? '[Renderer]' : level === 1 ? '[Renderer WARN]' : '[Renderer ERROR]';
+            console.log(`${prefix} ${message}`);
+        });
     }
 
     header.on('focus', () => {
@@ -973,20 +988,39 @@ const handleHeaderStateChanged = (state) => {
     const header = windowPool.get('header');
 
     if (state === 'main') {
+        console.log('[WindowManager] Transitioning to main state - creating feature windows');
+        
+        // 先创建功能窗口（包括 main 窗口）
         createFeatureWindows(header, ['main', 'listen', 'ask', 'screenshot', 'transcript', 'settings', 'shortcut-settings']);
 
-        // Hide Header window visually but keep it as parent
+        // 确保 main 窗口可见并在前台
+        const mainWin = windowPool.get('main');
+        if (mainWin && !mainWin.isDestroyed()) {
+            mainWin.show();
+            mainWin.focus();
+            console.log('[WindowManager] Main window shown and focused');
+        }
+
+        // 然后隐藏 Header 窗口（设置为透明并点击穿透）
         if (header && !header.isDestroyed()) {
             header.setOpacity(0);
             header.setIgnoreMouseEvents(true, { forward: true });
+            console.log('[WindowManager] Header window hidden (transparent + click-through)');
         }
     } else {         // 'apikey' | 'permission' | 'welcome'
-        // Restore Header window visibility
+        console.log(`[WindowManager] Transitioning to ${state} state - showing header, destroying feature windows`);
+        
+        // 先销毁功能窗口（包括 main 窗口）
+        destroyFeatureWindows();
+        
+        // 恢复 Header 窗口可见性
         if (header && !header.isDestroyed()) {
             header.setOpacity(1);
             header.setIgnoreMouseEvents(false);
+            header.show();
+            header.focus();
+            console.log('[WindowManager] Header window restored and focused');
         }
-        destroyFeatureWindows();
     }
     internalBridge.emit('reregister-shortcuts');
 };

@@ -14,18 +14,15 @@ type PermissionStatus = 'unknown' | 'granted' | 'denied' | 'not-determined' | 'r
 export default function PermissionPanel({ onComplete, onClose, continueCallback }: PermissionPanelProps) {
   const [microphoneGranted, setMicrophoneGranted] = useState<PermissionStatus>('unknown');
   const [screenGranted, setScreenGranted] = useState<PermissionStatus>('unknown');
-  const [keychainGranted, setKeychainGranted] = useState<PermissionStatus>('unknown');
   const [isChecking, setIsChecking] = useState(false);
-  const [userMode, setUserMode] = useState<'local' | 'firebase'>('local');
+  const [userMode, setUserMode] = useState<'local' | 'interview'>('local');
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const userModeRef = useRef<'local' | 'firebase'>('local');
+  const userModeRef = useRef<'local' | 'interview'>('local');
   const continueCallbackRef = useRef(continueCallback);
   const onCompleteRef = useRef(onComplete);
   const isCheckingRef = useRef(false);
 
-  const isKeychainRequired = userMode === 'firebase';
-  const keychainOk = !isKeychainRequired || keychainGranted === 'granted';
-  const allGranted = microphoneGranted === 'granted' && screenGranted === 'granted' && keychainOk;
+  const allGranted = microphoneGranted === 'granted' && screenGranted === 'granted';
 
   // 更新 ref 以保持最新值
   useEffect(() => {
@@ -60,6 +57,10 @@ export default function PermissionPanel({ onComplete, onClose, continueCallback 
       const permissions = await (window as any).api.permissionHeader.checkSystemPermissions();
       console.log('[PermissionPanel] Permission check result:', permissions);
 
+      // 缓存权限状态到全局，供节流逻辑使用
+      (window as any)._cachedMicPermission = permissions.microphone;
+      (window as any)._cachedScreenPermission = permissions.screen;
+      
       setMicrophoneGranted(prev => {
         if (prev !== permissions.microphone) {
           console.log('[PermissionPanel] Microphone permission changed:', prev, '->', permissions.microphone);
@@ -72,30 +73,22 @@ export default function PermissionPanel({ onComplete, onClose, continueCallback 
         }
         return permissions.screen;
       });
-      setKeychainGranted(prev => {
-        if (prev !== permissions.keychain) {
-          console.log('[PermissionPanel] Keychain permission changed:', prev, '->', permissions.keychain);
-        }
-        return permissions.keychain;
-      });
 
-      // Check if all permissions are granted using ref to avoid dependency issues
-      const currentUserMode = userModeRef.current;
-      const isKeychainRequired = currentUserMode === 'firebase';
-      const keychainOk = !isKeychainRequired || permissions.keychain === 'granted';
-
+      // 使用一个标记防止重复触发跳转
       if (permissions.microphone === 'granted' &&
         permissions.screen === 'granted' &&
-        keychainOk &&
-        (continueCallbackRef.current || onCompleteRef.current)) {
-        console.log('[PermissionPanel] All permissions granted, proceeding automatically');
-        setTimeout(() => {
-          if (continueCallbackRef.current) {
-            continueCallbackRef.current();
-          } else if (onCompleteRef.current) {
-            onCompleteRef.current();
-          }
-        }, 500);
+        (continueCallbackRef.current || onCompleteRef.current) &&
+        !(window as any)._permissionTransitionTriggered) {
+        console.log('[PermissionPanel] ✅ All permissions granted, proceeding automatically');
+        (window as any)._permissionTransitionTriggered = true;
+        
+        // 立即触发，不延迟
+        console.log('[PermissionPanel] Triggering transition callback...');
+        if (continueCallbackRef.current) {
+          continueCallbackRef.current();
+        } else if (onCompleteRef.current) {
+          onCompleteRef.current();
+        }
       }
     } catch (error) {
       console.error('[PermissionPanel] Error checking permissions:', error);
@@ -126,20 +119,35 @@ export default function PermissionPanel({ onComplete, onClose, continueCallback 
 
     loadUserState();
 
-    // 延迟执行第一次权限检查，避免立即触发
+    // 立即执行第一次权限检查
     const initialCheckTimeout = setTimeout(() => {
       if (mounted && checkPermissionsRef.current) {
+        console.log('[PermissionPanel] Running initial permission check');
         checkPermissionsRef.current();
       }
-    }, 500);
+    }, 300); // 减少延迟，更快响应
 
-    // Set up periodic permission check - 增加到 5 秒，减少刷新频率
+    // Set up periodic permission check - 增加到 3 秒，减少刷新频率
+    // 并添加节流机制，只有在权限未全部授予时才持续检查
     intervalRef.current = setInterval(async () => {
       if (!mounted || !(window as any).api) return;
 
       // 只在没有正在检查时才执行
       if (isCheckingRef.current) {
         console.log('[PermissionPanel] Skipping check, already in progress');
+        return;
+      }
+
+      // 如果权限已全部授予，停止频繁检查
+      const permissionStates = {
+        mic: (window as any)._cachedMicPermission,
+        screen: (window as any)._cachedScreenPermission
+      };
+      
+      if (permissionStates.mic === 'granted' && 
+          permissionStates.screen === 'granted') {
+        console.log('[PermissionPanel] All permissions granted, reducing check frequency');
+        // 权限已全部授予，跳过本次检查
         return;
       }
 
@@ -162,7 +170,7 @@ export default function PermissionPanel({ onComplete, onClose, continueCallback 
       if (mounted && checkPermissionsRef.current) {
         checkPermissionsRef.current();
       }
-    }, 5000); // 增加到 5 秒
+    }, 3000); // 3 秒检查一次
 
     return () => {
       mounted = false;
@@ -176,6 +184,8 @@ export default function PermissionPanel({ onComplete, onClose, continueCallback 
 
   // Calculate and notify height changes (only when layout actually changes)
   const prevHeightRef = useRef<number | null>(null);
+  const prevCalcKeyRef = useRef<string>('');
+  
   useEffect(() => {
     let newHeight = 430;
 
@@ -187,10 +197,14 @@ export default function PermissionPanel({ onComplete, onClose, continueCallback 
       newHeight += 70;
     }
 
-    // 只在高度真正变化时才发送事件
-    if (prevHeightRef.current !== newHeight) {
+    // 创建一个计算键，只有当真正影响高度的因素变化时才触发
+    const calcKey = `${allGranted}`;
+    
+    // 只在高度真正变化时才发送事件，并且避免重复触发
+    if (prevHeightRef.current !== newHeight && prevCalcKeyRef.current !== calcKey) {
       console.log(`[PermissionPanel] Height changed from ${prevHeightRef.current}px to ${newHeight}px, requesting resize`);
       prevHeightRef.current = newHeight;
+      prevCalcKeyRef.current = calcKey;
 
       // Dispatch custom event for parent component
       const event = new CustomEvent('request-resize', {
@@ -199,7 +213,7 @@ export default function PermissionPanel({ onComplete, onClose, continueCallback 
       });
       window.dispatchEvent(event);
     }
-  }, [userMode, microphoneGranted, screenGranted, keychainGranted, isKeychainRequired, keychainOk, allGranted]);
+  }, [allGranted]);
 
   const handleMicrophoneClick = useCallback(async () => {
     if (!(window as any).api || microphoneGranted === 'granted') return;
@@ -271,34 +285,10 @@ export default function PermissionPanel({ onComplete, onClose, continueCallback 
     }
   }, [screenGranted]);
 
-  const handleKeychainClick = useCallback(async () => {
-    if (!(window as any).api || keychainGranted === 'granted') return;
-
-    console.log('[PermissionPanel] Requesting keychain permission...');
-
-    try {
-      await (window as any).api.permissionHeader.initializeEncryptionKey();
-      setKeychainGranted('granted');
-    } catch (error) {
-      console.error('[PermissionPanel] Error requesting keychain permission:', error);
-    }
-  }, [keychainGranted]);
-
   const handleContinue = useCallback(async () => {
-    const keychainOk = !isKeychainRequired || keychainGranted === 'granted';
-
     if ((continueCallback || onComplete) &&
       microphoneGranted === 'granted' &&
-      screenGranted === 'granted' &&
-      keychainOk) {
-      if ((window as any).api && isKeychainRequired) {
-        try {
-          await (window as any).api.permissionHeader.markKeychainCompleted();
-          console.log('[PermissionPanel] Marked keychain as completed');
-        } catch (error) {
-          console.error('[PermissionPanel] Error marking keychain as completed:', error);
-        }
-      }
+      screenGranted === 'granted') {
 
       if (continueCallback) {
         continueCallback();
@@ -306,7 +296,7 @@ export default function PermissionPanel({ onComplete, onClose, continueCallback 
         onComplete();
       }
     }
-  }, [isKeychainRequired, keychainGranted, continueCallback, onComplete, microphoneGranted, screenGranted]);
+  }, [continueCallback, onComplete, microphoneGranted, screenGranted]);
 
   const handleClose = useCallback(() => {
     console.log('Close button clicked');
@@ -319,13 +309,9 @@ export default function PermissionPanel({ onComplete, onClose, continueCallback 
 
   const micGranted = microphoneGranted === 'granted';
   const screenGrantedState = screenGranted === 'granted';
-  const keychainGrantedState = keychainGranted === 'granted';
 
   // 计算容器高度
   let containerHeight = 308;
-  if (isKeychainRequired && !keychainOk) {
-    containerHeight += 90;
-  }
   if (allGranted) {
     containerHeight += 70;
   }
@@ -450,52 +436,6 @@ export default function PermissionPanel({ onComplete, onClose, continueCallback 
           </span>
         </button>
       </div>
-
-      {/* Keychain Permission (if required) */}
-      {isKeychainRequired && (
-        <>
-          <div className="absolute left-[35px] top-[280px] flex items-center h-[39px]">
-            {/* Keychain 图标 - 使用简单的锁图标样式 */}
-            <div className="w-[35px] h-[35px] flex items-center justify-center">
-              <svg className="block w-[20px] h-[20px]" fill="none" preserveAspectRatio="none" viewBox="0 0 24 24">
-                <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6zm9 14H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z" fill="var(--fill-0, white)" fillOpacity="0.8" />
-              </svg>
-            </div>
-
-            {/* Keychain 文字 */}
-            <p className="font-['PingFang_SC:Semibold',sans-serif] leading-[normal] ml-[6px] not-italic text-[18px] text-white">
-              数据加密
-            </p>
-
-            {/* Keychain 按钮 */}
-            <button
-              onClick={keychainGrantedState ? undefined : handleKeychainClick}
-              disabled={keychainGrantedState}
-              className={`absolute h-[39px] left-[276px] rounded-[22px] top-0 w-[109px] flex items-center justify-center border border-solid ${keychainGrantedState ? 'cursor-default' : 'cursor-pointer hover:bg-[rgba(193,127,255,0.25)]'
-                } transition-colors`}
-              style={{
-                ['-webkit-app-region' as any]: 'no-drag',
-                backgroundColor: 'rgba(193,127,255,0.15)',
-                borderColor: keychainGrantedState ? 'rgba(193,127,255,0.4)' : '#c17fff'
-              } as React.CSSProperties}
-            >
-              <span
-                className="font-['PingFang_SC:Semibold',sans-serif] not-italic text-[15px]"
-                style={{
-                  color: keychainGrantedState ? 'rgba(220,185,255,0.4)' : '#dcb9ff'
-                }}
-              >
-                {keychainGrantedState ? '已开启' : '开启权限'}
-              </span>
-            </button>
-          </div>
-          {!keychainGrantedState && (
-            <div className="absolute left-[35px] top-[325px] text-white/70 text-xs leading-[1.6] w-[385px]">
-              存储用于加密数据的密钥。请点击"<b className="text-white/95 font-semibold">始终允许</b>"以继续。
-            </div>
-          )}
-        </>
-      )}
     </div>
   );
 }
