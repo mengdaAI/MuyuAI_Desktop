@@ -2,6 +2,3 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Import legacy component styles (TODO: migrate to Tailwind) */
-@import './legacy-components.css';
-
