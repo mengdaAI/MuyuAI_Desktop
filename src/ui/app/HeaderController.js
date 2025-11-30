@@ -1,5 +1,4 @@
 import './ApiKeyHeader.js';
-import './PermissionHeader.js';
 import './WelcomeHeader.tsx';
 
 class HeaderTransitionManager {
