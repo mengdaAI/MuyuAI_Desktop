@@ -2,12 +2,14 @@
  * Legacy Component Styles
  * TODO: Gradually migrate these to Tailwind CSS
  * 
- * This file contains styles for components that haven't been fully migrated to Tailwind yet:
- * - PermissionHeader
- * - SettingsView
+ * This file contains styles for components that haven't been fully migrated to Tailwind yet.
+ * 
+ * Note: SettingsView has been fully migrated to Tailwind CSS and its styles have been removed.
+ * PermissionHeader styles are kept here for backward compatibility, but PermissionPanel 
+ * has also been migrated to Tailwind CSS.
  */
 
-/* PermissionHeader Styles */
+/* PermissionHeader Styles (kept for backward compatibility) */
 .permission-header-container {
   display: block;
   width: 100%;
@@ -47,112 +49,5 @@
 .permission-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-/* SettingsView Styles */
-.settings-container {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(180deg, rgba(30, 20, 40, 0.95), rgba(20, 10, 30, 0.98));
-  border-radius: 20px;
-  overflow: hidden;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-  outline: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 24px;
-}
-
-.settings-section {
-  margin-bottom: 24px;
-}
-
-.settings-label {
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 13px;
-  margin-bottom: 8px;
-}
-
-.settings-input {
-  width: 100%;
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  color: white;
-  font-size: 14px;
-  transition: all 0.2s ease;
-}
-
-.settings-input:focus {
-  outline: none;
-  border-color: rgba(130, 81, 255, 0.5);
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.settings-button {
-  padding: 10px 20px;
-  background: rgba(130, 81, 255, 0.2);
-  border: 1px solid rgba(130, 81, 255, 0.4);
-  border-radius: 8px;
-  color: #C17FFF;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.settings-button:hover {
-  background: rgba(130, 81, 255, 0.3);
-}
-
-.settings-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.model-list {
-  max-height: 300px;
-  overflow-y: auto;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 8px;
-  padding: 8px;
-}
-
-.model-item {
-  padding: 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.model-item:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.model-item.selected {
-  background: rgba(130, 81, 255, 0.2);
-  border: 1px solid rgba(130, 81, 255, 0.4);
-}
-
-/* Scrollbar styles */
-.model-list::-webkit-scrollbar,
-.settings-container::-webkit-scrollbar {
-  width: 6px;
-}
-
-.model-list::-webkit-scrollbar-track,
-.settings-container::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 3px;
-}
-
-.model-list::-webkit-scrollbar-thumb,
-.settings-container::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 3px;
-}
-
-.model-list::-webkit-scrollbar-thumb:hover,
-.settings-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
 }
 

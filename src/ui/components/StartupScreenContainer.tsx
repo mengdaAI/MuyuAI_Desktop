@@ -1,22 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StartupScreen } from './StartupScreen';
 
-// 扩展 Window 接口以支持 window.api
-declare global {
-    interface Window {
-        api?: {
-            passcode?: {
-                verify: (code: string) => Promise<{ success: boolean; error?: string }>;
-            };
-            common?: {
-                quitApplication: () => Promise<void>;
-                openExternal: (url: string) => Promise<void>;
-                getWebUrl?: () => Promise<string>;
-            };
-        };
-    }
-}
-
 interface StartupScreenContainerProps {
     passcodeRequired?: boolean;
     passcodeVerified?: boolean;
@@ -67,7 +51,9 @@ export function StartupScreenContainer({
         setIsVerifyingPasscode(true);
         setPasscodeError('');
         try {
-            const result = await window.api.passcode.verify(code);
+            // Type assertion for passcode.verify which exists in preload but not in types
+            const passcodeApi = window.api.passcode as any;
+            const result = await passcodeApi.verify(code);
             if (result?.success) {
                 setPasscodeValue('');
                 onPasscodeVerified?.();
@@ -89,11 +75,14 @@ export function StartupScreenContainer({
         // 优先从主进程配置获取 Web URL，回退到默认官网地址
         const fallback = 'https://muyu.mengdaai.com/';
         try {
-            const webUrl = await window.api?.common?.getWebUrl?.();
+            // Type assertion for common.getWebUrl and openExternal which exist in preload but not in types
+            const commonApi = window.api?.common as any;
+            const webUrl = await commonApi?.getWebUrl?.();
             const baseUrl = (webUrl || fallback).replace(/\/$/, '');
-            window.api?.common?.openExternal?.(baseUrl + '/');
+            commonApi?.openExternal?.(baseUrl + '/');
         } catch {
-            window.api?.common?.openExternal?.(fallback);
+            const commonApi = window.api?.common as any;
+            commonApi?.openExternal?.(fallback);
         }
     };
 

@@ -60,7 +60,7 @@ export default function PermissionPanel({ onComplete, onClose, continueCallback 
       // 缓存权限状态到全局，供节流逻辑使用
       (window as any)._cachedMicPermission = permissions.microphone;
       (window as any)._cachedScreenPermission = permissions.screen;
-      
+
       setMicrophoneGranted(prev => {
         if (prev !== permissions.microphone) {
           console.log('[PermissionPanel] Microphone permission changed:', prev, '->', permissions.microphone);
@@ -81,7 +81,7 @@ export default function PermissionPanel({ onComplete, onClose, continueCallback 
         !(window as any)._permissionTransitionTriggered) {
         console.log('[PermissionPanel] ✅ All permissions granted, proceeding automatically');
         (window as any)._permissionTransitionTriggered = true;
-        
+
         // 立即触发，不延迟
         console.log('[PermissionPanel] Triggering transition callback...');
         if (continueCallbackRef.current) {
@@ -143,9 +143,9 @@ export default function PermissionPanel({ onComplete, onClose, continueCallback 
         mic: (window as any)._cachedMicPermission,
         screen: (window as any)._cachedScreenPermission
       };
-      
-      if (permissionStates.mic === 'granted' && 
-          permissionStates.screen === 'granted') {
+
+      if (permissionStates.mic === 'granted' &&
+        permissionStates.screen === 'granted') {
         console.log('[PermissionPanel] All permissions granted, reducing check frequency');
         // 权限已全部授予，跳过本次检查
         return;
@@ -185,13 +185,9 @@ export default function PermissionPanel({ onComplete, onClose, continueCallback 
   // Calculate and notify height changes (only when layout actually changes)
   const prevHeightRef = useRef<number | null>(null);
   const prevCalcKeyRef = useRef<string>('');
-  
+
   useEffect(() => {
     let newHeight = 430;
-
-    if (isKeychainRequired && !keychainOk) {
-      newHeight += 90;
-    }
 
     if (allGranted) {
       newHeight += 70;
@@ -199,7 +195,7 @@ export default function PermissionPanel({ onComplete, onClose, continueCallback 
 
     // 创建一个计算键，只有当真正影响高度的因素变化时才触发
     const calcKey = `${allGranted}`;
-    
+
     // 只在高度真正变化时才发送事件，并且避免重复触发
     if (prevHeightRef.current !== newHeight && prevCalcKeyRef.current !== calcKey) {
       console.log(`[PermissionPanel] Height changed from ${prevHeightRef.current}px to ${newHeight}px, requesting resize`);

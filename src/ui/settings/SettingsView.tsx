@@ -57,7 +57,8 @@ export function SettingsView() {
     if (!window.api) return;
     setAutoUpdateLoading(true);
     try {
-      const enabled = await window.api.settingsView.getAutoUpdate();
+      const settingsApi = (window.api as any).settingsView;
+      const enabled = await settingsApi.getAutoUpdate();
       setAutoUpdateEnabled(enabled);
       console.log('Auto-update setting loaded:', enabled);
     } catch (e) {
@@ -69,14 +70,15 @@ export function SettingsView() {
 
   const loadLocalAIStatus = useCallback(async () => {
     try {
-      const ollamaStatus = await window.api.settingsView.getOllamaStatus();
+      const settingsApi = (window.api as any).settingsView;
+      const ollamaStatus = await settingsApi.getOllamaStatus();
       if (ollamaStatus?.success) {
         setOllamaStatus({ installed: ollamaStatus.installed, running: ollamaStatus.running });
         setOllamaModels(ollamaStatus.models || []);
       }
 
       if (apiKeys?.whisper === 'local') {
-        const whisperModelsResult = await window.api.settingsView.getWhisperInstalledModels();
+        const whisperModelsResult = await settingsApi.getWhisperInstalledModels();
         if (whisperModelsResult?.success) {
           const installedWhisperModels = whisperModelsResult.models;
           setProviderConfig(prev => {
@@ -99,11 +101,12 @@ export function SettingsView() {
   }, [apiKeys]);
 
   const refreshModelData = useCallback(async () => {
+    const settingsApi = (window.api as any).settingsView;
     const [availableLlm, availableStt, selected, storedKeys] = await Promise.all([
-      window.api.settingsView.getAvailableModels({ type: 'llm' }),
-      window.api.settingsView.getAvailableModels({ type: 'stt' }),
-      window.api.settingsView.getSelectedModels(),
-      window.api.settingsView.getAllKeys()
+      settingsApi.getAvailableModels({ type: 'llm' }),
+      settingsApi.getAvailableModels({ type: 'stt' }),
+      settingsApi.getSelectedModels(),
+      settingsApi.getAllKeys()
     ]);
     setAvailableLlmModels(availableLlm);
     setAvailableSttModels(availableStt);
@@ -113,7 +116,8 @@ export function SettingsView() {
   }, []);
 
   const refreshOllamaStatus = useCallback(async () => {
-    const ollamaStatusResult = await window.api.settingsView.getOllamaStatus();
+    const settingsApi = (window.api as any).settingsView;
+    const ollamaStatusResult = await settingsApi.getOllamaStatus();
     if (ollamaStatusResult?.success) {
       setOllamaStatus({ installed: ollamaStatusResult.installed, running: ollamaStatusResult.running });
       setOllamaModels(ollamaStatusResult.models || []);
@@ -124,12 +128,13 @@ export function SettingsView() {
     if (!window.api) return;
     setIsLoading(true);
     try {
+      const settingsApi = (window.api as any).settingsView;
       const [userState, modelSettings, presetsData, contentProtection, shortcutsData] = await Promise.all([
-        window.api.settingsView.getCurrentUser(),
-        window.api.settingsView.getModelSettings(),
-        window.api.settingsView.getPresets(),
-        window.api.settingsView.getContentProtectionStatus(),
-        window.api.settingsView.getCurrentShortcuts()
+        settingsApi.getCurrentUser(),
+        settingsApi.getModelSettings(),
+        settingsApi.getPresets(),
+        settingsApi.getContentProtectionStatus(),
+        settingsApi.getCurrentShortcuts()
       ]);
 
       if (userState && userState.isLoggedIn) setFirebaseUser(userState);
@@ -165,8 +170,9 @@ export function SettingsView() {
     if (!window.api || autoUpdateLoading) return;
     setAutoUpdateLoading(true);
     try {
+      const settingsApi = (window.api as any).settingsView;
       const newValue = !autoUpdateEnabled;
-      const result = await window.api.settingsView.setAutoUpdate(newValue);
+      const result = await settingsApi.setAutoUpdate(newValue);
       if (result && result.success) {
         setAutoUpdateEnabled(newValue);
       } else {
@@ -198,10 +204,11 @@ export function SettingsView() {
         }
       };
 
-      window.api.settingsView.onLocalAIInstallProgress(progressHandler);
+      const settingsApi = (window.api as any).settingsView;
+      settingsApi.onLocalAIInstallProgress(progressHandler);
 
       try {
-        const result = await window.api.settingsView.pullOllamaModel(modelName);
+        const result = await settingsApi.pullOllamaModel(modelName);
 
         if (result.success) {
           console.log(`[SettingsView] Model ${modelName} installed successfully`);
@@ -217,7 +224,7 @@ export function SettingsView() {
           throw new Error(result.error || 'Installation failed');
         }
       } finally {
-        window.api.settingsView.removeOnLocalAIInstallProgress(progressHandler);
+        settingsApi.removeOnLocalAIInstallProgress(progressHandler);
       }
     } catch (error) {
       console.error(`[SettingsView] Error installing model ${modelName}:`, error);
@@ -239,9 +246,10 @@ export function SettingsView() {
         }
       };
 
-      window.api.settingsView.onLocalAIInstallProgress(progressHandler);
+      const settingsApi = (window.api as any).settingsView;
+      settingsApi.onLocalAIInstallProgress(progressHandler);
 
-      const result = await window.api.settingsView.downloadWhisperModel(modelId);
+      const result = await settingsApi.downloadWhisperModel(modelId);
 
       if (result.success) {
         setProviderConfig(prev => {
@@ -272,7 +280,7 @@ export function SettingsView() {
         alert(`Failed to download Whisper model: ${result.error}`);
       }
 
-      window.api.settingsView.removeOnLocalAIInstallProgress(progressHandler);
+      settingsApi.removeOnLocalAIInstallProgress(progressHandler);
     } catch (error: any) {
       console.error(`[SettingsView] Error downloading Whisper model ${modelId}:`, error);
       setInstallingModels(prev => {
@@ -306,7 +314,8 @@ export function SettingsView() {
     }
 
     setSaving(true);
-    await window.api.settingsView.setSelectedModel({ type, modelId });
+    const settingsApi = (window.api as any).settingsView;
+    await settingsApi.setSelectedModel({ type, modelId });
     if (type === 'llm') setSelectedLlm(modelId);
     if (type === 'stt') setSelectedStt(modelId);
     setIsLlmListVisible(false);
@@ -334,14 +343,15 @@ export function SettingsView() {
 
     if (provider === 'ollama') {
       setSaving(true);
-      const ensureResult = await window.api.settingsView.ensureOllamaReady();
+      const settingsApi = (window.api as any).settingsView;
+      const ensureResult = await settingsApi.ensureOllamaReady();
       if (!ensureResult.success) {
         alert(`Failed to setup Ollama: ${ensureResult.error}`);
         setSaving(false);
         return;
       }
 
-      const result = await window.api.settingsView.validateKey({ provider, key: 'local' });
+      const result = await settingsApi.validateKey({ provider, key: 'local' });
 
       if (result.success) {
         await refreshModelData();
@@ -355,7 +365,8 @@ export function SettingsView() {
 
     if (provider === 'whisper') {
       setSaving(true);
-      const result = await window.api.settingsView.validateKey({ provider, key: 'local' });
+      const settingsApi = (window.api as any).settingsView;
+      const result = await settingsApi.validateKey({ provider, key: 'local' });
 
       if (result.success) {
         await refreshModelData();
@@ -367,7 +378,8 @@ export function SettingsView() {
     }
 
     setSaving(true);
-    const result = await window.api.settingsView.validateKey({ provider, key });
+    const settingsApi = (window.api as any).settingsView;
+    const result = await settingsApi.validateKey({ provider, key });
 
     if (result.success) {
       await refreshModelData();
@@ -381,7 +393,8 @@ export function SettingsView() {
   const handleClearKey = useCallback(async (provider: string) => {
     console.log(`[SettingsView] handleClearKey: ${provider}`);
     setSaving(true);
-    await window.api.settingsView.removeApiKey(provider);
+    const settingsApi = (window.api as any).settingsView;
+    await settingsApi.removeApiKey(provider);
     setApiKeys(prev => ({ ...prev, [provider]: '' }));
     await refreshModelData();
     setSaving(false);
@@ -395,7 +408,8 @@ export function SettingsView() {
     try {
       setOllamaStatus(prev => ({ ...prev, running: false }));
 
-      const result = await window.api.settingsView.shutdownOllama(false);
+      const settingsApi = (window.api as any).settingsView;
+      const result = await settingsApi.shutdownOllama(false);
 
       if (result.success) {
         console.log('[SettingsView] Ollama shut down successfully');
@@ -411,29 +425,34 @@ export function SettingsView() {
   }, [refreshOllamaStatus]);
 
   const openShortcutEditor = useCallback(() => {
-    window.api.settingsView.openShortcutSettingsWindow();
+    const settingsApi = (window.api as any).settingsView;
+    settingsApi.openShortcutSettingsWindow();
   }, []);
 
   const handleMoveLeft = useCallback(() => {
     console.log('Move Left clicked');
-    window.api.settingsView.moveWindowStep('left');
+    const settingsApi = (window.api as any).settingsView;
+    settingsApi.moveWindowStep('left');
   }, []);
 
   const handleMoveRight = useCallback(() => {
     console.log('Move Right clicked');
-    window.api.settingsView.moveWindowStep('right');
+    const settingsApi = (window.api as any).settingsView;
+    settingsApi.moveWindowStep('right');
   }, []);
 
   const handleToggleInvisibility = useCallback(async () => {
     console.log('Toggle Invisibility clicked');
-    const newStatus = await window.api.settingsView.toggleContentProtection();
+    const settingsApi = (window.api as any).settingsView;
+    const newStatus = await settingsApi.toggleContentProtection();
     setIsContentProtectionOn(newStatus);
   }, []);
 
   const handleQuit = useCallback(async () => {
     console.log('Quit clicked');
 
-    const stopSessionFn = window.api?.settingsView?.stopInterviewSession;
+    const settingsApi = (window.api as any)?.settingsView;
+    const stopSessionFn = settingsApi?.stopInterviewSession;
     if (stopSessionFn) {
       try {
         const result = await stopSessionFn();
@@ -446,8 +465,8 @@ export function SettingsView() {
       }
     }
 
-    if (window.api?.settingsView?.quitApplication) {
-      window.api.settingsView.quitApplication();
+    if (settingsApi?.quitApplication) {
+      settingsApi.quitApplication();
     } else {
       window.api?.common?.quitApplication?.();
     }
@@ -463,12 +482,14 @@ export function SettingsView() {
   }, []);
 
   const handleMouseEnter = useCallback(() => {
-    window.api.settingsView.cancelHideSettingsWindow();
+    const settingsApi = (window.api as any).settingsView;
+    settingsApi.cancelHideSettingsWindow();
     updateScrollHeight();
   }, [updateScrollHeight]);
 
   const handleMouseLeave = useCallback(() => {
-    window.api.settingsView.hideSettingsWindow();
+    const settingsApi = (window.api as any).settingsView;
+    settingsApi.hideSettingsWindow();
   }, []);
 
   // Set up IPC listeners
@@ -489,7 +510,8 @@ export function SettingsView() {
     const presetsUpdatedListener = async () => {
       console.log('[SettingsView] Received presets-updated, refreshing presets');
       try {
-        const presetsData = await window.api.settingsView.getPresets();
+        const settingsApi = (window.api as any).settingsView;
+        const presetsData = await settingsApi.getPresets();
         setPresets(presetsData || []);
 
         const userPresets = (presetsData || []).filter((p: Preset) => p.is_default === 0);
@@ -506,14 +528,15 @@ export function SettingsView() {
       setShortcuts(keybinds);
     };
 
-    window.api.settingsView.onUserStateChanged(userStateListener);
-    window.api.settingsView.onPresetsUpdated(presetsUpdatedListener);
-    window.api.settingsView.onShortcutsUpdated(shortcutListener);
+    const settingsApi = (window.api as any).settingsView;
+    settingsApi.onUserStateChanged(userStateListener);
+    settingsApi.onPresetsUpdated(presetsUpdatedListener);
+    settingsApi.onShortcutsUpdated(shortcutListener);
 
     return () => {
-      window.api.settingsView.removeOnUserStateChanged(userStateListener);
-      window.api.settingsView.removeOnPresetsUpdated(presetsUpdatedListener);
-      window.api.settingsView.removeOnShortcutsUpdated(shortcutListener);
+      settingsApi.removeOnUserStateChanged(userStateListener);
+      settingsApi.removeOnPresetsUpdated(presetsUpdatedListener);
+      settingsApi.removeOnShortcutsUpdated(shortcutListener);
     };
   }, [loadAutoUpdateSetting, loadInitialData, selectedPreset]);
 
@@ -536,8 +559,9 @@ export function SettingsView() {
     return () => {
       const installingModelsList = Object.keys(installingModels);
       if (installingModelsList.length > 0) {
+        const settingsApi = (window.api as any).settingsView;
         installingModelsList.forEach(modelName => {
-          window.api.settingsView.cancelOllamaInstallation(modelName);
+          settingsApi.cancelOllamaInstallation(modelName);
         });
       }
     };
@@ -560,7 +584,7 @@ export function SettingsView() {
   }, [shortcuts]);
 
   const renderShortcutKeys = useCallback((accelerator?: string) => {
-    if (!accelerator) return <span>N/A</span>;
+    if (!accelerator) return <span className="text-white/50 text-xs">N/A</span>;
 
     const keyMap: Record<string, string> = {
       'Cmd': '⌘', 'Command': '⌘', 'Ctrl': '⌃', 'Alt': '⌥', 'Shift': '⇧', 'Enter': '↵',
@@ -570,11 +594,19 @@ export function SettingsView() {
     if (accelerator.includes('↕')) {
       const keys = accelerator.replace('↕', '').split('+');
       keys.push('↕');
-      return <>{keys.map((key, idx) => <span key={idx} className="shortcut-key">{keyMap[key] || key}</span>)}</>;
+      return <>{keys.map((key, idx) => (
+        <span key={idx} className="px-1.5 py-0.5 text-xs bg-white/10 border border-white/20 rounded text-white/90">
+          {keyMap[key] || key}
+        </span>
+      ))}</>;
     }
 
     const keys = accelerator.split('+');
-    return <>{keys.map((key, idx) => <span key={idx} className="shortcut-key">{keyMap[key] || key}</span>)}</>;
+    return <>{keys.map((key, idx) => (
+      <span key={idx} className="px-1.5 py-0.5 text-xs bg-white/10 border border-white/20 rounded text-white/90">
+        {keyMap[key] || key}
+      </span>
+    ))}</>;
   }, []);
 
   const getModelName = useCallback((type: 'llm' | 'stt', id: string | null) => {
@@ -586,10 +618,10 @@ export function SettingsView() {
 
   if (isLoading) {
     return (
-      <div className="settings-container">
-        <div className="loading-state">
-          <div className="loading-spinner"></div>
-          <span>Loading...</span>
+      <div className="flex flex-col w-full h-full bg-gradient-to-b from-muyu-dark-950 to-muyu-dark-900 rounded-muyu-lg overflow-hidden shadow-muyu-lg outline outline-1 outline-white/10 p-6">
+        <div className="flex flex-col items-center justify-center flex-1 gap-4">
+          <div className="w-8 h-8 border-4 border-muyu-purple-500/30 border-t-muyu-purple-500 rounded-full animate-spin"></div>
+          <span className="text-white/70 text-sm">Loading...</span>
         </div>
       </div>
     );
@@ -600,14 +632,14 @@ export function SettingsView() {
   return (
     <div
       ref={containerRef}
-      className="settings-container"
+      className="flex flex-col w-full h-full bg-gradient-to-b from-muyu-dark-950 to-muyu-dark-900 rounded-muyu-lg overflow-hidden shadow-muyu-lg outline outline-1 outline-white/10 p-6 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-white/5 [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb:hover]:bg-white/30"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      <div className="header-section">
+      <div className="mb-6">
         <div>
-          <h1 className="app-title">幕语AI</h1>
-          <div className="account-info">
+          <h1 className="text-xl font-semibold text-white mb-2">幕语AI</h1>
+          <div className="text-sm text-white/60">
             {firebaseUser
               ? `Account: ${firebaseUser.email || 'Logged In'}`
               : `Account: Not Logged In`
@@ -616,78 +648,103 @@ export function SettingsView() {
         </div>
       </div>
 
-      <div className="buttons-section" style={{ borderTop: '1px solid rgba(255, 255, 255, 0.1)', paddingTop: '6px', marginTop: '6px' }}>
-        <button className="settings-button full-width" onClick={openShortcutEditor}>
+      <div className="border-t border-white/10 pt-1.5 mt-1.5 mb-4">
+        <button
+          className="w-full px-5 py-2.5 bg-muyu-purple-500/20 border border-muyu-purple-500/40 rounded-lg text-muyu-purple-300 cursor-pointer transition-all hover:bg-muyu-purple-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={openShortcutEditor}
+        >
           Edit Shortcuts
         </button>
       </div>
 
-      <div className="shortcuts-section">
+      <div className="mb-4 space-y-2">
         {getMainShortcuts().map((shortcut, idx) => (
-          <div key={idx} className="shortcut-item">
-            <span className="shortcut-name">{shortcut.name}</span>
-            <div className="shortcut-keys">
+          <div key={idx} className="flex items-center justify-between py-2">
+            <span className="text-sm text-white/90">{shortcut.name}</span>
+            <div className="flex items-center gap-1">
               {renderShortcutKeys(shortcut.accelerator)}
             </div>
           </div>
         ))}
       </div>
 
-      <div className="preset-section">
-        <div className="preset-header">
-          <span className="preset-title">
+      <div className="mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm text-white/90">
             My Presets
-            <span className="preset-count">({presets.filter(p => p.is_default === 0).length})</span>
+            <span className="text-white/60 ml-1">({presets.filter(p => p.is_default === 0).length})</span>
           </span>
-          <span className="preset-toggle" onClick={togglePresets}>
+          <span
+            className="text-white/60 cursor-pointer hover:text-white/90 transition-colors text-xs"
+            onClick={togglePresets}
+          >
             {showPresets ? '▼' : '▶'}
           </span>
         </div>
 
-        <div className={`preset-list ${showPresets ? '' : 'hidden'}`}>
+        <div className={showPresets ? 'space-y-1' : 'hidden'}>
           {presets.filter(p => p.is_default === 0).length === 0 ? (
-            <div className="no-presets-message">
+            <div className="text-sm text-white/50 py-2">
               No custom presets yet.<br />
             </div>
           ) : (
             presets.filter(p => p.is_default === 0).map(preset => (
               <div
                 key={preset.id}
-                className={`preset-item ${selectedPreset?.id === preset.id ? 'selected' : ''}`}
+                className={`px-3 py-2 rounded cursor-pointer transition-all ${selectedPreset?.id === preset.id
+                  ? 'bg-muyu-purple-500/20 border border-muyu-purple-500/40'
+                  : 'hover:bg-white/5'
+                  }`}
                 onClick={() => handlePresetSelect(preset)}
               >
-                <span className="preset-name">{preset.title}</span>
-                {selectedPreset?.id === preset.id && <span className="preset-status">Selected</span>}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-white/90">{preset.title}</span>
+                  {selectedPreset?.id === preset.id && (
+                    <span className="text-xs text-muyu-purple-300">Selected</span>
+                  )}
+                </div>
               </div>
             ))
           )}
         </div>
       </div>
 
-      <div className="buttons-section">
+      <div className="mt-auto space-y-2">
         <button
-          className="settings-button full-width"
+          className="w-full px-5 py-2.5 bg-muyu-purple-500/20 border border-muyu-purple-500/40 rounded-lg text-muyu-purple-300 cursor-pointer transition-all hover:bg-muyu-purple-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={handleToggleAutoUpdate}
           disabled={autoUpdateLoading}
         >
           <span>Automatic Updates: {autoUpdateEnabled ? 'On' : 'Off'}</span>
         </button>
 
-        <div className="move-buttons">
-          <button className="settings-button half-width" onClick={handleMoveLeft}>
+        <div className="flex gap-2">
+          <button
+            className="flex-1 px-5 py-2.5 bg-muyu-purple-500/20 border border-muyu-purple-500/40 rounded-lg text-muyu-purple-300 cursor-pointer transition-all hover:bg-muyu-purple-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={handleMoveLeft}
+          >
             <span>← Move</span>
           </button>
-          <button className="settings-button half-width" onClick={handleMoveRight}>
+          <button
+            className="flex-1 px-5 py-2.5 bg-muyu-purple-500/20 border border-muyu-purple-500/40 rounded-lg text-muyu-purple-300 cursor-pointer transition-all hover:bg-muyu-purple-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={handleMoveRight}
+          >
             <span>Move →</span>
           </button>
         </div>
 
-        <button className="settings-button full-width" onClick={handleToggleInvisibility}>
+        <button
+          className="w-full px-5 py-2.5 bg-muyu-purple-500/20 border border-muyu-purple-500/40 rounded-lg text-muyu-purple-300 cursor-pointer transition-all hover:bg-muyu-purple-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={handleToggleInvisibility}
+        >
           <span>{isContentProtectionOn ? 'Disable Invisibility' : 'Enable Invisibility'}</span>
         </button>
 
-        <div className="bottom-buttons">
-          <button className="settings-button half-width danger" onClick={handleQuit}>
+        <div className="pt-2">
+          <button
+            className="w-full px-5 py-2.5 bg-red-500/20 border border-red-500/40 rounded-lg text-red-300 cursor-pointer transition-all hover:bg-red-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={handleQuit}
+          >
             <span>结束面试</span>
           </button>
         </div>
