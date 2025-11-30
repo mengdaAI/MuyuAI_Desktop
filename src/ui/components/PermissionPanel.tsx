@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import svgPathsPermission from "../imports/svg-nskm8ew5pp";
 import svgPathsStartup from "../imports/svg-7hkh1j06cm";
+import { MuyuLogo } from "./MuyuLogo";
 
 interface PermissionPanelProps {
   onComplete?: () => void;
@@ -341,24 +342,10 @@ export default function PermissionPanel({ onComplete, onClose, continueCallback 
       </button>
 
       {/* Logo */}
-      <div className="absolute h-[25.762px] left-[139px] top-[45px] w-[177px]">
-        <svg className="block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 177 26">
-          <g id="Frame 1618868608">
-            <g id="Frame">
-              <path d={svgPathsPermission.p2d759280} fill="var(--fill-0, white)" />
-              <path d={svgPathsPermission.p114cea00} fill="var(--fill-0, white)" />
-              <path d={svgPathsPermission.p315f7640} fill="var(--fill-0, white)" />
-            </g>
-            <g id="幕语提词器">
-              <path d={svgPathsPermission.p932a200} fill="var(--fill-0, white)" />
-              <path d={svgPathsPermission.p7655000} fill="var(--fill-0, white)" />
-              <path d={svgPathsPermission.p1cfd3500} fill="var(--fill-0, white)" />
-              <path d={svgPathsPermission.p33681900} fill="var(--fill-0, white)" />
-              <path d={svgPathsPermission.p35222710} fill="var(--fill-0, white)" />
-            </g>
-          </g>
-        </svg>
-      </div>
+      <MuyuLogo
+        svgPaths={svgPathsPermission}
+        className="absolute h-[25.762px] left-[139px] top-[45px] w-[177px]"
+      />
 
       {/* 说明文字 */}
       <p className="absolute font-['PingFang_SC:Regular',sans-serif] h-[21px] leading-[normal] left-[48px] not-italic text-[15px] text-white top-[88px] w-[360px]">
