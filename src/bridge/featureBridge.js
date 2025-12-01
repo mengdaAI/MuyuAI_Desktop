@@ -84,6 +84,7 @@ module.exports = {
 
     // Ask
     ipcMain.handle('ask:sendQuestionFromAsk', async (event, userPrompt, options) => await askService.sendMessage(userPrompt, [], options));
+    ipcMain.handle('ask:sendQuestionFromInputPanel', async (event, userPrompt) => await askService.askInInputPanel(userPrompt));
     ipcMain.handle('ask:sendQuestionFromSummary', async (event, userPrompt) => await askService.sendMessage(userPrompt));
     ipcMain.handle('ask:toggleAskButton', async () => await askService.toggleAskButton());
     ipcMain.handle('ask:closeAskWindow', async () => await askService.closeAskWindow());
@@ -102,6 +103,14 @@ module.exports = {
         listenService.sendToRenderer('system-audio-data', { data });
       }
       return result;
+    });
+    ipcMain.handle('listen:sendManualInput', async (event, { text, speaker }) => {
+      try {
+        return await listenService.handleManualInput(text, speaker);
+      } catch (error) {
+        console.error('[FeatureBridge] listen:sendManualInput failed', error);
+        return { success: false, error: error.message };
+      }
     });
     ipcMain.handle('listen:startMacosSystemAudio', async () => await listenService.handleStartMacosAudio());
     ipcMain.handle('listen:stopMacosSystemAudio', async () => await listenService.handleStopMacosAudio());

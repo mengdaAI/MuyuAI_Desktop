@@ -180,6 +180,7 @@ contextBridge.exposeInMainWorld('api', {
 
     // Message Handling
     sendMessage: (text, options) => ipcRenderer.invoke('ask:sendQuestionFromAsk', text, options),
+    sendQuestionFromInputPanel: (text) => ipcRenderer.invoke('ask:sendQuestionFromInputPanel', text),
 
     // Listeners
     onAskStateUpdate: (callback) => ipcRenderer.on('ask:stateUpdate', callback),
@@ -187,6 +188,9 @@ contextBridge.exposeInMainWorld('api', {
 
     onAskStreamError: (callback) => ipcRenderer.on('ask-response-stream-error', callback),
     removeOnAskStreamError: (callback) => ipcRenderer.removeListener('ask-response-stream-error', callback),
+
+    onInputPanelStream: (callback) => ipcRenderer.on('ask:input-panel-stream', callback),
+    removeOnInputPanelStream: (callback) => ipcRenderer.removeListener('ask:input-panel-stream', callback),
 
     // Listeners
     onShowTextInput: (callback) => ipcRenderer.on('ask:showTextInput', callback),
@@ -345,6 +349,9 @@ contextBridge.exposeInMainWorld('api', {
     sendSystemAudioContent: (data) => ipcRenderer.invoke('listen:sendSystemAudio', data),
     startMacosSystemAudio: () => ipcRenderer.invoke('listen:startMacosSystemAudio'),
     stopMacosSystemAudio: () => ipcRenderer.invoke('listen:stopMacosSystemAudio'),
+    
+    // Manual Input
+    sendManualInput: (text, speaker) => ipcRenderer.invoke('listen:sendManualInput', { text, speaker }),
 
     // Session Management
     isSessionActive: () => ipcRenderer.invoke('listen:isSessionActive'),

@@ -19,6 +19,10 @@ interface MainInterfaceProps {
   showSettings: boolean;
   showScreenshotAnswer: boolean;
   inputValue: string;
+  inputHistory?: { question: string; answer: string }[];
+  isAnswering?: boolean;
+  screenshotAnswer?: string;
+  isScreenshotLoading?: boolean;
   isRecording: boolean;
   position: { x: number; y: number };
   isDragging: boolean;
@@ -34,6 +38,7 @@ interface MainInterfaceProps {
   onSend: () => void;
   onScreenshotAnswer: () => void;
   onExitInterview: () => void;
+  onHideWindow: () => void;
   turns: Turn[];
 }
 
@@ -42,6 +47,10 @@ export function MainInterface({
   showSettings,
   showScreenshotAnswer,
   inputValue,
+  inputHistory,
+  isAnswering,
+  screenshotAnswer,
+  isScreenshotLoading,
   isRecording,
   position,
   isDragging,
@@ -57,6 +66,7 @@ export function MainInterface({
   onSend,
   onScreenshotAnswer,
   onExitInterview,
+  onHideWindow,
   turns,
 }: MainInterfaceProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -91,7 +101,7 @@ export function MainInterface({
         <StatusIndicator isRecording={isRecording} />
 
         {/* 侧边栏按钮 */}
-        <HideWindowButton />
+        <HideWindowButton onClick={onHideWindow} />
         <Frame12 onClick={onToggleSettings} />
 
         {/* 快捷键设置面板 */}
@@ -112,9 +122,9 @@ export function MainInterface({
         <HistoryButton onClick={onToggleHistoryPanel} isActive={activePanel === 'history'} />
 
         {/* 左侧内容区 */}
-        <div 
+        <div
           ref={scrollRef}
-          className="absolute left-[93px] top-[96px] w-[420px] h-[400px] overflow-y-auto overflow-x-hidden pb-4" 
+          className="absolute left-[93px] top-[96px] w-[420px] h-[330px] overflow-y-auto overflow-x-hidden pb-4"
           style={{ scrollbarWidth: 'none' }}
         >
           {turns.length === 0 && (
@@ -122,27 +132,38 @@ export function MainInterface({
               点击右侧按钮开始收音，回答将展示在此区域
             </p>
           )}
-          {turns.map((turn) => (
-            <div key={turn.id} className="flex flex-col gap-2 mb-4">
-              {/* Them (Interviewer) */}
-              {turn.question && (
-                <div className="flex flex-row gap-2 items-start">
-                  <div className="text-[rgba(255,255,255,0.9)] text-[14px] font-['PingFang_SC:Semibold',sans-serif] leading-relaxed whitespace-pre-wrap">
-                    {turn.question}
+          {turns.map((turn) => {
+            // Listen 区域只显示 "Them" (对方) 的问题和 AI 的回答
+            if (turn.speaker === 'Me') return null;
+
+            return (
+              <div key={turn.id} className="flex flex-col gap-4 mb-6">
+                {/* Them (Interviewer) */}
+                {turn.question && (
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[rgba(255,255,255,0.4)] text-[12px] font-['PingFang_SC:Medium',sans-serif]">
+                      对方发言
+                    </div>
+                    <div className="text-[rgba(255,255,255,0.9)] text-[14px] font-['PingFang_SC:Regular',sans-serif] leading-relaxed whitespace-pre-wrap">
+                      {turn.question}
+                    </div>
                   </div>
-                </div>
-              )}
-              
-              {/* Me (AI) */}
-              {turn.answer && (
-                <div className="flex flex-row gap-2 items-start justify-end mt-1">
-                  <div className="max-w-[90%] p-3 rounded-lg bg-[rgba(193,127,255,0.15)] text-white text-[14px] font-['PingFang_SC:Regular',sans-serif] leading-relaxed whitespace-pre-wrap border border-[rgba(193,127,255,0.3)]">
-                    {turn.answer}
+                )}
+
+                {/* Me (AI) */}
+                {turn.answer && (
+                  <div className="flex flex-col gap-1">
+                    <div className="text-[rgba(255,255,255,0.4)] text-[12px] font-['PingFang_SC:Medium',sans-serif]">
+                      AI回答
+                    </div>
+                    <div className="text-[rgba(255,255,255,0.9)] text-[14px] font-['PingFang_SC:Regular',sans-serif] leading-relaxed whitespace-pre-wrap">
+                      {turn.answer}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          ))}
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* 右区域景 - 带动画 */}
@@ -171,9 +192,11 @@ export function MainInterface({
             visibility: activePanel ? 'visible' : 'hidden'
           }}
         >
-          {activePanel === 'history' && <HistoryPanel />}
+          {activePanel === 'history' && <HistoryPanel turns={turns} />}
           {activePanel === 'screenshot' && (
             <ScreenshotPanel
+              answer={screenshotAnswer}
+              isLoading={isScreenshotLoading}
               showAnswer={showScreenshotAnswer}
               onAnswer={onScreenshotAnswer}
             />
@@ -181,6 +204,8 @@ export function MainInterface({
           {activePanel === 'input' && (
             <InputPanel
               inputValue={inputValue}
+              history={inputHistory}
+              isAnswering={isAnswering}
               onInputChange={onInputChange}
               onSend={onSend}
             />

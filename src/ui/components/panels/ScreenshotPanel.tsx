@@ -1,38 +1,73 @@
+import React, { useEffect, useRef } from "react";
+
 interface ScreenshotPanelProps {
   showAnswer: boolean;
   onAnswer: () => void;
+  answer?: string;
+  isLoading?: boolean;
 }
 
-export function ScreenshotPanel({ showAnswer, onAnswer }: ScreenshotPanelProps) {
+export function ScreenshotPanel({ showAnswer, onAnswer, answer = "", isLoading = false }: ScreenshotPanelProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // 当有新内容或加载状态改变时，自动滚动到底部
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [answer, isLoading, showAnswer]);
+
   return (
     <>
-      {/* 截图面板状态 */}
-      {!showAnswer ? (
-        <>
-          <button 
-            onClick={onAnswer}
-            className="absolute bg-[rgba(193,127,255,0.15)] h-[39px] left-[180px] rounded-[22px] top-[16px] w-[98px] flex items-center justify-center border border-[#c17fff] border-solid cursor-pointer hover:bg-[rgba(193,127,255,0.25)] transition-colors"
-          >
-            <span className="font-['PingFang_SC:Semibold',sans-serif] not-italic text-[#c17fff] text-[16px]">截屏回答</span>
-          </button>
-          
-          <p className="absolute font-['PingFang_SC:Semibold',sans-serif] leading-[normal] left-[22px] not-italic text-[#999999] text-[14px] top-[71px] w-[295px]">此处将展示生成的回答...</p>
-        </>
-      ) : (
-        <>
-          {/* 显示截屏回答内容 */}
-          <button 
-            className="absolute bg-[rgba(193,127,255,0.15)] h-[39px] left-[180px] rounded-[22px] top-[16px] w-[98px] flex items-center justify-center border border-[#c17fff] border-solid cursor-default"
-          >
-            <span className="font-['PingFang_SC:Semibold',sans-serif] not-italic text-[#c17fff] text-[16px]">截屏回答</span>
-          </button>
-          
-          <p className="absolute font-['PingFang_SC:Semibold',sans-serif] leading-[normal] left-[22px] not-italic text-[#999999] text-[14px] top-[71px] w-[295px]">AI回答</p>
-          <p className="absolute font-['PingFang_SC:Regular',sans-serif] leading-[26px] left-[22px] not-italic text-[16px] text-white top-[96px] w-[414px]">
-            在本次项目中，我主要承担了跨团队沟通与资源协调的工作。为了确保进度一致，我会在每个阶段主动同步需求、明确责任，并将复杂信息拆解成易于理解的任务，让设计、研发、运营都能快速对齐。过程中我也会提前预判风险，比如资源冲突、排期延误等，并通过拉群沟通、短会同步等方式推动问题尽快解决。
+      {/* 截图按钮区域 - 固定在顶部 */}
+      <button
+        onClick={onAnswer}
+        disabled={isLoading}
+        className="absolute bg-[rgba(193,127,255,0.15)] h-[39px] left-[180px] rounded-[22px] top-[16px] w-[98px] flex items-center justify-center border border-[#c17fff] border-solid cursor-pointer hover:bg-[rgba(193,127,255,0.25)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-20"
+      >
+        <span className="font-['PingFang_SC:Semibold',sans-serif] not-italic text-[#c17fff] text-[16px]">
+          {isLoading ? '分析中...' : '截屏回答'}
+        </span>
+      </button>
+
+      {/* 结果展示区域 - 参考 InputPanel 的滚动区域 */}
+      <div 
+        ref={scrollRef}
+        className="absolute left-[22px] top-[76px] w-[414px] h-[280px] overflow-y-auto"
+        style={{ scrollbarWidth: 'none' }}
+      >
+        {/* 初始状态显示占位符 */}
+        {!showAnswer && !isLoading && !answer && (
+          <p className="font-['PingFang_SC:Semibold',sans-serif] leading-[1.5] not-italic text-[#999999] text-[14px] whitespace-pre-wrap">
+            点击上方按钮开始截屏分析...
           </p>
-        </>
-      )}
+        )}
+
+        {/* 显示内容 */}
+        {(showAnswer || isLoading || answer) && (
+          <div className="flex flex-col gap-4 mb-6">
+            {/* 操作/提问部分 */}
+            <div className="flex flex-col gap-1">
+              <div className="text-[#999999] text-[12px] font-['PingFang_SC:Medium',sans-serif]">
+                操作
+              </div>
+              <div className="text-white text-[14px] font-['PingFang_SC:Regular',sans-serif] leading-relaxed whitespace-pre-wrap">
+                {isLoading ? "正在截取屏幕并分析..." : "屏幕截图分析完成"}
+              </div>
+            </div>
+
+            {/* AI回答部分 */}
+            <div className="flex flex-col gap-1">
+              <div className="text-[#999999] text-[12px] font-['PingFang_SC:Medium',sans-serif]">
+                AI回答
+              </div>
+              <div className="text-white text-[14px] font-['PingFang_SC:Regular',sans-serif] leading-relaxed whitespace-pre-wrap">
+                {answer || (isLoading ? "AI正在思考中..." : "等待回答...")}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </>
   );
 }
