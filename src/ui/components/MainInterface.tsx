@@ -18,6 +18,8 @@ interface MainInterfaceProps {
   activePanel: 'input' | 'screenshot' | 'history' | null;
   showSettings: boolean;
   showScreenshotAnswer: boolean;
+  /** 剩余面试时长（分钟），由后端 summary 接口 remainingSeconds 计算（不在前端自行倒计时推算） */
+  remainingMinutes?: number | null;
   inputValue: string;
   inputHistory?: { question: string; answer: string }[];
   isAnswering?: boolean;
@@ -46,6 +48,7 @@ export function MainInterface({
   activePanel,
   showSettings,
   showScreenshotAnswer,
+  remainingMinutes,
   inputValue,
   inputHistory,
   isAnswering,
@@ -95,7 +98,11 @@ export function MainInterface({
         <Frame1 />
         <Frame2 />
         <Group4 />
-        <p className="absolute font-['PingFang_SC:Medium',sans-serif] leading-[normal] left-[442px] not-italic text-[12px] text-[rgba(255,255,255,0.6)] text-nowrap top-[436px] whitespace-pre">剩余 67分钟</p>
+        {typeof remainingMinutes === 'number' && remainingMinutes > 0 && (
+          <p className="absolute font-['PingFang_SC:Medium',sans-serif] leading-[normal] left-[442px] not-italic text-[12px] text-[rgba(255,255,255,0.6)] text-nowrap top-[436px] whitespace-pre">
+            剩余 {remainingMinutes} 分钟
+          </p>
+        )}
         <Frame3 />
 
         <StatusIndicator isRecording={isRecording} />

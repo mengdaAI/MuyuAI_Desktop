@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useWindowDrag, useInterviewTimer, useSessionState, useIpcListener } from '../hooks';
+import { useWindowDrag, useSessionState, useIpcListener } from '../hooks';
 import { MainInterface } from './MainInterface';
-import type { Shortcuts, Turn, UserState } from '../types';
+import type { Shortcuts, Turn } from '../types';
 
 export function MainInterfaceContainer() {
   // Core hooks
   const { handleMouseDown, wasJustDragged } = useWindowDrag();
-  const { interviewElapsedSeconds } = useInterviewTimer();
   const { listenSessionStatus, isTogglingSession, toggleSession } = useSessionState();
 
   // UI State adapted for MainInterface
@@ -147,14 +146,14 @@ export function MainInterfaceContainer() {
         // 仅当没有提供 currentResponse 时才清空，意味着这是一个新的开始
         // 如果是流式传输中途发送 isLoading: true（虽然不常见），我们不应清除已有内容
         if (payload.currentResponse === undefined || payload.currentResponse === null) {
-             setScreenshotAnswer("");
+          setScreenshotAnswer("");
         }
       } else {
         // 如果明确收到 isLoading: false，或者 payload 中没有 isLoading (通常流式更新不带 isLoading)
         // 我们假设只要有内容更新，或者 explicitly false，就不是 loading 状态了
         // 但为了保险，我们只在显式 false 时设为 false，或者在流式传输中
         if (payload.isLoading === false || payload.isStreaming) {
-            setIsScreenshotLoading(false);
+          setIsScreenshotLoading(false);
         }
       }
 
@@ -247,7 +246,8 @@ export function MainInterfaceContainer() {
 
   // Additional state from original MainView
   const [shortcuts, setShortcuts] = useState({} as Shortcuts);
-  const [totalInterviewSeconds, setTotalInterviewSeconds] = useState(0);
+  // 当前后端返回的「有效剩余时长（秒）」；完全以 summary / heartbeat 结果为准
+  const [remainingSeconds, setRemainingSeconds] = useState(0);
 
   // Refs
   const prevPanelOpen = useRef(false);
@@ -265,18 +265,51 @@ export function MainInterfaceContainer() {
     [handleShortcutsUpdate]
   );
 
-  // User state listener
-  const handleUserStateChange = useCallback((event: any, userState: UserState) => {
-    if (userState?.totalInterviewSeconds) {
-      setTotalInterviewSeconds(userState.totalInterviewSeconds);
-    }
+  // 初次渲染时，从 /api/v1/user-time-account/summary 获取当前剩余时长（秒）
+  useEffect(() => {
+    let isCancelled = false;
+
+    const fetchSummary = async () => {
+      try {
+        const passcodeApi = (window as any).api?.passcode;
+        if (!passcodeApi?.getUserTimeSummary) return;
+
+        const result = await passcodeApi.getUserTimeSummary();
+        const seconds = typeof result?.effectiveRemainingSeconds === 'number'
+          ? result.effectiveRemainingSeconds
+          : result?.remainingSeconds;
+        if (!isCancelled && result?.success && typeof seconds === 'number') {
+          setRemainingSeconds(seconds);
+        }
+      } catch (error) {
+        // 安静失败，避免影响主流程
+        console.warn('[MainInterfaceContainer] Failed to fetch user time summary:', error);
+      }
+    };
+
+    // 首屏立即拉一次
+    fetchSummary();
+
+    return () => {
+      isCancelled = true;
+    };
   }, []);
 
+  // 监听主进程通过 heartbeat+summary 推送的剩余时长更新
   useIpcListener(
-    window.api.common.onUserStateChanged,
-    window.api.common.removeOnUserStateChanged,
-    handleUserStateChange,
-    [handleUserStateChange]
+    (window as any).api?.common?.onUserTimeSummaryUpdated,
+    (window as any).api?.common?.removeOnUserTimeSummaryUpdated,
+    useCallback((event: any, payload: any) => {
+      if (!payload) return;
+      const seconds = typeof payload.effectiveRemainingSeconds === 'number'
+        ? payload.effectiveRemainingSeconds
+        : payload.remainingSeconds;
+      if (typeof seconds === 'number') {
+        console.log('[MainInterfaceContainer] Received user-time-summary-updated:', payload);
+        setRemainingSeconds(seconds);
+      }
+    }, []),
+    []
   );
 
   // Resize window when panel state changes
@@ -402,11 +435,17 @@ export function MainInterfaceContainer() {
     }
   }, []);
 
+  // 计算剩余面试时长（分钟）——完全使用后端 remainingSeconds，不做本地倒计时推算
+  const remainingMinutes = remainingSeconds > 0
+    ? Math.max(0, Math.ceil(remainingSeconds / 60))
+    : null;
+
   return (
     <MainInterface
       activePanel={activePanel}
       showSettings={showSettings}
       showScreenshotAnswer={showScreenshotAnswer}
+      remainingMinutes={remainingMinutes}
       inputValue={inputValue}
       inputHistory={inputHistory}
       isAnswering={isAnswering}

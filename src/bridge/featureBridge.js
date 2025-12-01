@@ -55,6 +55,7 @@ module.exports = {
     ipcMain.handle('passcode:get-status', () => passcodeService.getStatus());
     ipcMain.handle('passcode:verify', (event, input) => passcodeService.verify(input));
     ipcMain.handle('passcode:stop-session', (event, sessionId) => passcodeService.stopActiveSession(sessionId));
+    ipcMain.handle('passcode:get-user-time-summary', () => passcodeService.getUserTimeSummary());
 
     // App
     ipcMain.handle('quit-application', () => app.quit());
