@@ -2,19 +2,24 @@ import { useState } from "react";
 import { Group3 } from "../icons/Group3";
 import svgPathsTooltip from "../../imports/svg-9mojr1x5i6";
 
-export function HideWindowButton() {
+interface HideWindowButtonProps {
+  onClick?: () => void;
+}
+
+export function HideWindowButton({ onClick }: HideWindowButtonProps) {
   const [showTooltip, setShowTooltip] = useState(false);
-  
+
   return (
-    <div 
-      className="absolute left-[554px] top-[394px]"
+    <div
+      className="absolute left-[554px] top-[394px] cursor-pointer"
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
+      onClick={onClick}
     >
       <div className="overflow-clip size-[22px]" data-name="Frame">
         <Group3 />
       </div>
-      
+
       {/* Tooltip - 在按钮右侧，水平居中对齐 */}
       {showTooltip && (
         <div className="absolute left-[42px] top-[-4px] z-[99999]">

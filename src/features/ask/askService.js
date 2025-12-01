@@ -137,9 +137,111 @@ class AskService {
     }
 
     _broadcastState() {
-        const askWindow = getWindowPool()?.get('ask');
+        const windowPool = getWindowPool();
+        if (!windowPool) return;
+
+        const askWindow = windowPool.get('ask');
         if (askWindow && !askWindow.isDestroyed()) {
             askWindow.webContents.send('ask:stateUpdate', this.state);
+        }
+    }
+    
+    /**
+     * Process a question from the Main Interface Input Panel
+     * @param {string} question 
+     */
+    async askInInputPanel(question) {
+        const trimmedPrompt = (question || '').trim();
+        if (!trimmedPrompt) return { success: false, error: 'Empty question' };
+
+        const windowPool = getWindowPool();
+        // We broadcast to all relevant windows that might host the InputPanel
+        const broadcastStreamUpdate = (payload) => {
+            ['main', 'header', 'listen'].forEach(winName => {
+                const win = windowPool?.get(winName);
+                if (win && !win.isDestroyed()) {
+                    win.webContents.send('ask:input-panel-stream', payload);
+                }
+            });
+        };
+
+        // 1. Reset previous answer state in frontend
+        broadcastStreamUpdate({ status: 'start', text: '' });
+
+        // 2. Get Session
+        let sessionId;
+        try {
+            sessionId = await sessionRepository.getOrCreateActive('ask');
+            // Optional: save user message to DB
+            await askRepository.addAiMessage({ sessionId, role: 'user', content: trimmedPrompt });
+        } catch (e) {
+            console.error('[AskService] Failed to init session for InputPanel:', e);
+        }
+
+        // 3. Build Payload
+        const payload = {
+            sessionId,
+            question: trimmedPrompt,
+            context: { conversationHistory: '' },
+            attachments: {} // Explicitly requested by user
+        };
+
+        const abortController = new AbortController();
+        const { signal } = abortController;
+
+        try {
+             // 4. Start Stream
+             const reader = await askApi.startAskStream(payload, { signal });
+             
+             const decoder = new TextDecoder();
+             let fullResponse = '';
+ 
+             while (true) {
+                 const { done, value } = await reader.read();
+                 if (done) break;
+ 
+                 const chunk = decoder.decode(value);
+                 const lines = chunk.split('\n');
+ 
+                 for (const line of lines) {
+                     if (!line.startsWith('data: ')) continue;
+                     const data = line.slice(6).trim();
+                     if (!data) continue;
+                     if (data === '[DONE]') {
+                         break;
+                     }
+ 
+                     try {
+                         const json = JSON.parse(data);
+                         if (json.status === 'completed' && typeof json.answer === 'string') {
+                            // Final replacement
+                             fullResponse = json.answer;
+                             broadcastStreamUpdate({ status: 'streaming', text: fullResponse });
+                             continue;
+                         }
+                         const token = json.token || json.choices?.[0]?.delta?.content || '';
+                         if (token) {
+                             fullResponse += token;
+                             broadcastStreamUpdate({ status: 'streaming', text: fullResponse });
+                         }
+                     } catch (e) { }
+                 }
+             }
+ 
+             // 5. Finalize
+             broadcastStreamUpdate({ status: 'completed', text: fullResponse });
+             
+             // Optional: save AI response to DB
+             if (sessionId && fullResponse) {
+                 await askRepository.addAiMessage({ sessionId, role: 'assistant', content: fullResponse });
+             }
+ 
+             return { success: true };
+
+        } catch (error) {
+            console.error('[AskService] InputPanel ask error:', error);
+            broadcastStreamUpdate({ status: 'error', error: error.message });
+            return { success: false, error: error.message };
         }
     }
 
@@ -313,10 +415,15 @@ class AskService {
     }
 
     _broadcastScreenshotState(state) {
-        const screenshotWin = getWindowPool()?.get('screenshot');
-        if (screenshotWin && !screenshotWin.isDestroyed()) {
-            screenshotWin.webContents.send('screenshot:stateUpdate', state);
-        }
+        const windowPool = getWindowPool();
+        if (!windowPool) return;
+
+        ['screenshot', 'header', 'main'].forEach(winName => {
+            const win = windowPool.get(winName);
+            if (win && !win.isDestroyed()) {
+                win.webContents.send('screenshot:stateUpdate', state);
+            }
+        });
     }
 
     async _processScreenshotStream(reader, win, sessionId, signal) {
@@ -340,13 +447,11 @@ class AskService {
                 const chunk = decoder.decode(value, { stream: true });
                 accumulatedText += chunk;
 
-                if (win && !win.isDestroyed()) {
-                    win.webContents.send('screenshot:stateUpdate', {
-                        isLoading: false,
-                        isStreaming: true,
-                        currentResponse: accumulatedText,
-                    });
-                }
+                this._broadcastScreenshotState({
+                    isLoading: false,
+                    isStreaming: true,
+                    currentResponse: accumulatedText,
+                });
             }
 
             // Save final response
@@ -359,18 +464,23 @@ class AskService {
             }
 
             // Mark streaming as complete
-            if (win && !win.isDestroyed()) {
-                win.webContents.send('screenshot:stateUpdate', {
-                    isLoading: false,
-                    isStreaming: false,
-                    currentResponse: accumulatedText,
-                });
-            }
+            this._broadcastScreenshotState({
+                isLoading: false,
+                isStreaming: false,
+                currentResponse: accumulatedText,
+            });
 
         } catch (error) {
             console.error('[AskService] Error processing screenshot stream:', error);
-            if (win && !win.isDestroyed()) {
-                win.webContents.send('screenshot-stream-error', { error: error.message });
+            
+            const windowPool = getWindowPool();
+            if (windowPool) {
+                ['screenshot', 'header', 'main'].forEach(winName => {
+                    const w = windowPool.get(winName);
+                    if (w && !w.isDestroyed()) {
+                        w.webContents.send('screenshot-stream-error', { error: error.message });
+                    }
+                });
             }
             throw error;
         }

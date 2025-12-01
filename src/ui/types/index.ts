@@ -39,6 +39,7 @@ export interface SttMessage {
 
 export interface Turn {
   id: string;
+  speaker?: 'Me' | 'Them';
   question: string;
   answer: string;
   status: 'in_progress' | 'completed' | 'error' | 'aborted';
@@ -109,6 +110,11 @@ export interface WindowAPI {
     removeOnSttUpdate: (callback: (event: any, data: any) => void) => void;
   };
 
+  // Listen Capture APIs
+  listenCapture?: {
+    sendManualInput: (text: string, speaker: string) => Promise<any>;
+  };
+
   // Live Insights APIs
   liveInsights?: {
     onTurnUpdate: (callback: (event: any, payload: any) => void) => void;
@@ -120,9 +126,29 @@ export interface WindowAPI {
     getTurnState?: () => Promise<any>;
   };
 
+  // Ask View APIs
+  askView?: {
+    sendMessage: (text: string, options?: any) => Promise<any>;
+    sendQuestionFromInputPanel: (text: string) => Promise<any>;
+    onInputPanelStream: (callback: (event: any, payload: any) => void) => void;
+    removeOnInputPanelStream: (callback: (event: any, payload: any) => void) => void;
+    closeAskWindow: () => Promise<void>;
+    adjustWindowHeight: (winName: string, height: number) => Promise<void>;
+    onAskStateUpdate: (callback: (event: any, payload: any) => void) => void;
+    removeOnAskStateUpdate: (callback: (event: any, payload: any) => void) => void;
+    onAskStreamError: (callback: (event: any, payload: any) => void) => void;
+    removeOnAskStreamError: (callback: (event: any, payload: any) => void) => void;
+  };
+
   // Screenshot APIs
   screenshotView?: {
+    analyze?: () => Promise<void>;
     toggle?: () => Promise<void>;
+    close?: () => Promise<void>;
+    onStateUpdate?: (callback: (event: any, payload: { isLoading?: boolean; isStreaming?: boolean; currentResponse?: string }) => void) => void;
+    removeOnStateUpdate?: (callback: (event: any, payload: any) => void) => void;
+    onStreamError?: (callback: (event: any, payload: { error?: string }) => void) => void;
+    removeOnStreamError?: (callback: (event: any, payload: any) => void) => void;
   };
 
   // API Key Header APIs
@@ -143,5 +169,5 @@ declare global {
   }
 }
 
-export {};
+export { };
 

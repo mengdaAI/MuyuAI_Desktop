@@ -392,6 +392,20 @@ class ListenService {
         }
     }
 
+    async handleManualInput(text, speaker = 'Them') {
+        if (!this.isSessionActive()) {
+            // If no session is active, try to initialize one implicitly or throw error
+            // For better UX, let's try to auto-initialize if not active, or at least ensure DB session exists
+            if (!this.currentSessionId) {
+                await this.initializeNewSession();
+            }
+        }
+        
+        // Treat manual input as a complete transcription
+        await this.handleTranscriptionComplete(speaker, text);
+        return { success: true };
+    }
+
     async handleTranscriptionComplete(speaker, text) {
         console.log(`[ListenService] Transcription complete: ${speaker} - ${text}`);
 

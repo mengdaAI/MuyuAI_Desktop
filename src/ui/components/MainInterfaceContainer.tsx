@@ -14,10 +14,18 @@ export function MainInterfaceContainer() {
   const [showSettings, setShowSettings] = useState(false);
   const [showScreenshotAnswer, setShowScreenshotAnswer] = useState(false);
   const [inputValue, setInputValue] = useState("");
-  
+  const [inputHistory, setInputHistory] = useState<{ question: string; answer: string }[]>([]);
+  const [inputAnswer, setInputAnswer] = useState("");
+  const [isAnswering, setIsAnswering] = useState(false);
+
+  // Screenshot state
+  const [screenshotAnswer, setScreenshotAnswer] = useState("");
+  const [isScreenshotLoading, setIsScreenshotLoading] = useState(false);
+
   // Turns state
   const [turns, setTurns] = useState<Turn[]>([]);
   const turnMapRef = useRef<Map<string, Turn>>(new Map());
+  const turnIdPrefixRef = useRef(0);
 
   const sortTurns = useCallback(() => {
     return (Array.from(turnMapRef.current.values()) as Turn[])
@@ -26,21 +34,32 @@ export function MainInterfaceContainer() {
   }, []);
 
   const handleTurnReset = useCallback(() => {
-    turnMapRef.current.clear();
-    setTurns([]);
+    // 用户要求停止 Listen 后保留历史记录，因此不再清空 turns
+    // 增加 ID 前缀计数，确保新会话的 turn ID (如 turn-1) 不会覆盖旧会话的同名 ID，从而实现追加效果
+    turnIdPrefixRef.current += 1;
+    console.log('[MainInterfaceContainer] Turn state reset received. Keeping history, incremented ID prefix to:', turnIdPrefixRef.current);
   }, []);
 
   const handleTurnUpdate = useCallback((event: any, payload: any) => {
-    if (!payload || payload.speaker !== 'Them') return;
+    if (!payload) return;
 
-    const existing = turnMapRef.current.get(payload.id) || {
-      id: payload.id,
+    // 构造带前缀的唯一 ID，防止不同 Session 间的 ID 冲突
+    const uniqueId = `${payload.id}_${turnIdPrefixRef.current}`;
+
+    const existing = turnMapRef.current.get(uniqueId) || {
+      id: uniqueId,
+      speaker: payload.speaker,
       question: '',
       answer: '',
       status: 'in_progress' as const,
       updatedAt: payload.timestamp || Date.now(),
       startedAt: payload.startedAt || payload.timestamp || Date.now(),
     };
+
+    // 更新 speaker 信息（如果之前没有或有更新）
+    if (payload.speaker) {
+      existing.speaker = payload.speaker;
+    }
 
     if (payload.text) {
       existing.question = payload.text.trim();
@@ -52,14 +71,17 @@ export function MainInterfaceContainer() {
     }
     existing.updatedAt = payload.timestamp || Date.now();
 
-    turnMapRef.current.set(existing.id, existing);
+    turnMapRef.current.set(uniqueId, existing);
     setTurns(sortTurns());
   }, [sortTurns]);
 
   const handleLiveAnswer = useCallback((event: any, payload: any) => {
     if (!payload || !payload.turnId) return;
 
-    const existing = turnMapRef.current.get(payload.turnId);
+    // 使用当前前缀查找 Turn
+    const uniqueId = `${payload.turnId}_${turnIdPrefixRef.current}`;
+
+    const existing = turnMapRef.current.get(uniqueId);
     if (!existing) return;
 
     if (payload.answer !== undefined) {
@@ -77,9 +99,93 @@ export function MainInterfaceContainer() {
     }
 
     existing.updatedAt = Date.now();
-    turnMapRef.current.set(existing.id, existing);
+    turnMapRef.current.set(uniqueId, existing);
     setTurns(sortTurns());
   }, [sortTurns]);
+
+  // Input panel stream listener
+  useEffect(() => {
+    const handleInputPanelStream = (event: any, payload: any) => {
+      if (payload.status === 'start') {
+        setIsAnswering(true);
+      } else if (payload.text) {
+        setInputHistory(prev => {
+          if (prev.length === 0) return prev;
+          const newHistory = [...prev];
+          const lastIndex = newHistory.length - 1;
+          newHistory[lastIndex] = {
+            ...newHistory[lastIndex],
+            answer: payload.text
+          };
+          return newHistory;
+        });
+      }
+
+      if (['completed', 'error'].includes(payload.status)) {
+        setIsAnswering(false);
+      }
+    };
+
+    if (window.api?.askView?.onInputPanelStream) {
+      window.api.askView.onInputPanelStream(handleInputPanelStream);
+    }
+
+    return () => {
+      if (window.api?.askView?.removeOnInputPanelStream) {
+        window.api.askView.removeOnInputPanelStream(handleInputPanelStream);
+      }
+    };
+  }, []);
+
+  // Screenshot state listener
+  useEffect(() => {
+    const handleScreenshotStateUpdate = (event: any, payload: any) => {
+      console.log('[MainInterfaceContainer] Screenshot state update:', payload);
+
+      if (payload.isLoading) {
+        setIsScreenshotLoading(true);
+        // 仅当没有提供 currentResponse 时才清空，意味着这是一个新的开始
+        // 如果是流式传输中途发送 isLoading: true（虽然不常见），我们不应清除已有内容
+        if (payload.currentResponse === undefined || payload.currentResponse === null) {
+             setScreenshotAnswer("");
+        }
+      } else {
+        // 如果明确收到 isLoading: false，或者 payload 中没有 isLoading (通常流式更新不带 isLoading)
+        // 我们假设只要有内容更新，或者 explicitly false，就不是 loading 状态了
+        // 但为了保险，我们只在显式 false 时设为 false，或者在流式传输中
+        if (payload.isLoading === false || payload.isStreaming) {
+            setIsScreenshotLoading(false);
+        }
+      }
+
+      if (payload.currentResponse !== undefined && payload.currentResponse !== null) {
+        setScreenshotAnswer(payload.currentResponse);
+      }
+    };
+
+    const handleScreenshotError = (event: any, payload: any) => {
+      console.error('[MainInterfaceContainer] Screenshot error:', payload);
+      setIsScreenshotLoading(false);
+      setScreenshotAnswer(`错误: ${payload.error || '截图分析失败'}`);
+    };
+
+    if (window.api?.screenshotView?.onStateUpdate) {
+      window.api.screenshotView.onStateUpdate(handleScreenshotStateUpdate);
+    }
+
+    if (window.api?.screenshotView?.onStreamError) {
+      window.api.screenshotView.onStreamError(handleScreenshotError);
+    }
+
+    return () => {
+      if (window.api?.screenshotView?.removeOnStateUpdate) {
+        window.api.screenshotView.removeOnStateUpdate(handleScreenshotStateUpdate);
+      }
+      if (window.api?.screenshotView?.removeOnStreamError) {
+        window.api.screenshotView.removeOnStreamError(handleScreenshotError);
+      }
+    };
+  }, []);
 
   // Register listeners
   useEffect(() => {
@@ -93,11 +199,15 @@ export function MainInterfaceContainer() {
     window.api.liveInsights.getTurnState?.().then(state => {
       if (!state) return;
       const newTurns: Turn[] = [];
-      
+
+      // 初始加载时也应用当前前缀 (通常为0)
+      const prefix = turnIdPrefixRef.current;
+
       for (const entry of state.activeTurns || []) {
-        if (entry.speaker !== 'Them') continue;
+        const uniqueId = `${entry.id}_${prefix}`;
         const turn: Turn = {
-          id: entry.id,
+          id: uniqueId,
+          speaker: entry.speaker,
           question: entry.partialText || entry.finalText || '',
           answer: '',
           status: entry.status || 'in_progress',
@@ -107,11 +217,12 @@ export function MainInterfaceContainer() {
         turnMapRef.current.set(turn.id, turn);
         newTurns.push(turn);
       }
-      
+
       for (const entry of state.turnHistory || []) {
-        if (entry.speaker !== 'Them') continue;
+        const uniqueId = `${entry.id}_${prefix}`;
         const turn: Turn = {
-          id: entry.id,
+          id: uniqueId,
+          speaker: entry.speaker,
           question: entry.finalText || entry.partialText || '',
           answer: '',
           status: entry.status || 'completed',
@@ -121,11 +232,11 @@ export function MainInterfaceContainer() {
         turnMapRef.current.set(turn.id, turn);
         newTurns.push(turn);
       }
-      
+
       if (newTurns.length > 0) {
         setTurns(sortTurns());
       }
-    }).catch(() => {});
+    }).catch(() => { });
 
     return () => {
       window.api.liveInsights?.removeOnTurnUpdate(handleTurnUpdate);
@@ -133,11 +244,11 @@ export function MainInterfaceContainer() {
       window.api.liveInsights?.removeOnTurnStateReset(handleTurnReset);
     };
   }, [handleTurnUpdate, handleLiveAnswer, handleTurnReset, sortTurns]);
-  
+
   // Additional state from original MainView
   const [shortcuts, setShortcuts] = useState({} as Shortcuts);
   const [totalInterviewSeconds, setTotalInterviewSeconds] = useState(0);
-  
+
   // Refs
   const prevPanelOpen = useRef(false);
 
@@ -171,15 +282,15 @@ export function MainInterfaceContainer() {
   // Resize window when panel state changes
   useEffect(() => {
     const isPanelOpen = !!(activePanel || showSettings);
-    
+
     if (prevPanelOpen.current !== isPanelOpen) {
       const width = isPanelOpen ? 1200 : 595;
       const height = 600;
-      
+
       if (window.api?.headerController?.resizeHeaderWindow) {
         window.api.headerController.resizeHeaderWindow({ width, height }).catch(console.error);
       }
-      
+
       prevPanelOpen.current = isPanelOpen;
     }
   }, [activePanel, showSettings]);
@@ -230,20 +341,59 @@ export function MainInterfaceContainer() {
 
   const handleSend = useCallback(async () => {
     if (inputValue.trim()) {
-      console.log('[MainView] Sending input:', inputValue);
+      const question = inputValue.trim();
+      console.log('[MainView] Sending input:', question);
+
+      // Add to history immediately
+      setInputHistory(prev => [...prev, { question, answer: '' }]);
       setInputValue("");
+      setIsAnswering(true);
+
+      if (window.api?.askView?.sendQuestionFromInputPanel) {
+        await window.api.askView.sendQuestionFromInputPanel(question);
+      } else if (window.api?.listenCapture?.sendManualInput) {
+        await window.api.listenCapture.sendManualInput(question, 'Them');
+      }
     }
   }, [inputValue]);
 
-  const handleScreenshotAnswer = useCallback(() => {
-    setShowScreenshotAnswer(true);
-  }, []);
+  const handleScreenshotAnswer = useCallback(async () => {
+    if (wasJustDragged) return;
+
+    try {
+      console.log('[MainInterfaceContainer] Starting screenshot analysis...');
+      setIsScreenshotLoading(true);
+      setScreenshotAnswer("");
+      setShowScreenshotAnswer(true);
+
+      // Trigger screenshot capture, upload, and analysis
+      if (window.api?.screenshotView?.analyze) {
+        await window.api.screenshotView.analyze();
+      }
+    } catch (error) {
+      console.error('[MainInterfaceContainer] Screenshot analysis error:', error);
+      setIsScreenshotLoading(false);
+      setScreenshotAnswer(`错误: ${error instanceof Error ? error.message : '截图分析失败'}`);
+    }
+  }, [wasJustDragged]);
+
+  const handleHideWindow = useCallback(async () => {
+    if (wasJustDragged) return;
+    try {
+      if (window.api?.mainHeader?.sendToggleAllWindowsVisibility) {
+        await window.api.mainHeader.sendToggleAllWindowsVisibility();
+      }
+    } catch (error) {
+      console.error('IPC invoke for all windows visibility button failed:', error);
+    }
+  }, [wasJustDragged]);
 
   const handleExitInterview = useCallback(() => {
     if (window.api?.common?.quitApplication) {
       window.api.common.quitApplication();
     }
   }, []);
+
 
   // Initialize window size on mount
   useEffect(() => {
@@ -258,12 +408,16 @@ export function MainInterfaceContainer() {
       showSettings={showSettings}
       showScreenshotAnswer={showScreenshotAnswer}
       inputValue={inputValue}
+      inputHistory={inputHistory}
+      isAnswering={isAnswering}
+      screenshotAnswer={screenshotAnswer}
+      isScreenshotLoading={isScreenshotLoading}
       isRecording={listenSessionStatus === 'inSession'}
       position={{ x: 0, y: 0 }}
       isDragging={false}
       onMouseDown={handleMouseDown}
-      onMouseMove={() => {}}
-      onMouseUp={() => {}}
+      onMouseMove={() => { }}
+      onMouseUp={() => { }}
       onToggleSettings={handleToggleSettings}
       onToggleRecording={handleToggleRecording}
       onToggleInputPanel={handleToggleInputPanel}
@@ -273,6 +427,7 @@ export function MainInterfaceContainer() {
       onSend={handleSend}
       onScreenshotAnswer={handleScreenshotAnswer}
       onExitInterview={handleExitInterview}
+      onHideWindow={handleHideWindow}
       turns={turns}
     />
   );
