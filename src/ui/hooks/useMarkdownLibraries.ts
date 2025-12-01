@@ -28,16 +28,17 @@ export function useMarkdownLibraries() {
   useEffect(() => {
     const loadLibraries = async () => {
       try {
+        // 以 content.html 为基准，静态资源位于 ../assets 目录下
         if (!(window as any).marked) {
-          await loadScript('../../assets/marked-4.3.0.min.js');
+          await loadScript('../assets/marked-4.3.0.min.js');
         }
 
         if (!(window as any).hljs) {
-          await loadScript('../../assets/highlight-11.9.0.min.js');
+          await loadScript('../assets/highlight-11.9.0.min.js');
         }
 
         if (!(window as any).DOMPurify) {
-          await loadScript('../../assets/dompurify-3.0.7.min.js');
+          await loadScript('../assets/dompurify-3.0.7.min.js');
         }
 
         const marked = (window as any).marked;
