@@ -159,8 +159,30 @@ function setupWindowController(windowPool, layoutManager, movementManager) {
         const mainWin = windowPool.get('main');
         if (mainWin && !mainWin.isDestroyed() && mainWin.isVisible()) {
             const bounds = mainWin.getBounds();
-            const newX = bounds.x - Math.round((width - bounds.width) / 2);
-            mainWin.setBounds({ x: newX, y: bounds.y, width, height }, true);
+            let newX = bounds.x;
+
+            // Try to keep the left edge constant (expand to right) so the main interface doesn't move visually
+            const display = getCurrentDisplay(mainWin);
+            const workArea = display.workArea;
+            
+            // If extending right goes beyond right edge, shift left to fit
+            if (newX + width > workArea.x + workArea.width) {
+                const overflow = (newX + width) - (workArea.x + workArea.width);
+                newX -= overflow;
+                
+                // Ensure we don't go past left edge
+                if (newX < workArea.x) {
+                    newX = workArea.x;
+                }
+            }
+
+            // Use movementManager for smooth transition instead of instant setBounds
+            movementManager.animateWindowBounds(mainWin, { 
+                x: newX, 
+                y: bounds.y, 
+                width, 
+                height 
+            });
             return;
         }
 

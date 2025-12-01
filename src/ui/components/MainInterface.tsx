@@ -81,7 +81,7 @@ export function MainInterface({
   }, [turns]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-start">
       <div
         className="relative h-[600px]"
         style={{
