@@ -36,12 +36,17 @@ contextBridge.exposeInMainWorld('api', {
     // User state listener (used by multiple components)
     onUserStateChanged: (callback) => ipcRenderer.on('user-state-changed', callback),
     removeOnUserStateChanged: (callback) => ipcRenderer.removeListener('user-state-changed', callback),
+
+    // User time summary listener（用于同步剩余时长）
+    onUserTimeSummaryUpdated: (callback) => ipcRenderer.on('user-time-summary-updated', callback),
+    removeOnUserTimeSummaryUpdated: (callback) => ipcRenderer.removeListener('user-time-summary-updated', callback),
   },
 
   // Interview passcode gate
   passcode: {
     getStatus: () => ipcRenderer.invoke('passcode:get-status'),
     verify: (code) => ipcRenderer.invoke('passcode:verify', code),
+    getUserTimeSummary: () => ipcRenderer.invoke('passcode:get-user-time-summary'),
   },
 
   // UI Component specific namespaces

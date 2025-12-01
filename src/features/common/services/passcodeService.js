@@ -1,10 +1,13 @@
 const fetch = require('node-fetch');
+const { BrowserWindow } = require('electron');
 const authService = require('./authService');
 
 const loggerPrefix = '[PasscodeService]';
 const DEFAULT_API_DOMAIN = 'https://muyu.mengdaai.com';
 const SESSION_START_PATH = '/api/v1/session/start';
 const SESSION_STOP_PATH = '/api/v1/session/stop';
+const SESSION_PING_PATH = '/api/v1/session/heartbeat';
+const USER_TIME_SUMMARY_PATH = '/api/v1/user-time-account/summary';
 
 class PasscodeService {
     constructor() {
@@ -14,8 +17,13 @@ class PasscodeService {
         this.sessionEndpoint = customEndpoint || `${domain}${SESSION_START_PATH}`;
         const customStopEndpoint = (process.env.INTERVIEW_SESSION_STOP_API || '').trim();
         this.sessionStopEndpoint = customStopEndpoint || `${domain}${SESSION_STOP_PATH}`;
+        const customPingEndpoint = (process.env.INTERVIEW_SESSION_PING_API || '').trim();
+        this.sessionPingEndpoint = customPingEndpoint || `${domain}${SESSION_PING_PATH}`;
+        const customUserTimeSummaryEndpoint = (process.env.INTERVIEW_USER_TIME_SUMMARY_API || '').trim();
+        this.userTimeSummaryEndpoint = customUserTimeSummaryEndpoint || `${domain}${USER_TIME_SUMMARY_PATH}`;
         this.requirePasscode = process.env.INTERVIEW_PASSCODE_REQUIRED !== 'false';
         this.activeSession = null;
+        this.sessionPingTimer = null;
     }
 
     isPasscodeRequired() {
@@ -33,6 +41,10 @@ class PasscodeService {
     reset() {
         this.isVerified = false;
         this.activeSession = null;
+        if (this.sessionPingTimer) {
+            clearInterval(this.sessionPingTimer);
+            this.sessionPingTimer = null;
+        }
     }
 
     getActiveSessionInfo() {
@@ -91,6 +103,10 @@ class PasscodeService {
         }
 
         this.activeSession = sessionResult.session || null;
+        const activeSessionId = this.getActiveSessionId();
+        if (activeSessionId) {
+            this._startSessionPingTimer(activeSessionId);
+        }
         this.isVerified = true;
         console.log(`${loggerPrefix} Passcode verified, interview session started.`);
         return { success: true };
@@ -151,7 +167,173 @@ class PasscodeService {
         }
     }
 
+    /**
+     * 调用 /api/v1/user-time-account/summary 获取当前剩余时长等信息
+   * 返回结果示例（后端约定）：
+   *  {
+   *    creditedSeconds: 7200,
+   *    consumedSeconds: 1800,
+   *    remainingSeconds: 5400,
+   *    entries: [...]
+   *  }
+     */
+    async getUserTimeSummary() {
+        if (!this.userTimeSummaryEndpoint) {
+            console.warn(`${loggerPrefix} User time summary endpoint missing, skipping call.`);
+            return { success: false, error: 'User time summary endpoint not configured' };
+        }
+
+        try {
+            const headers = { 'Content-Type': 'application/json' };
+            const { token } = authService.getInterviewAuthState?.() || {};
+            if (token) {
+                headers.Authorization = `Bearer ${token}`;
+            }
+
+            const response = await fetch(this.userTimeSummaryEndpoint, {
+                method: 'GET',
+                headers,
+            });
+
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                return {
+                    success: false,
+                    error: data?.message || data?.error || '获取剩余时长失败，请稍后重试',
+                };
+            }
+
+            // 按后端约定字段解析
+            const creditedSeconds = Number.isFinite(data?.creditedSeconds) ? data.creditedSeconds : 0;
+            const consumedSeconds = Number.isFinite(data?.consumedSeconds) ? data.consumedSeconds : 0;
+            const remainingSeconds = Number.isFinite(data?.remainingSeconds) ? data.remainingSeconds : 0;
+            // 新增：用于 UI 实时展示的有效剩余时长
+            const effectiveRemainingSeconds = Number.isFinite(data?.effectiveRemainingSeconds)
+                ? data.effectiveRemainingSeconds
+                : remainingSeconds;
+
+            const normalized = {
+                success: true,
+                remainingSeconds: Number.isFinite(remainingSeconds) ? remainingSeconds : 0,
+                effectiveRemainingSeconds: Number.isFinite(effectiveRemainingSeconds) ? effectiveRemainingSeconds : 0,
+                creditedSeconds,
+                consumedSeconds,
+                raw: data,
+            };
+
+            console.log(`${loggerPrefix} User time summary:`, {
+                creditedSeconds: normalized.creditedSeconds,
+                consumedSeconds: normalized.consumedSeconds,
+                remainingSeconds: normalized.remainingSeconds,
+                effectiveRemainingSeconds: normalized.effectiveRemainingSeconds,
+            });
+
+            // 主动广播给所有窗口，让前端同步更新剩余时长
+            try {
+                BrowserWindow.getAllWindows().forEach(win => {
+                    if (win && !win.isDestroyed() && win.webContents && !win.webContents.isDestroyed()) {
+                        win.webContents.send('user-time-summary-updated', {
+                            remainingSeconds: normalized.remainingSeconds,
+                            effectiveRemainingSeconds: normalized.effectiveRemainingSeconds,
+                            creditedSeconds: normalized.creditedSeconds,
+                            consumedSeconds: normalized.consumedSeconds,
+                        });
+                    }
+                });
+            } catch (_) {
+                // 广播失败不影响主流程
+            }
+
+            return normalized;
+        } catch (error) {
+            console.error(`${loggerPrefix} user time summary error:`, error);
+            return {
+                success: false,
+                error: error?.message || '无法获取剩余时长，请稍后重试',
+            };
+        }
+    }
+
+    /**
+     * 调用 /api/v1/session/ping，告知后端会话仍然活跃，以便后端刷新剩余时长
+     */
+    async _pingSession(sessionId) {
+        if (!this.sessionPingEndpoint) {
+            console.warn(`${loggerPrefix} Session ping endpoint missing, skipping ping.`);
+            return { success: false, error: 'Session ping endpoint not configured' };
+        }
+
+        if (!sessionId) {
+            console.warn(`${loggerPrefix} No sessionId for ping, skipping.`);
+            return { success: false, error: 'No sessionId for ping' };
+        }
+
+        try {
+            const headers = { 'Content-Type': 'application/json' };
+            const { token } = authService.getInterviewAuthState?.() || {};
+            if (token) {
+                headers.Authorization = `Bearer ${token}`;
+            }
+
+            console.log(`${loggerPrefix} Sending session heartbeat`, {
+                endpoint: this.sessionPingEndpoint,
+                sessionId,
+            });
+
+            const response = await fetch(this.sessionPingEndpoint, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ sessionId }),
+            });
+
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                console.warn(`${loggerPrefix} Session ping failed:`, data);
+                return {
+                    success: false,
+                    error: data?.message || data?.error || 'Session ping failed',
+                };
+            }
+
+            // ping 成功后刷新一次 summary，并通过 getUserTimeSummary 内部广播最新剩余时长
+            this.getUserTimeSummary().catch(err => {
+                console.warn(`${loggerPrefix} Failed to refresh user time summary after ping:`, err);
+            });
+
+            return { success: true, data };
+        } catch (error) {
+            console.error(`${loggerPrefix} Session ping error:`, error);
+            return {
+                success: false,
+                error: error?.message || 'Session ping error',
+            };
+        }
+    }
+
+    /**
+     * 每隔 60 秒触发一次 session/ping
+     */
+    _startSessionPingTimer(sessionId) {
+        if (!sessionId) return;
+
+        if (this.sessionPingTimer) {
+            clearInterval(this.sessionPingTimer);
+            this.sessionPingTimer = null;
+        }
+
+        console.log(`${loggerPrefix} Starting session ping timer for sessionId:`, sessionId);
+        this.sessionPingTimer = setInterval(() => {
+            this._pingSession(sessionId).catch(() => { /* 已在内部记录日志 */ });
+        }, 60 * 1000);
+    }
+
     async stopActiveSession(sessionId = null) {
+        // 先停止本地 ping 计时器
+        if (this.sessionPingTimer) {
+            clearInterval(this.sessionPingTimer);
+            this.sessionPingTimer = null;
+        }
+
         return { success: true, skipped: true }
         // TODO 临时跳过 stop session logic for debug
 
