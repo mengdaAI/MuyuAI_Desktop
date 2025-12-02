@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -23,7 +24,6 @@
 
         .container {
             padding: 20px;
-            min-width: 1200px;
         }
 
         .header {
@@ -35,7 +35,7 @@
         .header h1 {
             font-size: 2.5rem;
             margin-bottom: 10px;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         }
 
         .header p {
@@ -73,14 +73,14 @@
             padding: 15px 20px;
             border-radius: 15px;
             margin-bottom: 20px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
             cursor: pointer;
             transition: all 0.3s ease;
         }
 
         .stage-header:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
         }
 
         .stage-header.active {
@@ -109,7 +109,7 @@
             background: rgba(255, 255, 255, 0.9);
             padding: 15px;
             border-radius: 12px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             transition: all 0.3s ease;
             cursor: pointer;
             border-left: 4px solid #ddd;
@@ -117,7 +117,7 @@
 
         .step:hover {
             transform: translateX(5px);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
         }
 
         .step.active {
@@ -169,9 +169,17 @@
             border-bottom: 8px solid transparent;
         }
 
-        .arrow:nth-child(1) { left: 25%; }
-        .arrow:nth-child(2) { left: 50%; }
-        .arrow:nth-child(3) { left: 75%; }
+        .arrow:nth-child(1) {
+            left: 25%;
+        }
+
+        .arrow:nth-child(2) {
+            left: 50%;
+        }
+
+        .arrow:nth-child(3) {
+            left: 75%;
+        }
 
         .data-flow {
             margin-top: 40px;
@@ -272,23 +280,47 @@
         }
 
         @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+            }
         }
 
         @keyframes glow {
-            0% { box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-            100% { box-shadow: 0 4px 20px rgba(78, 205, 196, 0.3); }
+            0% {
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            }
+
+            100% {
+                box-shadow: 0 4px 20px rgba(78, 205, 196, 0.3);
+            }
         }
 
         @keyframes fadeInOut {
-            0%, 100% { opacity: 0.7; }
-            50% { opacity: 1; }
+
+            0%,
+            100% {
+                opacity: 0.7;
+            }
+
+            50% {
+                opacity: 1;
+            }
         }
 
         @keyframes flowAnimation {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
+            0% {
+                transform: translateX(-100%);
+            }
+
+            100% {
+                transform: translateX(100%);
+            }
         }
 
         .flow-particle {
@@ -329,6 +361,7 @@
         }
     </style>
 </head>
+
 <body>
     <div id="root"></div>
 
@@ -469,12 +502,12 @@
                         setCurrentStep(prev => {
                             const nextStep = prev + 1;
                             const totalSteps = stages.reduce((sum, stage) => sum + stage.steps.length, 0);
-                            
+
                             if (nextStep >= totalSteps) {
                                 setIsPlaying(false);
                                 return 0;
                             }
-                            
+
                             // 计算当前阶段
                             let stepCount = 0;
                             for (let i = 0; i < stages.length; i++) {
@@ -484,7 +517,7 @@
                                 }
                                 stepCount += stages[i].steps.length;
                             }
-                            
+
                             return nextStep;
                         });
                     }, 2000);
@@ -494,7 +527,7 @@
 
             useEffect(() => {
                 const handleKeyPress = (e) => {
-                    switch(e.key.toLowerCase()) {
+                    switch (e.key.toLowerCase()) {
                         case 's':
                             setIsPlaying(!isPlaying);
                             break;
@@ -540,10 +573,10 @@
                                 <div className="arrow"></div>
                                 {isPlaying && <div className="flow-particle"></div>}
                             </div>
-                            
+
                             {stages.map((stage, stageIndex) => (
                                 <div key={stageIndex} className="stage">
-                                    <div 
+                                    <div
                                         className={`stage-header ${currentStage === stageIndex ? 'active' : ''}`}
                                         style={{ background: stage.color }}
                                         onClick={() => setCurrentStage(stageIndex)}
@@ -551,15 +584,15 @@
                                         <div className="stage-number">{stage.number}</div>
                                         <h3>{stage.title}</h3>
                                     </div>
-                                    
+
                                     <div className="stage-steps">
                                         {stage.steps.map((step, stepIndex) => {
                                             const globalStepIndex = getStepIndex(stageIndex, stepIndex);
                                             const isActive = currentStep === globalStepIndex;
                                             const isCompleted = currentStep > globalStepIndex;
-                                            
+
                                             return (
-                                                <div 
+                                                <div
                                                     key={stepIndex}
                                                     className={`step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
                                                     onClick={() => setCurrentStep(globalStepIndex)}
@@ -635,4 +668,5 @@
         root.render(<BusinessFlowDiagram />);
     </script>
 </body>
+
 </html>

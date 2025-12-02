@@ -317,8 +317,8 @@ export function MainInterfaceContainer() {
     const isPanelOpen = !!(activePanel || showSettings);
 
     if (prevPanelOpen.current !== isPanelOpen) {
-      const width = isPanelOpen ? 1200 : 595;
-      const height = 600;
+      const width = isPanelOpen ? activePanel ? 988 : 828 : 524
+      const height = 393;
 
       if (window.api?.headerController?.resizeHeaderWindow) {
         window.api.headerController.resizeHeaderWindow({ width, height }).catch(console.error);
@@ -427,13 +427,6 @@ export function MainInterfaceContainer() {
     }
   }, []);
 
-
-  // Initialize window size on mount
-  useEffect(() => {
-    if (window.api?.headerController?.resizeHeaderWindow) {
-      window.api.headerController.resizeHeaderWindow({ width: 595, height: 600 }).catch(console.error);
-    }
-  }, []);
 
   // 计算剩余面试时长（分钟）——完全使用后端 remainingSeconds，不做本地倒计时推算
   const remainingMinutes = remainingSeconds > 0

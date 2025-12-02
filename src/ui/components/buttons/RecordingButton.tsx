@@ -1,3 +1,5 @@
+import React from "react";
+
 interface RecordingButtonProps {
   isRecording: boolean;
   onClick: () => void;
@@ -5,9 +7,9 @@ interface RecordingButtonProps {
 
 export function RecordingButton({ isRecording, onClick }: RecordingButtonProps) {
   return (
-    <button 
+    <button
       onClick={onClick}
-      className="absolute left-[546px] top-[94px] size-[36px] rounded-[19.5px] cursor-pointer transition-colors flex items-center justify-center"
+      className="size-[36px] rounded-[19.5px] cursor-pointer transition-colors flex items-center justify-center"
       style={{
         backgroundColor: isRecording ? 'rgba(222,145,255,0.2)' : 'rgba(193,127,255,0.15)',
         border: '1px solid #c17fff'

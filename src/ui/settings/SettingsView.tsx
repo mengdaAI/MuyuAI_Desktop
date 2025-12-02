@@ -18,7 +18,7 @@ interface Preset {
   is_default: number;
 }
 
-export function SettingsView() {
+export function SettingsView(props: any) {
   const [shortcuts, setShortcuts] = useState<Record<string, string>>({});
   const [firebaseUser, setFirebaseUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);

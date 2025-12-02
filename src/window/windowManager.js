@@ -164,12 +164,12 @@ function setupWindowController(windowPool, layoutManager, movementManager) {
             // Try to keep the left edge constant (expand to right) so the main interface doesn't move visually
             const display = getCurrentDisplay(mainWin);
             const workArea = display.workArea;
-            
+
             // If extending right goes beyond right edge, shift left to fit
             if (newX + width > workArea.x + workArea.width) {
                 const overflow = (newX + width) - (workArea.x + workArea.width);
                 newX -= overflow;
-                
+
                 // Ensure we don't go past left edge
                 if (newX < workArea.x) {
                     newX = workArea.x;
@@ -177,11 +177,11 @@ function setupWindowController(windowPool, layoutManager, movementManager) {
             }
 
             // Use movementManager for smooth transition instead of instant setBounds
-            movementManager.animateWindowBounds(mainWin, { 
-                x: newX, 
-                y: bounds.y, 
-                width, 
-                height 
+            movementManager.animateWindowBounds(mainWin, {
+                x: newX,
+                y: bounds.y,
+                width,
+                height
             });
             return;
         }
@@ -524,8 +524,8 @@ function createFeatureWindows(header, namesToCreate) {
             case 'main': {
                 const mainWin = new BrowserWindow({
                     ...commonChildOptions,
-                    width: 595,
-                    height: 600,
+                    width: 524,
+                    height: 393,
                     maxHeight: 900,
                 });
                 mainWin.setContentProtection(isContentProtectionOn);
@@ -596,7 +596,7 @@ function createFeatureWindows(header, namesToCreate) {
             case 'ask': {
                 const ask = new BrowserWindow({
                     ...commonChildOptions,
-                    width: 600,
+                    width: 524,
                     height: 393,
                     maxHeight: 393,
                     minHeight: 393
@@ -635,7 +635,7 @@ function createFeatureWindows(header, namesToCreate) {
             case 'screenshot': {
                 const screenshot = new BrowserWindow({
                     ...commonChildOptions,
-                    width: 600,
+                    width: 524,
                     height: 393,
                     maxHeight: 393,
                     minHeight: 393
@@ -660,7 +660,7 @@ function createFeatureWindows(header, namesToCreate) {
                 const transcript = new BrowserWindow({
                     ...commonChildOptions,
                     width: 400,
-                    height: 600,
+                    height: 393,
                     maxHeight: 900,
                     minHeight: 300
                 });
@@ -882,7 +882,7 @@ function createWindows() {
 
     header.setContentProtection(isContentProtectionOn);
     header.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-    
+
     // 确保窗口显示
     header.show();
     console.log('[WindowManager] Header window created and shown');
@@ -890,7 +890,7 @@ function createWindows() {
     // DevTools in development - redirect console to main process
     if (!app.isPackaged) {
         header.webContents.openDevTools({ mode: 'detach' });
-        
+
         // 转发渲染进程的 console 到主进程
         header.webContents.on('console-message', (event, level, message, line, sourceId) => {
             const prefix = level === 0 ? '[Renderer]' : level === 1 ? '[Renderer WARN]' : '[Renderer ERROR]';
@@ -1012,7 +1012,7 @@ const handleHeaderStateChanged = (state) => {
 
     if (state === 'main') {
         console.log('[WindowManager] Transitioning to main state - creating feature windows');
-        
+
         // 先创建功能窗口（包括 main 窗口）
         createFeatureWindows(header, ['main', 'listen', 'ask', 'screenshot', 'transcript', 'settings', 'shortcut-settings']);
 
@@ -1032,10 +1032,10 @@ const handleHeaderStateChanged = (state) => {
         }
     } else {         // 'apikey' | 'permission' | 'welcome'
         console.log(`[WindowManager] Transitioning to ${state} state - showing header, destroying feature windows`);
-        
+
         // 先销毁功能窗口（包括 main 窗口）
         destroyFeatureWindows();
-        
+
         // 恢复 Header 窗口可见性
         if (header && !header.isDestroyed()) {
             header.setOpacity(1);

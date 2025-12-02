@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Group3 } from "../icons/Group3";
 import svgPathsTooltip from "../../imports/svg-9mojr1x5i6";
+import React from "react";
 
 interface HideWindowButtonProps {
   onClick?: () => void;
@@ -11,7 +12,7 @@ export function HideWindowButton({ onClick }: HideWindowButtonProps) {
 
   return (
     <div
-      className="absolute left-[554px] top-[394px] cursor-pointer"
+      className="relative cursor-pointer"
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
       onClick={onClick}

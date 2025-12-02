@@ -1,6 +1,7 @@
 import { useState } from "react";
 import svgPaths from "../../imports/svg-apdjujtony";
 import svgPathsTooltip from "../../imports/svg-9mojr1x5i6";
+import React from "react";
 
 interface InputButtonProps {
   onClick: () => void;
@@ -9,10 +10,10 @@ interface InputButtonProps {
 
 export function InputButton({ onClick, isActive }: InputButtonProps) {
   const [showTooltip, setShowTooltip] = useState(false);
-  
+
   return (
-    <div 
-      className="absolute left-[553px] top-[148px]"
+    <div
+      className=""
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
     >
@@ -28,7 +29,7 @@ export function InputButton({ onClick, isActive }: InputButtonProps) {
           </g>
         </svg>
       </button>
-      
+
       {/* Tooltip - 在按钮右侧，水平居中对齐 */}
       {showTooltip && (
         <div className="absolute left-[42px] top-[-4px] z-[99999]">
