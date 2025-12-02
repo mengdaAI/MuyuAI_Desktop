@@ -1,3 +1,4 @@
+import React from "react";
 import svgPaths from "../../imports/svg-apdjujtony";
 
 interface Frame12Props {
@@ -8,7 +9,7 @@ export function Frame12({ onClick }: Frame12Props) {
   return (
     <button
       onClick={onClick}
-      className="absolute left-[554px] overflow-clip size-[20px] top-[435px] cursor-pointer bg-transparent border-none p-0"
+      className="relative overflow-clip size-[20px] cursor-pointer bg-transparent border-none p-0"
       data-name="Frame"
     >
       <div className="absolute left-0 size-[16px] top-0">

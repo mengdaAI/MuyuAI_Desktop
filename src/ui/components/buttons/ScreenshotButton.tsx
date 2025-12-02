@@ -1,6 +1,7 @@
 import { useState } from "react";
 import svgPaths from "../../imports/svg-apdjujtony";
 import svgPathsTooltip from "../../imports/svg-9mojr1x5i6";
+import React from "react";
 
 interface ScreenshotButtonProps {
   onClick: () => void;
@@ -9,10 +10,10 @@ interface ScreenshotButtonProps {
 
 export function ScreenshotButton({ onClick, isActive }: ScreenshotButtonProps) {
   const [showTooltip, setShowTooltip] = useState(false);
-  
+
   return (
-    <div 
-      className="absolute left-[553px] top-[188px]"
+    <div
+      className=""
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
     >
@@ -31,7 +32,7 @@ export function ScreenshotButton({ onClick, isActive }: ScreenshotButtonProps) {
           </g>
         </svg>
       </button>
-      
+
       {/* Tooltip - 在按钮右侧，水平居中对齐 */}
       {showTooltip && (
         <div className="absolute left-[42px] top-[-4px] z-[99999]">
