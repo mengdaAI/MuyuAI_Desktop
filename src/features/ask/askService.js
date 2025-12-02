@@ -429,9 +429,11 @@ class AskService {
     async _processScreenshotStream(reader, win, sessionId, signal) {
         const decoder = new TextDecoder();
         let accumulatedText = '';
+        let buffer = ''; // Buffer to handle split chunks
 
         try {
-            while (true) {
+            let shouldStop = false;
+            while (!shouldStop) {
                 const { done, value } = await reader.read();
 
                 if (signal.aborted) {
@@ -445,13 +447,146 @@ class AskService {
                 }
 
                 const chunk = decoder.decode(value, { stream: true });
-                accumulatedText += chunk;
+                buffer += chunk;
 
-                this._broadcastScreenshotState({
-                    isLoading: false,
-                    isStreaming: true,
-                    currentResponse: accumulatedText,
-                });
+                // Check if we are dealing with SSE or raw text
+                // Simple heuristic: if we see "data:" or "event:" at the start of the buffer
+                const isSSE = /^(data|event|id|retry):/m.test(buffer);
+
+                if (isSSE) {
+                    const lines = buffer.split(/\r?\n/);
+                    // Keep the last line in buffer if it's not empty (it might be incomplete)
+                    buffer = lines.pop() || ''; 
+
+                    let currentEvent = null;
+                    let currentData = '';
+
+                    for (const line of lines) {
+                        if (line.startsWith('event: ')) {
+                            currentEvent = line.slice(7).trim();
+                        } else if (line.startsWith('data: ')) {
+                            currentData = line.slice(6).trim();
+                        } else if (line.trim() === '') {
+                            // Empty line triggers the event dispatch
+                            if (currentData) {
+                                // Special case: [DONE]
+                                if (currentData === '[DONE]') {
+                                    shouldStop = true;
+                                    break;
+                                }
+
+                                try {
+                                    const json = JSON.parse(currentData);
+                                    
+                                    // Handle specific event types from server example
+                                    if (currentEvent === 'token' || !currentEvent) {
+                                        // Support both {token: "..."} (new) and choices format (openai)
+                                        const token = json.token || json.choices?.[0]?.delta?.content || '';
+                                        if (token) {
+                                            accumulatedText += token;
+                                            this._broadcastScreenshotState({
+                                                isLoading: false,
+                                                isStreaming: true,
+                                                currentResponse: accumulatedText,
+                                            });
+                                        }
+                                    } else if (currentEvent === 'status') {
+                                        if (json.status === 'completed') {
+                                            if (json.answer) {
+                                                 accumulatedText = json.answer; 
+                                            }
+                                            this._broadcastScreenshotState({
+                                                isLoading: false,
+                                                isStreaming: true,
+                                                currentResponse: accumulatedText,
+                                            });
+                                        } else if (json.status === 'error' || json.error) {
+                                            throw new Error(typeof json.error === 'string' ? json.error : JSON.stringify(json.error));
+                                        }
+                                    } else if (currentEvent === 'error') {
+                                        throw new Error(json.message || (typeof json.error === 'string' ? json.error : JSON.stringify(json.error)) || 'Screenshot stream reported an error event');
+                                    }
+                                    
+                                    // Fallback for generic "data only" messages
+                                    if (!currentEvent) {
+                                         if (json.status === 'completed' && json.answer) {
+                                             accumulatedText = json.answer;
+                                             this._broadcastScreenshotState({
+                                                isLoading: false,
+                                                isStreaming: true,
+                                                currentResponse: accumulatedText,
+                                            });
+                                         }
+                                    }
+
+                                } catch (e) {
+                                    // If it's a JSON parse error, warn and continue (maybe just a glitch)
+                                    if (e instanceof SyntaxError) {
+                                        console.warn('[AskService] Failed to parse SSE JSON:', e, currentData);
+                                    } else {
+                                        // If it's a logic error (like we threw above), we should stop the stream and notify UI
+                                        console.error('[AskService] Stream logic error:', e.message);
+                                        shouldStop = true;
+                                        // Send error state to UI
+                                        const errorMsg = e.message || 'Unknown stream error';
+                                        // We might want to append the error to the text or show a toast
+                                        // For now, let's append it if no text exists, or just log it.
+                                        // Better approach: Send a specific error event to UI if possible, 
+                                        // but _broadcastScreenshotState currently only takes specific fields.
+                                        // Let's try to use the error channel.
+                                        
+                                        const windowPool = getWindowPool();
+                                        ['screenshot', 'header', 'main'].forEach(winName => {
+                                            const w = windowPool?.get(winName);
+                                            if (w && !w.isDestroyed()) {
+                                                w.webContents.send('screenshot-stream-error', { error: errorMsg });
+                                            }
+                                        });
+                                        break; // Break the inner loop
+                                    }
+                                }
+                            }
+                            // Reset for next event
+                            currentEvent = null;
+                            currentData = '';
+                        }
+                    }
+                } else {
+                    // Fallback: Raw text mode
+                    // Since we consumed the chunk into buffer, and we determined it's NOT SSE,
+                    // we treat the whole buffer as text content.
+                    
+                    // FIX: Filter out SSE comments (lines starting with ':') which might appear 
+                    // if the server sends a heartbeat/comment before any actual data event.
+                    // e.g. ":ok"
+                    if (buffer.trim().startsWith(':')) {
+                        // If the whole buffer is just comments, ignore it
+                        // But careful not to ignore ":hello" if it's actual text content (unlikely for raw mode but possible)
+                        // Generally in SSE context, lines starting with : are comments.
+                        // If we are here, it implies we didn't see "data:" headers, but we might still be in an SSE stream that just started with a comment.
+                        // Let's remove lines starting with :
+                        const rawLines = buffer.split(/\r?\n/);
+                        const filteredBuffer = rawLines.filter(l => !l.startsWith(':')).join('\n');
+                        
+                        // If filtering removed everything, just clear buffer and continue
+                        if (!filteredBuffer && buffer.trim()) {
+                             buffer = '';
+                             continue; 
+                        }
+                        // If there's content left, treat it as text
+                        accumulatedText += filteredBuffer;
+                    } else {
+                        accumulatedText += buffer; 
+                    }
+
+                    buffer = ''; // Clear buffer immediately in raw mode
+
+                    this._broadcastScreenshotState({
+                        isLoading: false,
+                        isStreaming: true,
+                        currentResponse: accumulatedText,
+                    });
+                }
             }
 
             // Save final response
