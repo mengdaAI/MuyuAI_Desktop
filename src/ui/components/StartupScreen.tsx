@@ -60,7 +60,7 @@ export function StartupScreen({
   const buttonDisabled = !passcodeGateActive || interviewCode.length !== 8 || isVerifyingPasscode;
 
   return (
-    <div className="w-full h-full flex items-center justify-center" style={{ minHeight: '100%' }}>
+    <div className="inline-flex">
       <div
         className="relative w-[455px] h-[311px]"
         style={{

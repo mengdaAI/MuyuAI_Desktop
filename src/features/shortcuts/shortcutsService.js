@@ -1,4 +1,4 @@
-const { globalShortcut, screen } = require('electron');
+const { globalShortcut, screen, BrowserWindow, app } = require('electron');
 const shortcutsRepository = require('./repositories');
 const internalBridge = require('../../bridge/internalBridge');
 const askService = require('../ask/askService');
@@ -71,6 +71,7 @@ class ShortcutsService {
             nextResponse: isMac ? 'Cmd+]' : 'Ctrl+]',
             scrollUp: isMac ? 'Cmd+Shift+Up' : 'Ctrl+Shift+Up',
             scrollDown: isMac ? 'Cmd+Shift+Down' : 'Ctrl+Shift+Down',
+            toggleDevTools: isMac ? 'Cmd+Shift+D' : 'Ctrl+Shift+D',
         };
     }
 
@@ -259,6 +260,29 @@ class ShortcutsService {
                     break;
                 case 'nextResponse':
                     callback = () => sendToRenderer('navigate-next-response');
+                    break;
+                case 'toggleDevTools':
+                    callback = () => {
+                        // 仅在开发模式下启用
+                        if (app.isPackaged) {
+                            console.log('[Shortcuts] DevTools toggle is only available in development mode.');
+                            return;
+                        }
+                        // 获取当前聚焦的窗口
+                        const focusedWindow = BrowserWindow.getFocusedWindow();
+                        if (focusedWindow && !focusedWindow.isDestroyed()) {
+                            const webContents = focusedWindow.webContents;
+                            if (webContents.isDevToolsOpened()) {
+                                webContents.closeDevTools();
+                                console.log('[Shortcuts] DevTools closed for focused window.');
+                            } else {
+                                webContents.openDevTools({ mode: 'detach' });
+                                console.log('[Shortcuts] DevTools opened for focused window.');
+                            }
+                        } else {
+                            console.log('[Shortcuts] No focused window to toggle DevTools.');
+                        }
+                    };
                     break;
             }
             

@@ -12,13 +12,7 @@ declare global {
 console.log('[HeaderApp] Script loaded');
 
 function App() {
-    const containerRef = React.useRef<HTMLDivElement>(null);
-
-    return (
-        <div id="header-container" ref={containerRef} style={{ width: '100%', height: '100%' }}>
-            <StartupFlow />
-        </div>
-    );
+    return <StartupFlow />;
 }
 
 // 初始化 React 应用

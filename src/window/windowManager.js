@@ -546,9 +546,10 @@ function createFeatureWindows(header, namesToCreate) {
                         }
                     });
                 }
-                if (!app.isPackaged) {
-                    mainWin.webContents.openDevTools({ mode: 'detach' });
-                }
+                // DevTools disabled to avoid too many console panels
+                // if (!app.isPackaged) {
+                //     mainWin.webContents.openDevTools({ mode: 'detach' });
+                // }
                 windowPool.set('main', mainWin);
                 const position = layoutManager && layoutManager.calculateMainWindowPosition ? layoutManager.calculateMainWindowPosition() : null;
                 if (position) {
@@ -584,9 +585,9 @@ function createFeatureWindows(header, namesToCreate) {
                     });
                 }
                 // DevTools disabled in development to avoid auto-opening
-                if (!app.isPackaged) {
-                    listen.webContents.openDevTools({ mode: 'detach' });
-                }
+                // if (!app.isPackaged) {
+                //     listen.webContents.openDevTools({ mode: 'detach' });
+                // }
                 windowPool.set('listen', listen);
                 break;
             }
@@ -623,9 +624,9 @@ function createFeatureWindows(header, namesToCreate) {
                 }
 
                 // DevTools disabled in development to avoid auto-opening
-                if (!app.isPackaged) {
-                    ask.webContents.openDevTools({ mode: 'detach' });
-                }
+                // if (!app.isPackaged) {
+                //     ask.webContents.openDevTools({ mode: 'detach' });
+                // }
                 windowPool.set('ask', ask);
                 break;
             }
@@ -647,9 +648,9 @@ function createFeatureWindows(header, namesToCreate) {
                 screenshot.loadFile(path.join(__dirname, '../ui/screenshot/screenshot.html'));
 
                 // DevTools in development
-                if (!app.isPackaged) {
-                    screenshot.webContents.openDevTools({ mode: 'detach' });
-                }
+                // if (!app.isPackaged) {
+                //     screenshot.webContents.openDevTools({ mode: 'detach' });
+                // }
                 windowPool.set('screenshot', screenshot);
                 break;
             }
@@ -671,9 +672,9 @@ function createFeatureWindows(header, namesToCreate) {
                 transcript.loadFile(path.join(__dirname, '../ui/transcript/transcript.html'));
 
                 // DevTools in development
-                if (!app.isPackaged) {
-                    transcript.webContents.openDevTools({ mode: 'detach' });
-                }
+                // if (!app.isPackaged) {
+                //     transcript.webContents.openDevTools({ mode: 'detach' });
+                // }
                 windowPool.set('transcript', transcript);
                 break;
             }
@@ -708,9 +709,9 @@ function createFeatureWindows(header, namesToCreate) {
                 windowPool.set('settings', settings);
 
                 // DevTools disabled in development to avoid auto-opening
-                if (!app.isPackaged) {
-                    settings.webContents.openDevTools({ mode: 'detach' });
-                }
+                // if (!app.isPackaged) {
+                //     settings.webContents.openDevTools({ mode: 'detach' });
+                // }
                 break;
             }
 
@@ -747,9 +748,9 @@ function createFeatureWindows(header, namesToCreate) {
 
                 windowPool.set('shortcut-settings', shortcutEditor);
                 // DevTools disabled in development to avoid auto-opening
-                if (!app.isPackaged) {
-                    shortcutEditor.webContents.openDevTools({ mode: 'detach' });
-                }
+                // if (!app.isPackaged) {
+                //     shortcutEditor.webContents.openDevTools({ mode: 'detach' });
+                // }
                 break;
             }
         }
@@ -965,9 +966,9 @@ function createMainOnlyWindow() {
     }
 
     // DevTools disabled in development to avoid auto-opening
-    if (!app.isPackaged) {
-        mainWin.webContents.openDevTools({ mode: 'detach' });
-    }
+    // if (!app.isPackaged) {
+    //     mainWin.webContents.openDevTools({ mode: 'detach' });
+    // }
 
     console.log('[WindowManager] Main window created successfully');
     windowPool.set('main', mainWin);

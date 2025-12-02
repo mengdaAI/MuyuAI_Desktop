@@ -133,7 +133,7 @@ export function StartupFlow() {
 
     // Render
     return (
-        <div style={{ width: '100%', height: '100%' }}>
+        <>
             {currentStep === 'startup' && (
                 <StartupScreenContainer
                     passcodeRequired={true}
@@ -147,6 +147,6 @@ export function StartupFlow() {
                     onClose={() => (window as any).api?.common?.quitApplication()}
                 />
             )}
-        </div>
+        </>
     );
 }
