@@ -13,7 +13,7 @@ export function InputButton({ onClick, isActive }: InputButtonProps) {
 
   return (
     <div
-      className=""
+      className="h-[22px]"
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
     >
