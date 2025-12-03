@@ -94,8 +94,6 @@ export function MainInterface({
       onMouseUp={onMouseUp}
       onMouseLeave={onMouseUp}
     >
-      <Frame1 />
-      <Frame2 />
       <Group4 />
       {typeof remainingMinutes === 'number' && remainingMinutes > 0 && (
         <p className="absolute font-['PingFang_SC:Medium',sans-serif] leading-[normal] top-[358px] left-[356px] not-italic text-[12px] text-[rgba(255,255,255,0.6)] text-nowrap whitespace-pre">
@@ -105,7 +103,7 @@ export function MainInterface({
       <Frame3 />
       <StatusIndicator isRecording={isRecording} />
       <div className="absolute left-[475px] top-[16px] h-[361px] flex items-center flex-col justify-between z-10">
-        <div className="flex items-center flex-col gap-2">
+        <div className="flex items-center flex-col gap-[18px]">
           {/* 右上角收音按钮 */}
           <RecordingButton
             isRecording={isRecording}
@@ -116,7 +114,7 @@ export function MainInterface({
           <HistoryButton onClick={onToggleHistoryPanel} isActive={activePanel === 'history'} />
 
         </div>
-        <div className="flex items-center flex-col gap-2">
+        <div className="flex items-center flex-col gap-[18px]">
           {/* 侧边栏按钮 */}
           <HideWindowButton onClick={onHideWindow} />
           <Frame12 onClick={onToggleSettings} />

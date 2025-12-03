@@ -13,7 +13,7 @@ export function HistoryButton({ onClick, isActive }: HistoryButtonProps) {
 
   return (
     <div
-      className=""
+      className="h-[22px]"
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
     >
