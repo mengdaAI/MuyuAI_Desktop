@@ -108,7 +108,10 @@ class ModelStateService extends EventEmitter {
     }
 
     async _ensureDoubaoDefaults() {
-        if (!process.env.DOUBAO_APP_KEY || !process.env.DOUBAO_ACCESS_KEY) {
+        // 使用后端代理模式,不再检查客户端环境变量中的密钥
+        // 只需要检查后端代理端点是否配置
+        if (!process.env.STT_BACKEND_ENDPOINT) {
+            console.warn('[ModelStateService] STT_BACKEND_ENDPOINT not configured, Doubao STT will not be available');
             return;
         }
 
@@ -119,13 +122,13 @@ class ModelStateService extends EventEmitter {
 
             if (!doubaoSettings) {
                 await providerSettingsRepository.upsert('doubao', {
-                    api_key: 'env',
+                    api_key: 'backend_proxy', // 标记为使用后端代理
                     selected_stt_model: DEFAULT_DOUBAO_MODEL,
                     is_active_stt: 1
                 });
             } else {
-                if (doubaoSettings.api_key !== 'env') {
-                    updates.api_key = 'env';
+                if (doubaoSettings.api_key !== 'backend_proxy') {
+                    updates.api_key = 'backend_proxy'; // 更新为后端代理模式
                 }
                 if (doubaoSettings.selected_stt_model !== DEFAULT_DOUBAO_MODEL) {
                     updates.selected_stt_model = DEFAULT_DOUBAO_MODEL;

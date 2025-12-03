@@ -3,7 +3,7 @@ const fetch = require('node-fetch');
 const encryptionService = require('./encryptionService');
 const sessionRepository = require('../repositories/session');
 
-const DEFAULT_INTERVIEW_DOMAIN = 'https://muyu.mengdaai.com';
+const DEFAULT_API_DOMAIN = 'https://muyu.mengdaai.com';
 const INTERVIEW_LOGIN_PATH = '/api/v1/auth/login_by_token';
 
 class AuthService {
@@ -83,15 +83,14 @@ class AuthService {
         };
     }
 
-    _getInterviewDomain() {
-        console.log('[AuthService] Interview domain:', process.env.INTERVIEW_API_DOMAIN);
-        return (process.env.INTERVIEW_API_DOMAIN || DEFAULT_INTERVIEW_DOMAIN).trim().replace(/\/$/, '');
+    _getApiDomain() {
+        const domain = (process.env.MUYU_API_DOMAIN || DEFAULT_API_DOMAIN).trim().replace(/\/$/, '');
+        console.log('[AuthService] API domain:', domain);
+        return domain;
     }
 
     _getInterviewLoginEndpoint() {
-        const envEndpoint = (process.env.INTERVIEW_LOGIN_API || '').trim();
-        if (envEndpoint) return envEndpoint;
-        return `${this._getInterviewDomain()}${INTERVIEW_LOGIN_PATH}`;
+        return `${this._getApiDomain()}${INTERVIEW_LOGIN_PATH}`;
     }
 
     async loginWithInterviewToken(passcode) {

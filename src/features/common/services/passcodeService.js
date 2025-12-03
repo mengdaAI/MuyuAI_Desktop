@@ -3,7 +3,6 @@ const { BrowserWindow } = require('electron');
 const authService = require('./authService');
 
 const loggerPrefix = '[PasscodeService]';
-const DEFAULT_API_DOMAIN = 'https://muyu.mengdaai.com';
 const SESSION_START_PATH = '/api/v1/session/start';
 const SESSION_STOP_PATH = '/api/v1/session/stop';
 const SESSION_PING_PATH = '/api/v1/session/heartbeat';
@@ -12,22 +11,17 @@ const USER_TIME_SUMMARY_PATH = '/api/v1/user-time-account/summary';
 class PasscodeService {
     constructor() {
         this.isVerified = false;
-        const domain = (process.env.INTERVIEW_API_DOMAIN || DEFAULT_API_DOMAIN).trim().replace(/\/$/, '');
-        const customEndpoint = (process.env.INTERVIEW_PASSCODE_API || '').trim();
-        this.sessionEndpoint = customEndpoint || `${domain}${SESSION_START_PATH}`;
-        const customStopEndpoint = (process.env.INTERVIEW_SESSION_STOP_API || '').trim();
-        this.sessionStopEndpoint = customStopEndpoint || `${domain}${SESSION_STOP_PATH}`;
-        const customPingEndpoint = (process.env.INTERVIEW_SESSION_PING_API || '').trim();
-        this.sessionPingEndpoint = customPingEndpoint || `${domain}${SESSION_PING_PATH}`;
-        const customUserTimeSummaryEndpoint = (process.env.INTERVIEW_USER_TIME_SUMMARY_API || '').trim();
-        this.userTimeSummaryEndpoint = customUserTimeSummaryEndpoint || `${domain}${USER_TIME_SUMMARY_PATH}`;
-        this.requirePasscode = process.env.INTERVIEW_PASSCODE_REQUIRED !== 'false';
+        const domain = (process.env.MUYU_API_DOMAIN || '').trim().replace(/\/$/, '');
+        this.sessionEndpoint = `${domain}${SESSION_START_PATH}`;
+        this.sessionStopEndpoint = `${domain}${SESSION_STOP_PATH}`;
+        this.sessionPingEndpoint = `${domain}${SESSION_PING_PATH}`;
+        this.userTimeSummaryEndpoint = `${domain}${USER_TIME_SUMMARY_PATH}`;
         this.activeSession = null;
         this.sessionPingTimer = null;
     }
 
     isPasscodeRequired() {
-        return this.requirePasscode && !this.isVerified;
+        return !this.isVerified;
     }
 
     getStatus() {
@@ -71,11 +65,6 @@ class PasscodeService {
     }
 
     async verify(input) {
-        if (!this.requirePasscode) {
-            this.isVerified = true;
-            return { success: true, skip: true };
-        }
-
         const candidate = (input || '').trim();
         if (!candidate) {
             return { success: false, error: '请输入面试口令' };
