@@ -136,7 +136,7 @@ We have a list of [help wanted](https://github.com/pickle-com/glass/issues?q=is%
 
 ## Debug Mode
 终端 1（持续构建渲染代码）：
-ENABLE_ELECTRON_RELOAD=true INTERVIEW_PASSCODE_REQUIRED=false DEBUG_FORCE_MAIN_HEADER=true node build.js --watch
+ENABLE_ELECTRON_RELOAD=true DEBUG_FORCE_MAIN_HEADER=true node build.js --watch
 
 终端 2（启动 Electron）：
-ENABLE_ELECTRON_RELOAD=true INTERVIEW_PASSCODE_REQUIRED=false DEBUG_FORCE_MAIN_HEADER=true npm start
+ENABLE_ELECTRON_RELOAD=true DEBUG_FORCE_MAIN_HEADER=true npm start

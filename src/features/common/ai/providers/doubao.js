@@ -2,8 +2,11 @@ const WebSocket = require('ws');
 const zlib = require('zlib');
 const { randomUUID } = require('crypto');
 const { EventEmitter } = require('events');
+const authService = require('../../services/authService');
 
-const DEFAULT_WS_ENDPOINT = 'wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async';
+// 改为连接后端代理服务
+const DEFAULT_BACKEND_ENDPOINT = process.env.STT_BACKEND_ENDPOINT || 'ws://localhost:8080/api/v1/stt/stream';
+const DEFAULT_WS_ENDPOINT = DEFAULT_BACKEND_ENDPOINT; // 保持兼容性
 const DEFAULT_RESOURCE_ID = 'volc.bigasr.sauc.duration';
 
 const ProtocolVersion = {
@@ -183,46 +186,14 @@ function extractTranscript(payload) {
 }
 
 function resolveCredentials(raw) {
-    const envAppKey = process.env.DOUBAO_APP_KEY;
-    const envAccessKey = process.env.DOUBAO_ACCESS_KEY;
-    const envResourceId = process.env.DOUBAO_RESOURCE_ID;
-    const envEndpoint = process.env.DOUBAO_ENDPOINT;
+    // 不再需要从环境变量读取豆包密钥,改为使用后端代理
+    const envEndpoint = process.env.STT_BACKEND_ENDPOINT;
 
-    if (envAppKey && envAccessKey) {
-        return {
-            appKey: envAppKey,
-            accessKey: envAccessKey,
-            resourceId: envResourceId || DEFAULT_RESOURCE_ID,
-            endpoint: envEndpoint || DEFAULT_WS_ENDPOINT
-        };
-    }
-
-    if (!raw || typeof raw !== 'string') return null;
-
-    let parsed = null;
-    try {
-        parsed = JSON.parse(raw);
-    } catch {
-        const parts = raw.split(/[:|,]/).map(p => p.trim()).filter(Boolean);
-        if (parts.length >= 2) {
-            parsed = {
-                appKey: parts[0],
-                accessKey: parts[1],
-                resourceId: parts[2]
-            };
-        }
-    }
-
-    if (!parsed || typeof parsed !== 'object') return null;
-
-    const appKey = parsed.appKey || parsed.app_key;
-    const accessKey = parsed.accessKey || parsed.access_key;
-    const resourceId = parsed.resourceId || parsed.resource_id || DEFAULT_RESOURCE_ID;
-    const endpoint = parsed.endpoint || DEFAULT_WS_ENDPOINT;
-
-    if (!appKey || !accessKey) return null;
-
-    return { appKey, accessKey, resourceId, endpoint };
+    // 返回后端代理配置
+    return {
+        useBackendProxy: true,
+        endpoint: envEndpoint || DEFAULT_BACKEND_ENDPOINT
+    };
 }
 
 class DoubaoSttSession extends EventEmitter {
@@ -249,13 +220,16 @@ class DoubaoSttSession extends EventEmitter {
     }
 
     connect() {
+        // 使用后端代理模式(透传),添加用户认证 token
+        const { token } = authService.getInterviewAuthState?.() || {};
         const headers = {
-            'X-Api-App-Key': this.credentials.appKey,
-            'X-Api-Access-Key': this.credentials.accessKey,
-            'X-Api-Resource-Id': this.credentials.resourceId || DEFAULT_RESOURCE_ID,
-            'X-Api-Connect-Id': this.connectId
+            'Authorization': token ? `Bearer ${token}` : '',
+            'X-Api-Connect-Id': this.connectId,
+            'X-Client-Version': '1.0.0',
+            'X-Proxy-Mode': 'passthrough' // 标记为透传模式
         };
 
+        console.log('[DoubaoSTT] Connecting to backend proxy (passthrough mode):', this.endpoint);
         this.ws = new WebSocket(this.endpoint, { headers });
 
         this.ws.on('open', () => {
