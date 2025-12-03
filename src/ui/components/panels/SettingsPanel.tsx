@@ -1,4 +1,4 @@
-import React from "react";
+import { useState, useCallback, useEffect } from "react";
 import svgPathsSettings from "../../imports/svg-fg17hkisy3";
 
 interface SettingsPanelProps {
@@ -7,6 +7,26 @@ interface SettingsPanelProps {
 }
 
 export function SettingsPanel({ onClose, onExitInterview }: SettingsPanelProps) {
+  const [isContentProtectionOn, setIsContentProtectionOn] = useState(false);
+
+  // 初始化时获取当前状态
+  useEffect(() => {
+    const settingsApi = (window as any).api?.settingsView;
+    if (settingsApi?.getContentProtectionStatus) {
+      settingsApi.getContentProtectionStatus().then((status: boolean) => {
+        setIsContentProtectionOn(status);
+      });
+    }
+  }, []);
+
+  const handleToggleInvisibility = useCallback(async () => {
+    console.log('Toggle Invisibility clicked');
+    const settingsApi = (window as any).api?.settingsView;
+    if (settingsApi?.toggleContentProtection) {
+      const newStatus = await settingsApi.toggleContentProtection();
+      setIsContentProtectionOn(newStatus);
+    }
+  }, []);
   return (
     <div className="absolute h-[393px] left-[530px] top-0 w-[298px] z-[10000]" style={{ transition: 'none' }}>
       <svg className="block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 298 393">
@@ -66,7 +86,24 @@ export function SettingsPanel({ onClose, onExitInterview }: SettingsPanelProps) 
 
       <p className="absolute font-['PingFang_SC:Regular',sans-serif] leading-[26px] left-[16px] not-italic text-[14px] text-white top-[186px] w-[144px]">展示/隐藏对话面板</p>
       <p className="absolute font-['PingFang_SC:Semibold',sans-serif] leading-[26px] left-[226px] not-italic text-[14px] text-white top-[186px] w-[51px]">Cmd+\</p>
-
+      
+      {/* Disable Invisibility 按钮 */}
+      <button 
+        onClick={handleToggleInvisibility}
+        className="absolute h-[39px] left-[16px] rounded-[22px] top-[240px] w-[266px] flex items-center justify-center border border-solid cursor-pointer transition-colors"
+        style={{
+          backgroundColor: isContentProtectionOn ? 'rgba(193,127,255,0.15)' : 'rgba(100,100,100,0.15)',
+          borderColor: isContentProtectionOn ? '#c17fff' : '#666666'
+        }}
+      >
+        <span 
+          className="font-['PingFang_SC:Semibold',sans-serif] not-italic text-[15px]"
+          style={{ color: isContentProtectionOn ? '#c17fff' : '#999999' }}
+        >
+          {isContentProtectionOn ? '隐身模式已开启' : '隐身模式已关闭'}
+        </span>
+      </button>
+      
       {/* 退出面试按钮 */}
       <button
         onClick={onExitInterview}
