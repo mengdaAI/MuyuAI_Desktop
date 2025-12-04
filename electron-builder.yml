@@ -66,5 +66,3 @@ mac:
     target:
       - target: dmg
       - target: zip
-
-afterSign: notarize.js
