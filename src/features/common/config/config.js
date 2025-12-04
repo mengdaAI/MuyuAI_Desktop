@@ -10,7 +10,7 @@ class Config {
             apiUrl: process.env.MUYU_API_DOMAIN || 'http://localhost:8080',
             apiTimeout: 10000,
             
-            webUrl: process.env.MUYU_API_DOMAIN || 'http://localhost:3000',
+            webUrl: process.env.MUYU_WEB_URL || 'http://localhost:3000',
             
             enableJWT: false,
             fallbackToHeaderAuth: false,
