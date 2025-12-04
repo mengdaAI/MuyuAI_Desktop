@@ -1,9 +1,8 @@
 const { BrowserWindow } = require('electron');
 const fetch = require('node-fetch');
-const encryptionService = require('./encryptionService');
 const sessionRepository = require('../repositories/session');
 
-const DEFAULT_API_DOMAIN = 'https://muyu.mengdaai.com';
+const DEFAULT_API_DOMAIN = 'https://api.muyulab.com';
 const INTERVIEW_LOGIN_PATH = '/api/v1/auth/login_by_token';
 
 class AuthService {

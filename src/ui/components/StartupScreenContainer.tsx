@@ -73,7 +73,7 @@ export function StartupScreenContainer({
 
     const handleCreateInterview = async () => {
         // 优先从主进程配置获取 Web URL，回退到默认官网地址
-        const fallback = 'https://muyu.mengdaai.com/';
+        const fallback = 'https://www.muyulab.com/';
         try {
             // Type assertion for common.getWebUrl and openExternal which exist in preload but not in types
             const commonApi = window.api?.common as any;
