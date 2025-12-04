@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import svgPathsSettings from "../../imports/svg-fg17hkisy3";
 
 interface SettingsPanelProps {
@@ -39,7 +39,7 @@ export function SettingsPanel({ onClose, onExitInterview }: SettingsPanelProps) 
       {/* 关闭按钮 */}
       <button
         onClick={onClose}
-        className="absolute left-[268px] top-[16px] size-[20px] cursor-pointer bg-transparent border-none p-0"
+        className="absolute left-[262px] top-[14px] size-[20px] cursor-pointer bg-transparent border-none p-0"
       >
         <svg className="block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 20 20">
           <path d={svgPathsSettings.p3be22e00} fill="var(--fill-0, white)" fillOpacity="0.2" />
@@ -86,9 +86,9 @@ export function SettingsPanel({ onClose, onExitInterview }: SettingsPanelProps) 
 
       <p className="absolute font-['PingFang_SC:Regular',sans-serif] leading-[26px] left-[16px] not-italic text-[14px] text-white top-[186px] w-[144px]">展示/隐藏对话面板</p>
       <p className="absolute font-['PingFang_SC:Semibold',sans-serif] leading-[26px] left-[226px] not-italic text-[14px] text-white top-[186px] w-[51px]">Cmd+\</p>
-      
+
       {/* Disable Invisibility 按钮 */}
-      <button 
+      <button
         onClick={handleToggleInvisibility}
         className="absolute h-[39px] left-[16px] rounded-[22px] top-[240px] w-[266px] flex items-center justify-center border border-solid cursor-pointer transition-colors"
         style={{
@@ -96,14 +96,14 @@ export function SettingsPanel({ onClose, onExitInterview }: SettingsPanelProps) 
           borderColor: isContentProtectionOn ? '#c17fff' : '#666666'
         }}
       >
-        <span 
+        <span
           className="font-['PingFang_SC:Semibold',sans-serif] not-italic text-[15px]"
           style={{ color: isContentProtectionOn ? '#c17fff' : '#999999' }}
         >
           {isContentProtectionOn ? '隐身模式已开启' : '隐身模式已关闭'}
         </span>
       </button>
-      
+
       {/* 退出面试按钮 */}
       <button
         onClick={onExitInterview}

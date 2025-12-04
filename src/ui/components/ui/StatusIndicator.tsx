@@ -6,7 +6,7 @@ interface StatusIndicatorProps {
 
 export function StatusIndicator({ isRecording }: StatusIndicatorProps) {
   return (
-    <div className="absolute left-[18px] top-[358px] flex items-center gap-[9px]">
+    <div className="flex items-center gap-[9px]">
       <div className="size-[4px]">
         <svg className="block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 4 4">
           <circle cx="2" cy="2" fill={isRecording ? "var(--fill-0, #23F261)" : "var(--fill-0, #FF0004)"} id="Ellipse 1" r="2" />
