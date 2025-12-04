@@ -32,11 +32,9 @@ win:
     icon: src/ui/assets/logo.ico
     target:
         - target: nsis
-          arch: x64
         - target: portable
-          arch: x64
     requestedExecutionLevel: asInvoker
-    signAndEditExecutable: true
+    signAndEditExecutable: false
     forceCodeSigning: false
     # cscLink: build\certs\glass-dev.pfx
     # cscKeyPassword: "${env.CSC_KEY_PASSWORD}"
@@ -51,7 +49,7 @@ nsis:
     deleteAppDataOnUninstall: true
     createDesktopShortcut: always
     createStartMenuShortcut: true
-    shortcutName: Glass
+    shortcutName: muyu
 
 # macOS specific configuration
 mac:
