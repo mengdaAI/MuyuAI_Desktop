@@ -47,6 +47,7 @@ jobs:
           MUYU_API_DOMAIN: https://api.muyulab.com
           MUYU_WEB_URL: http://tici.muyulab.com
           STT_BACKEND_ENDPOINT: ws://api.muyulab.com/api/v1/stt/stream
+          CSC_IDENTITY_AUTO_DISCOVERY: false
         run: |
           npm run build:renderer
           npx electron-builder ${{ matrix.buildArgs }} --publish never
