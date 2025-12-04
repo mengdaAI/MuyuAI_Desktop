@@ -12,9 +12,13 @@ jobs:
       matrix:
         include:
           - os: macos-latest
-            buildArgs: "--mac dmg"
-            artifactName: mac-dmg
-            artifactPath: "dist/*.dmg"
+            buildArgs: "--mac dmg --x64"
+            artifactName: mac-intel-dmg
+            artifactPath: "dist/*-x64.dmg"
+          - os: macos-latest
+            buildArgs: "--mac dmg --arm64"
+            artifactName: mac-apple-silicon-dmg
+            artifactPath: "dist/*-arm64.dmg"
           - os: windows-latest
             buildArgs: "--win nsis"
             artifactName: windows-exe
@@ -53,7 +57,6 @@ jobs:
           name: ${{ matrix.artifactName }}
           path: ${{ matrix.artifactPath }}
           if-no-files-found: error
-          merge-multiple: true
 
   release:
     needs: build
