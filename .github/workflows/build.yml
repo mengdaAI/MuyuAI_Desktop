@@ -38,12 +38,6 @@ jobs:
       - name: 📦 Install root dependencies
         run: npm install
 
-      - name: 🌐 Install and build web (Renderer) part
-        working-directory: ./pickleglass_web
-        run: |
-          npm install
-          npm run build
-
       - name: 🧱 Build Electron target
         run: |
           npm run build:renderer
