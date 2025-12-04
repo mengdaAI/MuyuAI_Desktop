@@ -14,11 +14,11 @@ jobs:
           - os: macos-latest
             buildArgs: "--mac dmg --x64"
             artifactName: mac-intel-dmg
-            artifactPath: "dist/*-x64.dmg"
+            artifactPath: "dist/*.dmg"
           - os: macos-latest
             buildArgs: "--mac dmg --arm64"
             artifactName: mac-apple-silicon-dmg
-            artifactPath: "dist/*-arm64.dmg"
+            artifactPath: "dist/*.dmg"
           - os: windows-latest
             buildArgs: "--win nsis"
             artifactName: windows-exe
@@ -51,7 +51,10 @@ jobs:
           npm run build:renderer
           npx electron-builder ${{ matrix.buildArgs }} --publish never
 
-      - name: 📤 Upload artifact
+      - name: � List dist directory
+        run: ls -lah dist/
+
+      - name: �� Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifactName }}
