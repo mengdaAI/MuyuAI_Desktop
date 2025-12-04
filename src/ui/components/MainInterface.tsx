@@ -13,6 +13,7 @@ import { InputPanel } from "./panels/InputPanel";
 import { ScreenshotPanel } from "./panels/ScreenshotPanel";
 import { HistoryPanel } from "./panels/HistoryPanel";
 import svgPathsScreenshot from "../imports/svg-h6kjo5xaf0";
+import { LeftTimeIcon } from "../assets/Svg";
 
 interface MainInterfaceProps {
   activePanel: 'input' | 'screenshot' | 'history' | null;
@@ -95,13 +96,16 @@ export function MainInterface({
       onMouseLeave={onMouseUp}
     >
       <Group4 />
-      {typeof remainingMinutes === 'number' && remainingMinutes > 0 && (
-        <p className="absolute font-['PingFang_SC:Medium',sans-serif] leading-[normal] top-[358px] left-[356px] not-italic text-[12px] text-[rgba(255,255,255,0.6)] text-nowrap whitespace-pre">
-          剩余 {remainingMinutes} 分钟
-        </p>
-      )}
+      <div className="absolute pr-[18px] pl-[18px] bottom-[18px] left-0 w-[462px] flex item-center justify-between">
+        <StatusIndicator isRecording={isRecording} />
+        {typeof remainingMinutes === 'number' && remainingMinutes > 0 && (
+          <p className="flex items-center gap-[3px] font-['PingFang_SC:Medium',sans-serif] leading-[normal] not-italic text-[12px] text-[rgba(255,255,255,0.6)] text-nowrap whitespace-pre">
+            <LeftTimeIcon />
+            剩余 {remainingMinutes} 分钟
+          </p>
+        )}
+      </div>
       <Frame3 />
-      <StatusIndicator isRecording={isRecording} />
       <div className="absolute left-[475px] top-[16px] h-[361px] flex items-center flex-col justify-between z-10">
         <div className="flex items-center flex-col gap-[18px]">
           {/* 右上角收音按钮 */}
