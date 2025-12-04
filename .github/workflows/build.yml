@@ -44,9 +44,9 @@ jobs:
 
       - name: 🧱 Build Electron target
         env:
-          MUYU_API_DOMAIN: https://api.muyulab.com
-          MUYU_WEB_URL: http://tici.muyulab.com
-          STT_BACKEND_ENDPOINT: ws://api.muyulab.com/api/v1/stt/stream
+          MUYU_API_DOMAIN: https://muyu-api.mengdaai.com
+          MUYU_WEB_URL: http://muyu-web.mengdaai.com
+          STT_BACKEND_ENDPOINT: ws://muyu-api.mengdaai.com/api/v1/stt/stream
           CSC_IDENTITY_AUTO_DISCOVERY: false
         run: |
           npm run build:renderer
