@@ -66,10 +66,4 @@ mac:
     entitlementsInherit: entitlements.plist
     target:
       - target: dmg
-        arch:
-          - x64      # Intel 芯片
-          - arm64    # Apple Silicon (M 系列)
       - target: zip
-        arch:
-          - x64
-          - arm64
