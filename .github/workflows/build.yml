@@ -39,6 +39,10 @@ jobs:
         run: npm install
 
       - name: 🧱 Build Electron target
+        env:
+          MUYU_API_DOMAIN: https://api.muyulab.com
+          MUYU_WEB_URL: http://tici.muyulab.com
+          STT_BACKEND_ENDPOINT: ws://api.muyulab.com/api/v1/stt/stream
         run: |
           npm run build:renderer
           npx electron-builder ${{ matrix.buildArgs }} --publish never
@@ -49,6 +53,7 @@ jobs:
           name: ${{ matrix.artifactName }}
           path: ${{ matrix.artifactPath }}
           if-no-files-found: error
+          merge-multiple: true
 
   release:
     needs: build
