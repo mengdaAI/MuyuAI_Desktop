@@ -1,9 +1,14 @@
-name: Build & Verify
+name: Build & Release
 
 on:
   push:
     branches: ["main"]
+    tags:
+      - 'v*'
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -56,26 +61,27 @@ jobs:
         shell: bash
         run: ls -lah dist/ || dir dist\
 
-      - name: �� Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifactName }}
-          path: ${{ matrix.artifactPath }}
-          if-no-files-found: error
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - name: 📥 Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: release-artifacts
-
-      - name: 📝 Create GitHub Release and upload assets
+      - name: 📤 Upload to Release
         uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
         with:
-          tag_name: release-${{ github.run_number }}
-          name: "Automated build #${{ github.run_number }}"
-          files: release-artifacts/**/*
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('v0.0.{0}', github.run_number) }}
+          name: ${{ github.ref_type == 'tag' && github.ref_name || format('Auto Build {0}', github.run_number) }}
+          body: |
+            🚀 自动构建发布
+            
+            **构建信息:**
+            - Commit: ${{ github.sha }}
+            - Branch: ${{ github.ref_name }}
+            - Build: #${{ github.run_number }}
+            - Platform: ${{ matrix.os }}
+            
+            **下载说明:**
+            - macOS Intel: `.dmg` (mac-intel)
+            - macOS Apple Silicon: `.dmg` (mac-apple-silicon)
+            - Windows: `.exe`
+            - Linux: `.AppImage`
+          files: ${{ matrix.artifactPath }}
+          draft: false
+          prerelease: ${{ github.ref_type != 'tag' }}
+          fail_on_unmatched_files: true
