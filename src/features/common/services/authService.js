@@ -1,20 +1,35 @@
 // 确保环境变量在使用前已加载
 const path = require('path');
+const { app } = require('electron');
+const fs = require('fs');
+const { applyEnvironmentDefaults, PRODUCTION_DEFAULTS, API_PATHS, USER_DEFAULTS } = require('../config/constants');
+
 const nodeEnv = process.env.NODE_ENV || 'development';
 const envFile = nodeEnv === 'production' ? '.env.production' : '.env';
-const envPath = path.resolve(process.cwd(), envFile);
-require('dotenv').config({ path: envPath });
+
+// Try multiple paths for .env file
+let envPath = path.resolve(process.cwd(), envFile);
+if (!fs.existsSync(envPath) && app && app.isPackaged) {
+    envPath = path.join(process.resourcesPath, envFile);
+}
+
+if (fs.existsSync(envPath)) {
+    require('dotenv').config({ path: envPath });
+} else {
+    // Fallback to environment defaults
+    applyEnvironmentDefaults(nodeEnv);
+}
 
 const { BrowserWindow } = require('electron');
 const fetch = require('node-fetch');
 const sessionRepository = require('../repositories/session');
 
-const DEFAULT_API_DOMAIN = 'https://muyu-api.mengdaai.com';
-const INTERVIEW_LOGIN_PATH = '/api/v1/auth/login_by_token';
+const DEFAULT_API_DOMAIN = PRODUCTION_DEFAULTS.API_DOMAIN;
+const INTERVIEW_LOGIN_PATH = API_PATHS.INTERVIEW_LOGIN;
 
 class AuthService {
     constructor() {
-        this.currentUserId = 'default_user';
+        this.currentUserId = USER_DEFAULTS.ID;
         this.currentUserMode = 'local'; // 'local' | 'interview'
         this.currentUser = null;
         this.isInitialized = false;
@@ -38,7 +53,7 @@ class AuthService {
             await sessionRepository.endAllActiveSessions();
 
             // Initialize with default local user
-            this.currentUserId = 'default_user';
+            this.currentUserId = USER_DEFAULTS.ID;
             this.currentUserMode = 'local';
             this.currentUser = null;
 
@@ -82,8 +97,8 @@ class AuthService {
         // Local mode (default)
         return {
             uid: this.currentUserId,
-            email: 'contact@muyu.ai',
-            displayName: 'Default User',
+            email: USER_DEFAULTS.EMAIL,
+            displayName: USER_DEFAULTS.DISPLAY_NAME,
             mode: 'local',
             isLoggedIn: false,
         };

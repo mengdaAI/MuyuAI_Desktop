@@ -1,12 +1,13 @@
 const fetch = require('node-fetch');
 const { BrowserWindow } = require('electron');
 const authService = require('./authService');
+const { API_PATHS } = require('../config/constants');
 
 const loggerPrefix = '[PasscodeService]';
-const SESSION_START_PATH = '/api/v1/session/start';
-const SESSION_STOP_PATH = '/api/v1/session/stop';
-const SESSION_PING_PATH = '/api/v1/session/heartbeat';
-const USER_TIME_SUMMARY_PATH = '/api/v1/user-time-account/summary';
+const SESSION_START_PATH = API_PATHS.SESSION_START;
+const SESSION_STOP_PATH = API_PATHS.SESSION_STOP;
+const SESSION_PING_PATH = API_PATHS.SESSION_HEARTBEAT;
+const USER_TIME_SUMMARY_PATH = API_PATHS.USER_TIME_SUMMARY;
 
 class PasscodeService {
     constructor() {

@@ -10,16 +10,32 @@ try {
 
 // Load environment variables based on NODE_ENV
 const path = require('path');
+const { app } = require('electron');
+const fs = require('fs');
+const { applyEnvironmentDefaults } = require('./features/common/config/constants');
+
 const nodeEnv = process.env.NODE_ENV || 'development';
 const envFile = nodeEnv === 'production' ? '.env.production' : '.env';
-const envPath = path.resolve(process.cwd(), envFile);
-require('dotenv').config({ path: envPath });
+
+// Try multiple paths for .env file (development and packaged app)
+let envPath = path.resolve(process.cwd(), envFile);
+if (!fs.existsSync(envPath) && app && app.isPackaged) {
+    // In packaged app, try app resources path
+    envPath = path.join(process.resourcesPath, envFile);
+}
+
+if (fs.existsSync(envPath)) {
+    require('dotenv').config({ path: envPath });
+} else {
+    // Fallback: Apply environment defaults if .env file is not found
+    applyEnvironmentDefaults(nodeEnv);
+}
 
 if (require('electron-squirrel-startup')) {
     process.exit(0);
 }
 
-const { app, BrowserWindow, shell, ipcMain, dialog, desktopCapturer, session } = require('electron');
+const { BrowserWindow, shell, ipcMain, dialog, desktopCapturer, session } = require('electron');
 const { createWindows } = require('./window/windowManager.js');
 const listenService = require('./features/listen/listenService');
 
