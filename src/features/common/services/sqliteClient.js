@@ -1,12 +1,13 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 const LATEST_SCHEMA = require('../config/schema');
+const { USER_DEFAULTS } = require('../config/constants');
 
 class SQLiteClient {
     constructor() {
         this.db = null;
         this.dbPath = null;
-        this.defaultUserId = 'default_user';
+        this.defaultUserId = USER_DEFAULTS.ID;
     }
 
     connect(dbPath) {

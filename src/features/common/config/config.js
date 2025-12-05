@@ -2,22 +2,34 @@
 // Load environment variables first based on NODE_ENV
 const path = require('path');
 const fs = require('fs');
+const { app } = require('electron');
+const { applyEnvironmentDefaults, PRODUCTION_DEFAULTS, APP_DEFAULTS } = require('./constants');
 
 // Determine which .env file to load
 const nodeEnv = process.env.NODE_ENV || 'development';
 const envFile = nodeEnv === 'production' ? '.env.production' : '.env';
-const envPath = path.resolve(process.cwd(), envFile);
+
+// Try multiple paths for .env file
+let envPath = path.resolve(process.cwd(), envFile);
+if (!fs.existsSync(envPath) && app && app.isPackaged) {
+    envPath = path.join(process.resourcesPath, envFile);
+}
 
 // Load the appropriate .env file
-require('dotenv').config({ path: envPath });
-
-console.log(`[Config] Loading environment from: ${envFile} (NODE_ENV: ${nodeEnv})`);
+if (fs.existsSync(envPath)) {
+    require('dotenv').config({ path: envPath });
+    console.log(`[Config] Loading environment from: ${envFile} (NODE_ENV: ${nodeEnv})`);
+} else {
+    // Fallback to environment defaults
+    applyEnvironmentDefaults(nodeEnv);
+    console.log(`[Config] Using ${nodeEnv} defaults (.env file not found)`);
+}
 
 const os = require('os');
 
-const apiUrl = process.env.MUYU_API_DOMAIN || 'https://muyu-api.mengdaai.com';
-const webUrl = process.env.MUYU_WEB_URL || 'https://muyu-web.mengdaai.com';
-const apiTimeout = process.env.MUYU_API_TIMEOUT || 10000;
+const apiUrl = process.env.MUYU_API_DOMAIN || PRODUCTION_DEFAULTS.API_DOMAIN;
+const webUrl = process.env.MUYU_WEB_URL || PRODUCTION_DEFAULTS.WEB_URL;
+const apiTimeout = process.env.MUYU_API_TIMEOUT || APP_DEFAULTS.API_TIMEOUT;
 
 class Config {
     constructor() {
@@ -28,24 +40,24 @@ class Config {
             
             webUrl: webUrl,
             
-            enableJWT: false,
-            fallbackToHeaderAuth: false,
+            enableJWT: APP_DEFAULTS.ENABLE_JWT,
+            fallbackToHeaderAuth: APP_DEFAULTS.FALLBACK_TO_HEADER_AUTH,
             
-            cacheTimeout: 5 * 60 * 1000,
-            enableCaching: true,
+            cacheTimeout: APP_DEFAULTS.CACHE_TIMEOUT,
+            enableCaching: APP_DEFAULTS.ENABLE_CACHING,
             
-            syncInterval: 0,
-            healthCheckInterval: 30 * 1000,
+            syncInterval: APP_DEFAULTS.SYNC_INTERVAL,
+            healthCheckInterval: APP_DEFAULTS.HEALTH_CHECK_INTERVAL,
             
-            defaultWindowWidth: 400,
-            defaultWindowHeight: 60,
+            defaultWindowWidth: APP_DEFAULTS.DEFAULT_WINDOW_WIDTH,
+            defaultWindowHeight: APP_DEFAULTS.DEFAULT_WINDOW_HEIGHT,
             
-            enableOfflineMode: true,
-            enableFileBasedCommunication: false,
-            enableSQLiteStorage: true,
+            enableOfflineMode: APP_DEFAULTS.ENABLE_OFFLINE_MODE,
+            enableFileBasedCommunication: APP_DEFAULTS.ENABLE_FILE_BASED_COMMUNICATION,
+            enableSQLiteStorage: APP_DEFAULTS.ENABLE_SQLITE_STORAGE,
             
-            logLevel: 'info',
-            enableDebugLogging: false
+            logLevel: APP_DEFAULTS.LOG_LEVEL,
+            enableDebugLogging: APP_DEFAULTS.ENABLE_DEBUG_LOGGING
         };
         
         this.config = { ...this.defaults };

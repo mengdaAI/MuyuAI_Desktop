@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const sqliteClient = require('./sqliteClient');
 const config = require('../config/config');
+const { USER_DEFAULTS } = require('../config/constants');
 
 class DatabaseInitializer {
     constructor() {
@@ -152,7 +153,7 @@ sqliteClient.connect(this.dbPath); // Pass DB path as argument
                 await sqliteClient.initDefaultData();
             }
 
-            const presetTemplates = await sqliteClient.getPresets('default_user');
+            const presetTemplates = await sqliteClient.getPresets(USER_DEFAULTS.ID);
             if (!presetTemplates || presetTemplates.length === 0) {
                 console.log('[DatabaseInitializer] Preset templates missing - creating...');
                 await sqliteClient.initDefaultData();
