@@ -3,7 +3,7 @@
    <img src="./public/assets/banner.gif" alt="Logo">
   </a>
 
-  <h1 align="center">Glass by Pickle: Digital Mind Extension 🧠</h1>
+  <h1 align="center">MuyuAI 🧠</h1>
 
 </p>
 
