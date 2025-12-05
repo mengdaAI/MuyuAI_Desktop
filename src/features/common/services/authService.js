@@ -1,5 +1,9 @@
 // 确保环境变量在使用前已加载
-require('dotenv').config();
+const path = require('path');
+const nodeEnv = process.env.NODE_ENV || 'development';
+const envFile = nodeEnv === 'production' ? '.env.production' : '.env';
+const envPath = path.resolve(process.cwd(), envFile);
+require('dotenv').config({ path: envPath });
 
 const { BrowserWindow } = require('electron');
 const fetch = require('node-fetch');

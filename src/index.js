@@ -8,7 +8,12 @@ try {
 } catch (err) {
 }
 
-require('dotenv').config();
+// Load environment variables based on NODE_ENV
+const path = require('path');
+const nodeEnv = process.env.NODE_ENV || 'development';
+const envFile = nodeEnv === 'production' ? '.env.production' : '.env';
+const envPath = path.resolve(process.cwd(), envFile);
+require('dotenv').config({ path: envPath });
 
 if (require('electron-squirrel-startup')) {
     process.exit(0);
@@ -20,7 +25,6 @@ const listenService = require('./features/listen/listenService');
 
 const databaseInitializer = require('./features/common/services/databaseInitializer');
 const authService = require('./features/common/services/authService');
-const path = require('node:path');
 const fetch = require('node-fetch');
 const { autoUpdater } = require('electron-updater');
 const { EventEmitter } = require('events');
