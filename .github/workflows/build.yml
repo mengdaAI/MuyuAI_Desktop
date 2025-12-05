@@ -3,7 +3,7 @@ name: Build & Release
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*-with-artifacts'  # 只在特殊 tag 时触发，例如 v1.0.0-with-artifacts
   workflow_dispatch:
 
 permissions:
