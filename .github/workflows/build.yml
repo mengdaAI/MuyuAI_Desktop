@@ -45,7 +45,10 @@ jobs:
           cache: 'npm'
 
       - name: 📦 Install root dependencies
-        run: npm install
+        run: |
+          npm config set registry https://registry.npmmirror.com
+          npm install --prefer-offline --no-audit
+        continue-on-error: false
 
       - name: 🧱 Build Electron target
         env:
