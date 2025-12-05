@@ -74,8 +74,9 @@ const USER_DEFAULTS = {
  * @returns {object} Environment-specific defaults
  */
 function getEnvironmentDefaults(env = 'production') {
-    // If env is undefined or 'production', use production defaults
-    return (env === 'production' || env === undefined) ? PRODUCTION_DEFAULTS : DEVELOPMENT_DEFAULTS;
+    // Only use development defaults when explicitly set to 'development'
+    // 只有明确设置为 'development' 时才使用开发环境配置，其余情况都使用生产环境配置
+    return env === 'development' ? DEVELOPMENT_DEFAULTS : PRODUCTION_DEFAULTS;
 }
 
 /**

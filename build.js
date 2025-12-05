@@ -15,7 +15,10 @@ const baseConfig = {
     sourcemap: true,
     external: ['electron'],
     define: {
-        'process.env.NODE_ENV': `"${process.env.NODE_ENV || 'development'}"`,
+        'process.env.NODE_ENV': `"${process.env.NODE_ENV || 'production'}"`,
+        'process.env.MUYU_API_DOMAIN': `"${process.env.MUYU_API_DOMAIN || ''}"`,
+        'process.env.MUYU_WEB_URL': `"${process.env.MUYU_WEB_URL || ''}"`,
+        'process.env.STT_BACKEND_ENDPOINT': `"${process.env.STT_BACKEND_ENDPOINT || ''}"`,
     },
     jsx: 'automatic', // 使用新的 JSX 转换
 };
