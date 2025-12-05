@@ -6,7 +6,7 @@ const authService = require('../../services/authService');
 const { getEnvironmentDefaults } = require('../../config/constants');
 
 // 改为连接后端代理服务
-const envDefaults = getEnvironmentDefaults(process.env.NODE_ENV || 'development');
+const envDefaults = getEnvironmentDefaults(process.env.NODE_ENV || 'production');
 const DEFAULT_BACKEND_ENDPOINT = process.env.STT_BACKEND_ENDPOINT || envDefaults.STT_BACKEND_ENDPOINT;
 const DEFAULT_WS_ENDPOINT = DEFAULT_BACKEND_ENDPOINT; // 保持兼容性
 const DEFAULT_RESOURCE_ID = 'volc.bigasr.sauc.duration';

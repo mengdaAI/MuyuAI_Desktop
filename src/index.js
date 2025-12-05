@@ -14,7 +14,7 @@ const { app } = require('electron');
 const fs = require('fs');
 const { applyEnvironmentDefaults } = require('./features/common/config/constants');
 
-const nodeEnv = process.env.NODE_ENV || 'development';
+const nodeEnv = process.env.NODE_ENV || 'production';
 const envFile = nodeEnv === 'production' ? '.env.production' : '.env';
 
 // Try multiple paths for .env file (development and packaged app)

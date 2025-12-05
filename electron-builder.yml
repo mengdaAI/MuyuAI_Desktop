@@ -7,7 +7,7 @@ appId: com.muyu.ai
 productName: 幕语
 
 # Custom artifact naming
-artifactName: 幕语-${version}-${os}-${arch}.${ext}
+artifactName: muyu-${version}-${os}-${arch}.${ext}
 
 # Publish configuration for GitHub releases
 publish:

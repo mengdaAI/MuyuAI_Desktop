@@ -6,7 +6,7 @@ const { app } = require('electron');
 const { applyEnvironmentDefaults, PRODUCTION_DEFAULTS, APP_DEFAULTS } = require('./constants');
 
 // Determine which .env file to load
-const nodeEnv = process.env.NODE_ENV || 'development';
+const nodeEnv = process.env.NODE_ENV || 'production';
 const envFile = nodeEnv === 'production' ? '.env.production' : '.env';
 
 // Try multiple paths for .env file
@@ -33,7 +33,7 @@ const apiTimeout = process.env.MUYU_API_TIMEOUT || APP_DEFAULTS.API_TIMEOUT;
 
 class Config {
     constructor() {
-        this.env = process.env.NODE_ENV || 'development';
+        this.env = process.env.NODE_ENV || 'production';
         this.defaults = {
             apiUrl: apiUrl,
             apiTimeout: apiTimeout,
