@@ -3,9 +3,11 @@ const zlib = require('zlib');
 const { randomUUID } = require('crypto');
 const { EventEmitter } = require('events');
 const authService = require('../../services/authService');
+const { getEnvironmentDefaults } = require('../../config/constants');
 
 // 改为连接后端代理服务
-const DEFAULT_BACKEND_ENDPOINT = process.env.STT_BACKEND_ENDPOINT || 'ws://localhost:8080/api/v1/stt/stream';
+const envDefaults = getEnvironmentDefaults(process.env.NODE_ENV || 'development');
+const DEFAULT_BACKEND_ENDPOINT = process.env.STT_BACKEND_ENDPOINT || envDefaults.STT_BACKEND_ENDPOINT;
 const DEFAULT_WS_ENDPOINT = DEFAULT_BACKEND_ENDPOINT; // 保持兼容性
 const DEFAULT_RESOURCE_ID = 'volc.bigasr.sauc.duration';
 
