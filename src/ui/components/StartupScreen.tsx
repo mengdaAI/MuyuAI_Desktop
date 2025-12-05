@@ -146,7 +146,7 @@ export function StartupScreen({
 
         {/* 错误信息 */}
         {passcodeError && (
-          <div className="absolute left-[35px] top-[214px] w-[385px] text-center text-[#ff9c9c] text-[13px] min-h-[18px]">
+          <div className="absolute left-[35px] top-[214px] w-[385px] text-center text-[#ff9c9c] text-[13px] min-h-[18px] overflow-hidden text-ellipsis whitespace-nowrap">
             {passcodeError}
           </div>
         )}
@@ -155,11 +155,14 @@ export function StartupScreen({
         <button
           onClick={onStartInterview}
           disabled={buttonDisabled}
-          className={`absolute h-[44px] left-[35px] rounded-[22px] top-[222px] w-[385px] flex items-center justify-center transition-all border-none ${buttonDisabled
+          className={`absolute h-[44px] left-[35px] rounded-[22px] w-[385px] flex items-center justify-center transition-all border-none ${buttonDisabled
             ? 'bg-[rgba(255,255,255,0.12)] text-[#bebebe] cursor-not-allowed opacity-75'
             : 'bg-[rgba(255,255,255,0.3)] text-white cursor-pointer hover:bg-[rgba(255,255,255,0.4)]'
             }`}
-          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties & { WebkitAppRegion?: 'drag' | 'no-drag' }}
+          style={{
+            top: passcodeError ? '240px' : '222px',
+            WebkitAppRegion: 'no-drag'
+          } as React.CSSProperties & { WebkitAppRegion?: 'drag' | 'no-drag' }}
         >
           <span className="font-['PingFang_SC:Semibold',sans-serif] not-italic text-[15px]">
             {isVerifyingPasscode ? '核验中…' : '开始面试'}
