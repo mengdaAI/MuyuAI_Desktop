@@ -13,7 +13,6 @@ jobs:
   build:
     strategy:
       fail-fast: false
-      max-parallel: 1  # 一次只运行一个构建,避免并发冲突
       matrix:
         include:
           - os: macos-latest
