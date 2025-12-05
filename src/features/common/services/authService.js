@@ -1,8 +1,11 @@
+// 确保环境变量在使用前已加载
+require('dotenv').config();
+
 const { BrowserWindow } = require('electron');
 const fetch = require('node-fetch');
 const sessionRepository = require('../repositories/session');
 
-const DEFAULT_API_DOMAIN = 'https://api.muyulab.com';
+const DEFAULT_API_DOMAIN = 'https://muyu-api.mengdaai.com';
 const INTERVIEW_LOGIN_PATH = '/api/v1/auth/login_by_token';
 
 class AuthService {
