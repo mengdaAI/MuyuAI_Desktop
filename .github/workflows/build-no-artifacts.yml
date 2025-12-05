@@ -1,0 +1,92 @@
+name: Build & Release (No Artifacts)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      max-parallel: 1  # 一次只运行一个构建,避免并发冲突
+      matrix:
+        include:
+          - os: macos-latest
+            buildArgs: "--mac dmg --x64"
+            artifactName: mac-intel-dmg
+            artifactPath: "dist/*.dmg"
+          - os: macos-latest
+            buildArgs: "--mac dmg --arm64"
+            artifactName: mac-apple-silicon-dmg
+            artifactPath: "dist/*.dmg"
+          - os: windows-latest
+            buildArgs: "--win nsis"
+            artifactName: windows-exe
+            artifactPath: "dist/*.exe"
+          - os: ubuntu-latest
+            buildArgs: "--linux AppImage"
+            artifactName: linux-appimage
+            artifactPath: "dist/*.AppImage"
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: 🚚 Checkout code
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Node.js environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: 📦 Install root dependencies
+        run: |
+          npm config set registry https://registry.npmmirror.com
+          npm install --prefer-offline --no-audit
+        continue-on-error: false
+
+      - name: 🧱 Build Electron target
+        env:
+          MUYU_API_DOMAIN: https://muyu-api.mengdaai.com
+          MUYU_WEB_URL: https://muyu-web.mengdaai.com
+          STT_BACKEND_ENDPOINT: ws://muyu-api.mengdaai.com/api/v1/stt/stream
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        run: |
+          npm run build:renderer
+          npx electron-builder ${{ matrix.buildArgs }} --publish never
+
+      - name: 📋 List dist directory
+        shell: bash
+        run: ls -lah dist/ || dir dist\
+
+      - name: 📤 Upload to Release (直接上传,不使用 artifacts)
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body: |
+            🚀 自动构建发布
+            
+            **构建信息:**
+            - Commit: ${{ github.sha }}
+            - Branch: ${{ github.ref_name }}
+            - Build: #${{ github.run_number }}
+            
+            **下载说明:**
+            - macOS Intel: `.dmg` (mac-intel)
+            - macOS Apple Silicon: `.dmg` (mac-apple-silicon)
+            - Windows: `.exe`
+            - Linux: `.AppImage`
+          files: ${{ matrix.artifactPath }}
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          append_body: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
