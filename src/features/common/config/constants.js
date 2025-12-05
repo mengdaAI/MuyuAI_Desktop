@@ -73,8 +73,9 @@ const USER_DEFAULTS = {
  * @param {string} env - Environment name ('production' or 'development')
  * @returns {object} Environment-specific defaults
  */
-function getEnvironmentDefaults(env = 'development') {
-    return env === 'production' ? PRODUCTION_DEFAULTS : DEVELOPMENT_DEFAULTS;
+function getEnvironmentDefaults(env = 'production') {
+    // If env is undefined or 'production', use production defaults
+    return (env === 'production' || env === undefined) ? PRODUCTION_DEFAULTS : DEVELOPMENT_DEFAULTS;
 }
 
 /**
@@ -82,7 +83,7 @@ function getEnvironmentDefaults(env = 'development') {
  * 将环境默认值应用到 process.env(如果尚未设置)
  * @param {string} env - Environment name
  */
-function applyEnvironmentDefaults(env = 'development') {
+function applyEnvironmentDefaults(env = 'production') {
     const defaults = getEnvironmentDefaults(env);
     
     process.env.MUYU_API_DOMAIN = process.env.MUYU_API_DOMAIN || defaults.API_DOMAIN;
