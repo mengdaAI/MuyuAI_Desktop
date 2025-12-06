@@ -27,6 +27,9 @@ export function SettingsPanel({ onClose, onExitInterview }: SettingsPanelProps) 
     if (commonApi?.getCurrentUser) {
       commonApi.getCurrentUser().then((user: UserState) => {
         if (user && user.isLoggedIn) {
+          console.log('[SettingsPanel] getCurrentUser result:', user);
+          console.log('[SettingsPanel] user.phone:', user.phone);
+          console.log('[SettingsPanel] user.email:', user.email);
           setUserState(user);
         }
       });
@@ -36,6 +39,9 @@ export function SettingsPanel({ onClose, onExitInterview }: SettingsPanelProps) 
     if (commonApi?.onUserStateChanged) {
       const handleUserStateChanged = (event: any, user: UserState) => {
         if (user && user.isLoggedIn) {
+          console.log('[SettingsPanel] onUserStateChanged result:', user);
+          console.log('[SettingsPanel] user.phone:', user.phone);
+          console.log('[SettingsPanel] user.email:', user.email);
           setUserState(user);
         } else {
           setUserState(null);
@@ -132,11 +138,18 @@ export function SettingsPanel({ onClose, onExitInterview }: SettingsPanelProps) 
                   {userState.displayName}
                 </p>
               )}
-              {userState.email && (
-                <p className="font-['PingFang_SC:Regular',sans-serif] leading-[18px] not-italic text-[rgba(255,255,255,0.6)] text-[12px] truncate">
-                  {userState.email}
-                </p>
-              )}
+              {/* 优先显示手机号，如果没有手机号则显示邮箱 */}
+              {(() => {
+                return userState.phone ? (
+                  <p className="font-['PingFang_SC:Regular',sans-serif] leading-[18px] not-italic text-[rgba(255,255,255,0.6)] text-[12px] truncate">
+                    {userState.phone}
+                  </p>
+                ) : userState.email ? (
+                  <p className="font-['PingFang_SC:Regular',sans-serif] leading-[18px] not-italic text-[rgba(255,255,255,0.6)] text-[12px] truncate">
+                    {userState.email}
+                  </p>
+                ) : null;
+              })()}
             </div>
           </div>
         </div>

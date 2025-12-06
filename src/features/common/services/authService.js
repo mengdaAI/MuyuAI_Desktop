@@ -86,6 +86,7 @@ class AuthService {
                 uid: this.currentUser.uid,
                 email: this.currentUser.email,
                 displayName: this.currentUser.displayName,
+                phone: this.currentUser.phone || null,
                 mode: 'interview',
                 isLoggedIn: true,
                 authToken: this.interviewAuth?.token || null,
@@ -159,8 +160,15 @@ class AuthService {
             `interview_${Date.now()}`;
 
         const normalizedId = String(inferredId);
-        const displayName = userPayload?.name || userPayload?.displayName || userPayload?.nickname || 'Interview User';
-        const email = userPayload?.email || `${normalizedId}@muyu.ai`;
+        const displayName = userPayload?.name || userPayload?.displayName || userPayload?.nickname || userPayload?.profile?.displayName || 'Interview User';
+        const email = userPayload?.email || userPayload?.profile?.email || `${normalizedId}@muyu.ai`;
+        // 手机号可能在 profile 对象中
+        const phone = userPayload?.phone || userPayload?.phoneNumber || userPayload?.mobile || userPayload?.profile?.phone || null;
+
+        console.log('[AuthService] _setInterviewUserState - userPayload:', userPayload);
+        console.log('[AuthService] _setInterviewUserState - extracted phone:', phone);
+        console.log('[AuthService] _setInterviewUserState - extracted email:', email);
+        console.log('[AuthService] _setInterviewUserState - normalizedId:', normalizedId);
 
         this.currentUserId = normalizedId;
         this.currentUserMode = 'interview';
@@ -168,9 +176,12 @@ class AuthService {
             uid: normalizedId,
             email,
             displayName,
+            phone,
             mode: 'interview',
             isLoggedIn: true,
         };
+        
+        console.log('[AuthService] _setInterviewUserState - final currentUser:', this.currentUser);
         this.interviewAuth = {
             token: jwtToken,
             user: userPayload || null,

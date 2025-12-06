@@ -24,6 +24,7 @@ export interface UserState {
   uid: string;
   email: string;
   displayName: string;
+  phone?: string;
   mode: 'local' | 'interview';
   isLoggedIn: boolean;
   totalInterviewSeconds?: number;
