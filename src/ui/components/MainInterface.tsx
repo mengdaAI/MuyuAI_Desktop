@@ -139,7 +139,10 @@ export function MainInterface({
       >
         {turns.length === 0 && (
           <p className="font-['PingFang_SC:Semibold',sans-serif] leading-[1.5] not-italic text-[rgba(255,255,255,0.7)] text-[14px] whitespace-pre-wrap">
-            点击右侧按钮开始收音，回答将展示在此区域
+            {!remainingMinutes || remainingMinutes <= 0
+              ? '剩余时长不足，请兑换后继续使用'
+              : '点击右侧按钮开始收音，回答将展示在此区域'
+            }
           </p>
         )}
         {turns.map((turn) => {
@@ -208,6 +211,7 @@ export function MainInterface({
             answer={screenshotAnswer}
             isLoading={isScreenshotLoading}
             showAnswer={showScreenshotAnswer}
+            remainingMinutes={remainingMinutes}
             onAnswer={onScreenshotAnswer}
           />
         )}
@@ -216,6 +220,7 @@ export function MainInterface({
             inputValue={inputValue}
             history={inputHistory}
             isAnswering={isAnswering}
+            remainingMinutes={remainingMinutes}
             onInputChange={onInputChange}
             onSend={onSend}
           />

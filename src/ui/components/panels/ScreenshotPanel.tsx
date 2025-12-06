@@ -5,9 +5,10 @@ interface ScreenshotPanelProps {
   onAnswer: () => void;
   answer?: string;
   isLoading?: boolean;
+  remainingMinutes?: number | null;
 }
 
-export function ScreenshotPanel({ showAnswer, onAnswer, answer = "", isLoading = false }: ScreenshotPanelProps) {
+export function ScreenshotPanel({ showAnswer, onAnswer, answer = "", isLoading = false, remainingMinutes }: ScreenshotPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // 当有新内容或加载状态改变时，自动滚动到底部
@@ -31,7 +32,7 @@ export function ScreenshotPanel({ showAnswer, onAnswer, answer = "", isLoading =
       </button>
 
       {/* 结果展示区域 - 参考 InputPanel 的滚动区域 */}
-      <div 
+      <div
         ref={scrollRef}
         className="absolute left-[22px] top-[76px] w-[414px] h-[280px] overflow-y-auto"
         style={{ scrollbarWidth: 'none' }}
@@ -39,7 +40,10 @@ export function ScreenshotPanel({ showAnswer, onAnswer, answer = "", isLoading =
         {/* 初始状态显示占位符 */}
         {!showAnswer && !isLoading && !answer && (
           <p className="font-['PingFang_SC:Semibold',sans-serif] leading-[1.5] not-italic text-[#999999] text-[14px] whitespace-pre-wrap">
-            点击上方按钮开始截屏分析...
+            {!remainingMinutes || remainingMinutes <= 0
+              ? '剩余时长不足，请兑换后继续使用'
+              : '点击上方按钮开始截屏分析...'
+            }
           </p>
         )}
 

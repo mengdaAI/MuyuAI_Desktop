@@ -5,11 +5,12 @@ interface InputPanelProps {
   inputValue: string;
   history?: { question: string; answer: string }[];
   isAnswering?: boolean;
+  remainingMinutes?: number | null;
   onInputChange: (value: string) => void;
   onSend: () => void;
 }
 
-export function InputPanel({ inputValue, history = [], isAnswering = false, onInputChange, onSend }: InputPanelProps) {
+export function InputPanel({ inputValue, history = [], isAnswering = false, remainingMinutes, onInputChange, onSend }: InputPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -24,7 +25,7 @@ export function InputPanel({ inputValue, history = [], isAnswering = false, onIn
       <div className="absolute bg-[rgba(193,127,255,0.1)] h-[44px] left-[22px] rounded-[14px] top-[16px] w-[414px] z-10">
         <div aria-hidden="true" className="absolute border border-[#c17fff] border-solid inset-0 pointer-events-none rounded-[14px]" />
       </div>
-      
+
       <div className="absolute flex flex-col font-['PingFang_SC:Regular',sans-serif] h-[22px] justify-center leading-[0] left-[40px] not-italic text-[15px] text-white top-[38px] translate-y-[-50%] w-[340px] z-20">
         <input
           type="text"
@@ -38,9 +39,9 @@ export function InputPanel({ inputValue, history = [], isAnswering = false, onIn
 
       {/* 发送按钮 */}
       {inputValue.trim() && (
-        <button 
+        <button
           onClick={onSend}
-          className="absolute left-[401px] top-[27px] size-[21px] cursor-pointer bg-transparent border-none p-0 z-20" 
+          className="absolute left-[401px] top-[27px] size-[21px] cursor-pointer bg-transparent border-none p-0 z-20"
           data-name="Vector"
         >
           <svg className="block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 21 21">
@@ -50,14 +51,17 @@ export function InputPanel({ inputValue, history = [], isAnswering = false, onIn
       )}
 
       {/* 历史记录展示区域 */}
-      <div 
+      <div
         ref={scrollRef}
         className="absolute left-[22px] top-[76px] w-[414px] h-[280px] overflow-y-auto"
         style={{ scrollbarWidth: 'none' }}
       >
         {history.length === 0 && (
           <p className="font-['PingFang_SC:Semibold',sans-serif] leading-[1.5] not-italic text-[#999999] text-[14px] whitespace-pre-wrap">
-            此处将展示生成的回答...
+            {!remainingMinutes || remainingMinutes <= 0
+              ? '剩余时长不足，请兑换后继续使用'
+              : '此处将展示生成的回答...'
+            }
           </p>
         )}
 
