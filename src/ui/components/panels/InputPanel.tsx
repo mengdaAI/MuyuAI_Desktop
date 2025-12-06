@@ -20,41 +20,40 @@ export function InputPanel({ inputValue, history = [], isAnswering = false, rema
   }, [history, isAnswering]);
 
   return (
-    <>
-      {/* 输入框区域 - 固定在顶部 */}
-      <div className="absolute bg-[rgba(193,127,255,0.1)] h-[44px] left-[22px] rounded-[14px] top-[16px] w-[414px] z-10">
-        <div aria-hidden="true" className="absolute border border-[#c17fff] border-solid inset-0 pointer-events-none rounded-[14px]" />
-      </div>
-
-      <div className="absolute flex flex-col font-['PingFang_SC:Regular',sans-serif] h-[22px] justify-center leading-[0] left-[40px] not-italic text-[15px] text-white top-[38px] translate-y-[-50%] w-[340px] z-20">
+    <div className="w-full h-full">
+      <div
+        className="w-full pl-[18px] rounded-[14px] border border-[#c17fff] border-solid relative font-['PingFang_SC:Regular',sans-serif] h-[44px] justify-center leading-[0] not-italic text-[15px] text-white"
+      >
         <input
           type="text"
           value={inputValue}
           onChange={(e) => onInputChange(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && inputValue.trim() && onSend()}
-          className="bg-transparent border-none outline-none leading-[normal] text-white w-full placeholder:text-white placeholder:opacity-50"
+          className="h-full w-full bg-transparent border-none outline-none leading-[normal] text-white w-full placeholder:text-white placeholder:opacity-50"
           placeholder="输入你想问的任何问题"
         />
+        {/* 发送按钮 */}
+        {inputValue.trim() && (
+          <button
+            onClick={onSend}
+            className="absolute top-[12px] size-[21px] cursor-pointer bg-transparent border-none p-0"
+            data-name="Vector"
+            style={{
+              right: '12px'
+            }}
+          >
+            <svg className="block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 21 21">
+              <path d={svgPaths.p1d306b00} fill="var(--fill-0, #C17FFF)" id="Vector" />
+            </svg>
+          </button>
+        )}
       </div>
-
-      {/* 发送按钮 */}
-      {inputValue.trim() && (
-        <button
-          onClick={onSend}
-          className="absolute left-[401px] top-[27px] size-[21px] cursor-pointer bg-transparent border-none p-0 z-20"
-          data-name="Vector"
-        >
-          <svg className="block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 21 21">
-            <path d={svgPaths.p1d306b00} fill="var(--fill-0, #C17FFF)" id="Vector" />
-          </svg>
-        </button>
-      )}
 
       {/* 历史记录展示区域 */}
       <div
         ref={scrollRef}
-        className="absolute left-[22px] top-[76px] w-[414px] h-[280px] overflow-y-auto"
-        style={{ scrollbarWidth: 'none' }}
+        className="mt-[16px] w-full overflow-y-auto"
+        style={{ scrollbarWidth: 'none', height: 'calc(100% - 44px - 16px)' }}
       >
         {history.length === 0 && (
           <p className="font-['PingFang_SC:Semibold',sans-serif] leading-[1.5] not-italic text-[#999999] text-[14px] whitespace-pre-wrap">
@@ -91,7 +90,7 @@ export function InputPanel({ inputValue, history = [], isAnswering = false, rema
           </div>
         ))}
       </div>
-    </>
+    </div>
   );
 }
 

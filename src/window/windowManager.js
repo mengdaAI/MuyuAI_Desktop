@@ -527,6 +527,9 @@ function createFeatureWindows(header, namesToCreate) {
                     width: 524,
                     height: 393,
                     maxHeight: 900,
+                    resizable: true,
+                    minWidth: 524,
+                    minHeight: 393,
                 });
                 mainWin.setContentProtection(isContentProtectionOn);
                 mainWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
@@ -1049,6 +1052,101 @@ const handleHeaderStateChanged = (state) => {
 };
 
 
+// 存储每个窗口的 resize 起始状态
+const windowResizeState = new Map();
+
+function resizeMainWindow(senderWebContents, { edge, deltaX, deltaY, startWidth, startHeight }) {
+    const win = BrowserWindow.fromWebContents(senderWebContents);
+    if (!win || win.isDestroyed()) return;
+
+    const currentBounds = win.getBounds();
+    const display = getCurrentDisplay(win);
+    const workArea = display.workArea;
+
+    // 如果是第一次 resize，保存起始状态
+    const winId = win.id;
+    if (!windowResizeState.has(winId)) {
+        windowResizeState.set(winId, {
+            startBounds: { ...currentBounds },
+            startWidth,
+            startHeight,
+        });
+    }
+
+    const resizeState = windowResizeState.get(winId);
+    const startBounds = resizeState.startBounds;
+
+    let newBounds = { ...startBounds };
+
+    // 根据边沿方向调整窗口大小 - 移除最小尺寸限制，允许自由调整
+    switch (edge) {
+        case 'top':
+            newBounds.y = Math.max(workArea.y, startBounds.y + deltaY);
+            newBounds.height = startHeight - deltaY; // 移除最小尺寸限制
+            break;
+        case 'bottom':
+            newBounds.height = startHeight + deltaY; // 移除最小尺寸限制
+            break;
+        case 'left':
+            newBounds.x = Math.max(workArea.x, startBounds.x + deltaX);
+            newBounds.width = startWidth - deltaX; // 移除最小尺寸限制
+            break;
+        case 'right':
+            newBounds.width = startWidth + deltaX; // 移除最小尺寸限制
+            break;
+        case 'top-left':
+            newBounds.x = Math.max(workArea.x, startBounds.x + deltaX);
+            newBounds.y = Math.max(workArea.y, startBounds.y + deltaY);
+            newBounds.width = startWidth - deltaX; // 移除最小尺寸限制
+            newBounds.height = startHeight - deltaY; // 移除最小尺寸限制
+            break;
+        case 'top-right':
+            newBounds.y = Math.max(workArea.y, startBounds.y + deltaY);
+            newBounds.width = startWidth + deltaX; // 移除最小尺寸限制
+            newBounds.height = startHeight - deltaY; // 移除最小尺寸限制
+            break;
+        case 'bottom-left':
+            newBounds.x = Math.max(workArea.x, startBounds.x + deltaX);
+            newBounds.width = startWidth - deltaX; // 移除最小尺寸限制
+            newBounds.height = startHeight + deltaY; // 移除最小尺寸限制
+            break;
+        case 'bottom-right':
+            newBounds.width = startWidth + deltaX; // 移除最小尺寸限制
+            newBounds.height = startHeight + deltaY; // 移除最小尺寸限制
+            break;
+    }
+
+    // 限制在工作区内
+    if (newBounds.x + newBounds.width > workArea.x + workArea.width) {
+        newBounds.width = workArea.x + workArea.width - newBounds.x;
+    }
+    if (newBounds.y + newBounds.height > workArea.y + workArea.height) {
+        newBounds.height = workArea.y + workArea.height - newBounds.y;
+    }
+
+    // 确保宽度和高度至少为 1px（避免窗口消失）
+    newBounds.width = Math.max(1, newBounds.width);
+    newBounds.height = Math.max(1, newBounds.height);
+
+    win.setBounds(newBounds);
+    
+    // 通知渲染进程窗口大小已变化
+    senderWebContents.send('window:size-changed', {
+        width: newBounds.width,
+        height: newBounds.height
+    });
+}
+
+// 清理 resize 状态（当窗口关闭或 resize 结束时）
+function clearWindowResizeState(winId) {
+    if (winId) {
+        windowResizeState.delete(winId);
+    } else {
+        // 清理所有窗口的 resize 状态
+        windowResizeState.clear();
+    }
+}
+
 module.exports = {
     createWindows,
     createMainOnlyWindow,
@@ -1065,4 +1163,6 @@ module.exports = {
     getHeaderPosition,
     moveHeaderTo,
     adjustWindowHeight,
+    resizeMainWindow,
+    clearWindowResizeState,
 };

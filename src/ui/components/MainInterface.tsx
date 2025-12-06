@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Turn } from "../types";
 import { Frame1, Frame2, Frame3, Group4 } from "./icons";
 import { HideWindowButton } from "./buttons/HideWindowButton";
@@ -29,6 +29,7 @@ interface MainInterfaceProps {
   isRecording: boolean;
   position: { x: number; y: number };
   isDragging: boolean;
+  windowSize?: { width: number; height: number };
   onMouseDown: (e: React.MouseEvent) => void;
   onMouseMove: (e: React.MouseEvent) => void;
   onMouseUp: () => void;
@@ -58,6 +59,7 @@ export function MainInterface({
   isRecording,
   position,
   isDragging,
+  windowSize = { width: 524, height: 393 },
   onMouseDown,
   onMouseMove,
   onMouseUp,
@@ -81,11 +83,106 @@ export function MainInterface({
     }
   }, [turns]);
 
+  // 计算左侧宽度（Group4的宽度）
+  // 当面板打开时，左侧宽度 = 窗口宽度 - 右侧panel宽度 - 中间间距(6px)
+  // 当面板关闭时，左侧宽度 = 窗口宽度
+  const leftWidth = useMemo(() => {
+    if (activePanel) {
+      // activePanel 打开时，右侧panel宽度为 458px
+      return windowSize.width - 458 - 6;
+    } else if (showSettings) {
+      // showSettings 打开时，右侧panel宽度为 298px
+      return windowSize.width - 298 - 6;
+    } else {
+      // 面板关闭时，左侧宽度等于窗口宽度
+      return windowSize.width;
+    }
+  }, [windowSize.width, activePanel, showSettings]);
+
+  // 使用 state 来存储容器大小，确保响应式更新
+  const [containerSize, setContainerSize] = useState({
+    width: leftWidth,
+    height: windowSize.height
+  });
+
+  // 当左侧宽度或窗口高度变化时，更新 containerSize state
+  useEffect(() => {
+    setContainerSize({
+      width: leftWidth,
+      height: windowSize.height,
+    });
+    console.log('[MainInterface] Container size updated:', { leftWidth, windowSize });
+  }, [leftWidth, windowSize.height]);
+
+  const RESIZE_HANDLE_SIZE = 12; // 窗口边沿拖拽区域大小（像素）- 增大以提高捕获率
+  const resizeStateRef = useRef<{ isResizing: boolean; edge: string | null; startX: number; startY: number; startWidth: number; startHeight: number } | null>(null);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!resizeStateRef.current?.isResizing) return;
+
+      const { edge, startX, startY, startWidth, startHeight } = resizeStateRef.current;
+      const deltaX = e.screenX - startX;
+      const deltaY = e.screenY - startY;
+
+      if ((window.api?.headerController as any)?.resizeMainWindow) {
+        (window.api.headerController as any).resizeMainWindow({ edge, deltaX, deltaY, startWidth, startHeight });
+      }
+    };
+
+    const handleMouseUp = (e: MouseEvent) => {
+      if (resizeStateRef.current?.isResizing) {
+        console.log('[MainInterface] Resize ended');
+        resizeStateRef.current.isResizing = false;
+        resizeStateRef.current.edge = null;
+        // 清理主进程的 resize 状态
+        if ((window.api?.headerController as any)?.clearResizeState) {
+          (window.api.headerController as any).clearResizeState();
+        }
+      }
+    };
+
+    // 始终监听，但只在 isResizing 为 true 时处理
+    // 使用 capture 模式确保能捕获到事件
+    window.addEventListener('mousemove', handleMouseMove, true);
+    window.addEventListener('mouseup', handleMouseUp, true);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove, true);
+      window.removeEventListener('mouseup', handleMouseUp, true);
+    };
+  }, []);
+
+  const handleResizeStart = (edge: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    // 不 preventDefault，让浏览器处理鼠标事件
+    const mainDiv = e.currentTarget.closest('.relative') as HTMLElement;
+    if (!mainDiv) return;
+
+    resizeStateRef.current = {
+      isResizing: true,
+      edge,
+      startX: e.screenX,
+      startY: e.screenY,
+      startWidth: mainDiv.offsetWidth,
+      startHeight: mainDiv.offsetHeight,
+    };
+
+    console.log('[MainInterface] Resize started:', { edge, startX: e.screenX, startY: e.screenY, startWidth: mainDiv.offsetWidth, startHeight: mainDiv.offsetHeight });
+  };
+
+  // 使用 state 中的容器大小，确保响应式更新
+  const containerWidth = containerSize.width;
+  const containerHeight = containerSize.height;
+
   return (
     <div
-      className="relative"
+      className="relative flex items-center gap-[6px]"
       style={{
-        width: activePanel || showSettings ? activePanel ? 988 : 828 : 524,
+        // width: containerWidth,
+        // height: containerHeight,
+        width: 'fit-content',
+        height: 'fit-content',
         transform: `translate(${position.x}px, ${position.y}px)`,
         cursor: isDragging ? 'grabbing' : 'grab',
         userSelect: 'none'
@@ -95,7 +192,93 @@ export function MainInterface({
       onMouseUp={onMouseUp}
       onMouseLeave={onMouseUp}
     >
-      <Group4 />
+      {/* 窗口边沿拖拽区域 - 用于调整窗口大小 */}
+      {/* 上边沿 */}
+      <div
+        className="absolute top-0 left-0 right-0 z-[9999]"
+        style={{
+          height: `${RESIZE_HANDLE_SIZE}px`,
+          cursor: 'ns-resize',
+          WebkitAppRegion: 'no-drag'
+        } as React.CSSProperties & { WebkitAppRegion?: 'drag' | 'no-drag' }}
+        onMouseDown={(e) => handleResizeStart('top', e)}
+      />
+      {/* 下边沿 */}
+      <div
+        className="absolute bottom-0 left-0 right-0 z-[9999]"
+        style={{
+          height: `${RESIZE_HANDLE_SIZE}px`,
+          cursor: 'ns-resize',
+          WebkitAppRegion: 'no-drag'
+        } as React.CSSProperties & { WebkitAppRegion?: 'drag' | 'no-drag' }}
+        onMouseDown={(e) => handleResizeStart('bottom', e)}
+      />
+      {/* 左边沿 */}
+      <div
+        className="absolute top-0 bottom-0 left-0 z-[9999]"
+        style={{
+          width: `${RESIZE_HANDLE_SIZE}px`,
+          cursor: 'ew-resize',
+          WebkitAppRegion: 'no-drag'
+        } as React.CSSProperties & { WebkitAppRegion?: 'drag' | 'no-drag' }}
+        onMouseDown={(e) => handleResizeStart('left', e)}
+      />
+      {/* 右边沿 */}
+      <div
+        className="absolute top-0 bottom-0 right-0 z-[9999]"
+        style={{
+          width: `${RESIZE_HANDLE_SIZE}px`,
+          cursor: 'ew-resize',
+          WebkitAppRegion: 'no-drag'
+        } as React.CSSProperties & { WebkitAppRegion?: 'drag' | 'no-drag' }}
+        onMouseDown={(e) => handleResizeStart('right', e)}
+      />
+      {/* 四个角 */}
+      {/* 左上角 */}
+      <div
+        className="absolute top-0 left-0 z-[9999]"
+        style={{
+          width: `${RESIZE_HANDLE_SIZE}px`,
+          height: `${RESIZE_HANDLE_SIZE}px`,
+          cursor: 'nw-resize',
+          WebkitAppRegion: 'no-drag'
+        } as React.CSSProperties & { WebkitAppRegion?: 'drag' | 'no-drag' }}
+        onMouseDown={(e) => handleResizeStart('top-left', e)}
+      />
+      {/* 右上角 */}
+      <div
+        className="absolute top-0 right-0 z-[9999]"
+        style={{
+          width: `${RESIZE_HANDLE_SIZE}px`,
+          height: `${RESIZE_HANDLE_SIZE}px`,
+          cursor: 'ne-resize',
+          WebkitAppRegion: 'no-drag'
+        } as React.CSSProperties & { WebkitAppRegion?: 'drag' | 'no-drag' }}
+        onMouseDown={(e) => handleResizeStart('top-right', e)}
+      />
+      {/* 左下角 */}
+      <div
+        className="absolute bottom-0 left-0 z-[9999]"
+        style={{
+          width: `${RESIZE_HANDLE_SIZE}px`,
+          height: `${RESIZE_HANDLE_SIZE}px`,
+          cursor: 'sw-resize',
+          WebkitAppRegion: 'no-drag'
+        } as React.CSSProperties & { WebkitAppRegion?: 'drag' | 'no-drag' }}
+        onMouseDown={(e) => handleResizeStart('bottom-left', e)}
+      />
+      {/* 右下角 */}
+      <div
+        className="absolute bottom-0 right-0 z-[9999]"
+        style={{
+          width: `${RESIZE_HANDLE_SIZE}px`,
+          height: `${RESIZE_HANDLE_SIZE}px`,
+          cursor: 'se-resize',
+          WebkitAppRegion: 'no-drag'
+        } as React.CSSProperties & { WebkitAppRegion?: 'drag' | 'no-drag' }}
+        onMouseDown={(e) => handleResizeStart('bottom-right', e)}
+      />
+      <Group4 width={containerWidth} height={containerHeight} />
       <div className="absolute pr-[18px] pl-[18px] bottom-[18px] left-0 w-[462px] flex item-center justify-between">
         <StatusIndicator isRecording={isRecording} />
         {typeof remainingMinutes === 'number' && remainingMinutes > 0 && (
@@ -105,8 +288,10 @@ export function MainInterface({
           </p>
         )}
       </div>
-      <Frame3 />
-      <div className="absolute left-[475px] top-[16px] h-[361px] flex items-center flex-col justify-between z-10">
+      <div
+        className="absolute top-[16px] h-[361px] flex items-center flex-col justify-between z-10"
+        style={{ left: containerWidth - 49 }}
+      >
         <div className="flex items-center flex-col gap-[18px]">
           {/* 右上角收音按钮 */}
           <RecordingButton
@@ -134,8 +319,8 @@ export function MainInterface({
       {/* 左侧内容区 */}
       <div
         ref={scrollRef}
-        className="absolute left-[22px] top-[18px] w-[420px] h-[330px] overflow-y-auto overflow-x-hidden pb-4"
-        style={{ scrollbarWidth: 'none' }}
+        className="rounded-[19px] absolute left-[22px] top-[18px] h-[330px] overflow-y-auto overflow-x-hidden pb-4"
+        style={{ scrollbarWidth: 'none', width: containerWidth - 104 }}
       >
         {turns.length === 0 && (
           <p className="font-['PingFang_SC:Semibold',sans-serif] leading-[1.5] not-italic text-[rgba(255,255,255,0.7)] text-[14px] whitespace-pre-wrap">
@@ -179,30 +364,15 @@ export function MainInterface({
         })}
       </div>
 
-      {/* 右区域景 - 带动画 */}
-      <div
-        className={`absolute h-[393px] left-[530px] top-0 w-[458px] transition-all duration-300 ease-out ${activePanel ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-12'
-          }`}
-        style={{
-          pointerEvents: activePanel ? 'auto' : 'none',
-          visibility: activePanel ? 'visible' : 'hidden'
-        }}
-      >
-        <svg className="block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 458 393">
-          <g id="Rectangle 3">
-            <path d={svgPathsScreenshot.p1c581180} fill="var(--fill-0, #030010)" fillOpacity="0.75" />
-            <path d={svgPathsScreenshot.p17092832} stroke="var(--stroke-0, white)" strokeOpacity="0.2" />
-          </g>
-        </svg>
-      </div>
-
       {/* 根据activePanel显示不同内容 - 带动画 */}
       <div
-        className={`absolute left-[530px] top-0 w-[458px] transition-all duration-300 ease-out delay-75 ${activePanel ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-12'
+        className={`rounded-[19px] relative w-[458px] transition-all duration-300 ease-out delay-75 ${activePanel ? 'translate-x-0' : 'translate-x-12'
           }`}
         style={{
           pointerEvents: activePanel ? 'auto' : 'none',
-          visibility: activePanel ? 'visible' : 'hidden'
+          background: '#030010BF',
+          height: containerHeight,
+          padding: '16px 22px',
         }}
       >
         {activePanel === 'history' && <HistoryPanel turns={turns} />}

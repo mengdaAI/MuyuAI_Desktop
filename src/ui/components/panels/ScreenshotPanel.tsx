@@ -24,7 +24,11 @@ export function ScreenshotPanel({ showAnswer, onAnswer, answer = "", isLoading =
       <button
         onClick={onAnswer}
         disabled={isLoading}
-        className="absolute bg-[rgba(193,127,255,0.15)] h-[39px] left-[180px] rounded-[22px] top-[16px] w-[98px] flex items-center justify-center border border-[#c17fff] border-solid cursor-pointer hover:bg-[rgba(193,127,255,0.25)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-20"
+        style={{
+          marginLeft: '50%',
+          transform: 'translateX(-50%)'
+        }}
+        className="bg-[rgba(193,127,255,0.15)] h-[39px] rounded-[22px] w-[98px] flex items-center justify-center border border-[#c17fff] border-solid cursor-pointer hover:bg-[rgba(193,127,255,0.25)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <span className="font-['PingFang_SC:Semibold',sans-serif] not-italic text-[#c17fff] text-[16px]">
           {isLoading ? '分析中...' : '截屏回答'}
@@ -34,7 +38,7 @@ export function ScreenshotPanel({ showAnswer, onAnswer, answer = "", isLoading =
       {/* 结果展示区域 - 参考 InputPanel 的滚动区域 */}
       <div
         ref={scrollRef}
-        className="absolute left-[22px] top-[76px] w-[414px] h-[280px] overflow-y-auto"
+        className="w-full h-full overflow-y-auto mt-[16px]"
         style={{ scrollbarWidth: 'none' }}
       >
         {/* 初始状态显示占位符 */}

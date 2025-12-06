@@ -17,6 +17,9 @@ export function MainInterfaceContainer() {
   const [inputAnswer, setInputAnswer] = useState("");
   const [isAnswering, setIsAnswering] = useState(false);
 
+  // Window size state - 监听窗口大小变化
+  const [windowSize, setWindowSize] = useState({ width: 524, height: 393 });
+
   // Screenshot state
   const [screenshotAnswer, setScreenshotAnswer] = useState("");
   const [isScreenshotLoading, setIsScreenshotLoading] = useState(false);
@@ -251,6 +254,8 @@ export function MainInterfaceContainer() {
 
   // Refs
   const prevPanelOpen = useRef(false);
+  const prevActivePanel = useRef<'input' | 'screenshot' | 'history' | null>(null);
+  const prevShowSettings = useRef(false);
 
   // Shortcuts listener
   const handleShortcutsUpdate = useCallback((event: any, keybinds: Shortcuts) => {
@@ -312,21 +317,102 @@ export function MainInterfaceContainer() {
     []
   );
 
+  // 监听窗口大小变化
+  useEffect(() => {
+    const handleResize = () => {
+      const newSize = {
+        width: window.innerWidth,
+        height: window.innerHeight,
+      };
+      console.log('[MainInterfaceContainer] Window resize event:', newSize);
+      setWindowSize(newSize);
+    };
+
+    // 初始设置
+    handleResize();
+
+    // 监听窗口大小变化
+    window.addEventListener('resize', handleResize);
+
+    // 监听 IPC 事件通知的窗口大小变化（当通过 resizeMainWindow 调整时）
+    const handleIpcResize = (event: any, size: { width: number; height: number }) => {
+      console.log('[MainInterfaceContainer] Window size changed via IPC:', size);
+      setWindowSize(size);
+    };
+
+    // 使用 Electron IPC 监听窗口大小变化
+    if ((window as any).api?.common?.onWindowSizeChanged) {
+      (window as any).api.common.onWindowSizeChanged(handleIpcResize);
+    }
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if ((window as any).api?.common?.removeOnWindowSizeChanged) {
+        (window as any).api.common.removeOnWindowSizeChanged(handleIpcResize);
+      }
+    };
+  }, []);
+
   // Resize window when panel state changes
   useEffect(() => {
     const isPanelOpen = !!(activePanel || showSettings);
+    const wasPanelOpen = prevPanelOpen.current;
+    const wasActivePanel = prevActivePanel.current;
+    const wasShowSettings = prevShowSettings.current;
 
-    if (prevPanelOpen.current !== isPanelOpen) {
-      const width = isPanelOpen ? activePanel ? 988 : 828 : 524
-      const height = 393;
-
-      if (window.api?.headerController?.resizeHeaderWindow) {
-        window.api.headerController.resizeHeaderWindow({ width, height }).catch(console.error);
+    if (wasPanelOpen !== isPanelOpen || wasActivePanel !== activePanel || wasShowSettings !== showSettings) {
+      // 计算左侧宽度（Group4的宽度）
+      // 如果之前面板是打开的，需要从当前窗口宽度中减去右侧panel宽度和间距
+      let leftWidth: number;
+      if (wasPanelOpen) {
+        // 从打开状态切换到关闭状态或其他状态，计算左侧宽度
+        if (wasActivePanel) {
+          // 之前是 activePanel 打开，左侧宽度 = 当前窗口宽度 - 458 - 6
+          leftWidth = windowSize.width - 458 - 6;
+        } else if (wasShowSettings) {
+          // 之前是 showSettings 打开，左侧宽度 = 当前窗口宽度 - 298 - 6
+          leftWidth = windowSize.width - 298 - 6;
+        } else {
+          leftWidth = windowSize.width;
+        }
+      } else {
+        // 从关闭状态切换到打开状态，左侧宽度应该是基础宽度 524
+        // 如果当前窗口宽度是 524（未拖拽过），则使用 524
+        // 如果当前窗口宽度不是 524（已拖拽过），则从当前宽度中计算左侧宽度
+        // 但为了保持一致性，我们始终使用 524 作为基础左侧宽度
+        leftWidth = 524;
       }
 
+      // 计算新的窗口宽度
+      let newWidth: number;
+      if (isPanelOpen) {
+        if (activePanel) {
+          // activePanel 打开时，总宽度 = 左侧宽度 + 458 + 6
+          newWidth = leftWidth + 458 + 6;
+        } else if (showSettings) {
+          // showSettings 打开时，总宽度 = 左侧宽度 + 298 + 6
+          newWidth = leftWidth + 298 + 6;
+        } else {
+          newWidth = leftWidth;
+        }
+      } else {
+        // 面板关闭时，总宽度 = 左侧宽度
+        newWidth = leftWidth;
+      }
+
+      // 高度始终使用当前窗口高度
+      const height = windowSize.height;
+
+      if (window.api?.headerController?.resizeHeaderWindow) {
+        window.api.headerController.resizeHeaderWindow({ width: newWidth, height }).catch(console.error);
+      }
+
+      // 更新之前的状态
       prevPanelOpen.current = isPanelOpen;
+      prevActivePanel.current = activePanel;
+      prevShowSettings.current = showSettings;
     }
-  }, [activePanel, showSettings]);
+  }, [activePanel, showSettings, windowSize]);
 
   // Handlers adapted for MainInterface
   const handleToggleRecording = useCallback(() => {
@@ -447,6 +533,7 @@ export function MainInterfaceContainer() {
       isRecording={listenSessionStatus === 'inSession'}
       position={{ x: 0, y: 0 }}
       isDragging={false}
+      windowSize={windowSize}
       onMouseDown={handleMouseDown}
       onMouseMove={() => { }}
       onMouseUp={() => { }}

@@ -40,6 +40,10 @@ contextBridge.exposeInMainWorld('api', {
     // User time summary listener（用于同步剩余时长）
     onUserTimeSummaryUpdated: (callback) => ipcRenderer.on('user-time-summary-updated', callback),
     removeOnUserTimeSummaryUpdated: (callback) => ipcRenderer.removeListener('user-time-summary-updated', callback),
+    
+    // Window size change listener（用于同步窗口大小变化）
+    onWindowSizeChanged: (callback) => ipcRenderer.on('window:size-changed', callback),
+    removeOnWindowSizeChanged: (callback) => ipcRenderer.removeListener('window:size-changed', callback),
   },
 
   // Interview passcode gate
@@ -109,6 +113,8 @@ contextBridge.exposeInMainWorld('api', {
 
     // Window Management
     resizeHeaderWindow: (dimensions) => ipcRenderer.invoke('resize-header-window', dimensions),
+    resizeMainWindow: (params) => ipcRenderer.send('resize-main-window', params),
+    clearResizeState: () => ipcRenderer.send('clear-window-resize-state'),
 
     // Permissions
     checkSystemPermissions: () => ipcRenderer.invoke('check-system-permissions'),

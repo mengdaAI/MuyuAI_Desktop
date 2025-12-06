@@ -90,6 +90,8 @@ export interface WindowAPI {
     sendHeaderStateChanged: (state: string) => void;
     reInitializeModelState: () => Promise<void>;
     resizeHeaderWindow: (dimensions: WindowDimensions) => Promise<void>;
+    resizeMainWindow?: (params: { edge: string; deltaX: number; deltaY: number; startWidth: number; startHeight: number }) => void;
+    clearResizeState?: () => void;
     checkSystemPermissions: () => Promise<PermissionStatus>;
     checkPermissionsCompleted: () => Promise<boolean>;
     isDebugForceMainHeader: () => Promise<boolean>;

@@ -24,6 +24,8 @@ module.exports = {
     ipcMain.handle('get-header-position', () => windowManager.getHeaderPosition());
     ipcMain.handle('move-header-to', (event, newX, newY) => windowManager.moveHeaderTo(newX, newY));
     ipcMain.handle('adjust-window-height', (event, { winName, height }) => windowManager.adjustWindowHeight(winName, height));
+    ipcMain.on('resize-main-window', (event, params) => windowManager.resizeMainWindow(event.sender, params));
+    ipcMain.on('clear-window-resize-state', (event) => windowManager.clearWindowResizeState());
   },
 
   notifyFocusChange(win, isFocused) {
