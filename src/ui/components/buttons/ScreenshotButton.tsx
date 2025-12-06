@@ -13,7 +13,7 @@ export function ScreenshotButton({ onClick, isActive }: ScreenshotButtonProps) {
 
   return (
     <div
-      className="h-[22px]"
+      className="h-[22px] relative"
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
     >

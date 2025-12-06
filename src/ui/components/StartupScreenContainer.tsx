@@ -51,9 +51,7 @@ export function StartupScreenContainer({
         setIsVerifyingPasscode(true);
         setPasscodeError('');
         try {
-            // Type assertion for passcode.verify which exists in preload but not in types
-            const passcodeApi = window.api.passcode as any;
-            const result = await passcodeApi.verify(code);
+            const result = await window.api.passcode?.verify(code);
             if (result?.success) {
                 setPasscodeValue('');
                 onPasscodeVerified?.();
@@ -75,14 +73,11 @@ export function StartupScreenContainer({
         // 优先从主进程配置获取 Web URL，回退到默认官网地址
         const fallback = 'https://www.muyulab.com/';
         try {
-            // Type assertion for common.getWebUrl and openExternal which exist in preload but not in types
-            const commonApi = window.api?.common as any;
-            const webUrl = await commonApi?.getWebUrl?.();
+            const webUrl = await window.api?.common?.getWebUrl();
             const baseUrl = (webUrl || fallback).replace(/\/$/, '');
-            commonApi?.openExternal?.(baseUrl + '/');
+            await window.api?.common?.openExternal(baseUrl + '/');
         } catch {
-            const commonApi = window.api?.common as any;
-            commonApi?.openExternal?.(fallback);
+            await window.api?.common?.openExternal(fallback);
         }
     };
 
