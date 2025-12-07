@@ -7,16 +7,16 @@ import { TranscriptView } from '../transcript/TranscriptView';
 import { ScreenshotView } from '../screenshot/ScreenshotView';
 import '../listen/audioCore/renderer.js';
 
-type ViewType = 
-  | 'main' 
-  | 'listen' 
-  | 'ask' 
-  | 'settings' 
-  | 'shortcut-settings' 
+type ViewType =
+  | 'main'
+  | 'listen'
+  | 'ask'
+  | 'settings'
+  | 'shortcut-settings'
   | 'transcript'
   | 'screenshot'
-  | 'history' 
-  | 'help' 
+  | 'history'
+  | 'help'
   | 'setup';
 
 interface AppProps {
@@ -29,7 +29,7 @@ export function App({ initialView }: AppProps = {}) {
     return (urlParams.get('view') as ViewType) || initialView || 'listen';
   });
 
-  const [selectedProfile, setSelectedProfile] = useState(() => 
+  const [selectedProfile, setSelectedProfile] = useState(() =>
     localStorage.getItem('selectedProfile') || 'interview'
   );
 
@@ -76,14 +76,14 @@ export function App({ initialView }: AppProps = {}) {
     switch (currentView) {
       case 'main':
         return <MainInterfaceContainer />;
-      
+
       case 'listen':
         // ListenView functionality has been moved to MainView
         return <MainInterfaceContainer />;
-      
+
       case 'ask':
         return <AskView />;
-      
+
       case 'settings':
         return (
           <SettingsView
@@ -93,32 +93,32 @@ export function App({ initialView }: AppProps = {}) {
             onLanguageChange={setSelectedLanguage}
           />
         );
-      
+
       case 'shortcut-settings':
         return <ShortCutSettingsView />;
-      
+
       case 'transcript':
         return <TranscriptView />;
-      
+
       case 'screenshot':
         return <ScreenshotView />;
-      
+
       case 'history':
         return <div>History View (TODO)</div>;
-      
+
       case 'help':
         return <div>Help View (TODO)</div>;
-      
+
       case 'setup':
         return <div>Setup View (TODO)</div>;
-      
+
       default:
         return <div>Unknown view: {currentView}</div>;
     }
   };
 
   return (
-    <div className="block w-full h-full text-[var(--text-color)] bg-transparent rounded-[7px]">
+    <div className="block w-full h-full text-[var(--text-color)] bg-transparent rounded-[19px]">
       {renderView()}
     </div>
   );

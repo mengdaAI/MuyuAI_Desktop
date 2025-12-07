@@ -17,7 +17,7 @@ export function HistoryPanel({ turns = [] }: HistoryPanelProps) {
   return (
     <div
       ref={scrollRef}
-      className="w-[398px] h-[357px] overflow-y-auto"
+      className="w-[398px] h-full overflow-y-auto"
       style={{ scrollbarWidth: 'none' }}
     >
       {turns.length === 0 && (

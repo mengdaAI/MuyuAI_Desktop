@@ -318,13 +318,14 @@ export function MainInterface({
         <SettingsPanel
           onClose={onToggleSettings}
           onExitInterview={onExitInterview}
+          leftWidth={leftWidth}
         />
       )}
       {/* 左侧内容区 */}
       <div
         ref={scrollRef}
-        className="absolute left-[22px] top-[18px] h-[330px] overflow-y-auto overflow-x-hidden pb-4"
-        style={{ scrollbarWidth: 'none', width: containerWidth - 104 }}
+        className="absolute left-[22px] top-[18px] overflow-y-auto overflow-x-hidden pb-4"
+        style={{ scrollbarWidth: 'none', width: containerWidth - 104, height: containerHeight - 63 }}
       >
         {turns.length === 0 && (
           <p className="font-['PingFang_SC:Semibold',sans-serif] leading-[1.5] not-italic text-[rgba(255,255,255,0.7)] text-[14px] whitespace-pre-wrap">
@@ -370,8 +371,7 @@ export function MainInterface({
 
       {/* 根据activePanel显示不同内容 - 带动画 */}
       <div
-        className={`rounded-[19px] relative w-[458px] transition-all duration-300 ease-out delay-75 ${activePanel ? 'translate-x-0' : 'translate-x-12'
-          }`}
+        className={`rounded-[19px] relative w-[${showSettings ? 298 : 458}px] transition-all duration-300 ease-out delay-75 ${activePanel || showSettings ? '' : 'hidden'}`}
         style={{
           pointerEvents: activePanel ? 'auto' : 'none',
           background: '#030010BF',
