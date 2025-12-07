@@ -151,6 +151,19 @@ export function SettingsPanel({ onClose, onExitInterview, leftWidth }: SettingsP
             </div>
           </div>
         )}
+
+        {/* 隐身模式按钮 - 仅开发模式显示 */}
+        {process.env.NODE_ENV === 'development' && (
+          <button
+            onClick={handleToggleInvisibility}
+            className="bg-[rgba(138,43,226,0.15)] h-[39px] rounded-[22px] w-[130px] flex items-center justify-center border border-[rgba(138,43,226,0.6)] border-solid cursor-pointer hover:bg-[rgba(138,43,226,0.25)] transition-colors mx-auto"
+          >
+            <span className="font-['PingFang_SC:Semibold',sans-serif] not-italic text-[rgba(180,130,255,1)] text-[14px]">
+              {isContentProtectionOn ? '关闭隐身' : '开启隐身'}
+            </span>
+          </button>
+        )}
+
         {/* 退出面试按钮 */}
         <button
           onClick={onExitInterview}
@@ -158,7 +171,7 @@ export function SettingsPanel({ onClose, onExitInterview, leftWidth }: SettingsP
             marginLeft: '50%',
             transform: 'translateX(-50%)',
           }}
-          className="bg-[rgba(187,46,48,0.15)] h-[39px] rounded-[22px] w-[109px] flex items-center justify-center border border-[#bb0003] border-solid cursor-pointer hover:bg-[rgba(187,46,48,0.25)] transition-colors"
+          className={`bg-[rgba(187,46,48,0.15)] h-[39px] rounded-[22px] w-[109px] flex items-center justify-center border border-[#bb0003] border-solid cursor-pointer hover:bg-[rgba(187,46,48,0.25)] transition-colors ${process.env.NODE_ENV === 'development' ? 'left-[156px]' : 'left-[96px]'}`}
         >
           <span className="font-['PingFang_SC:Semibold',sans-serif] not-italic text-[#d10003] text-[15px]">退出面试</span>
         </button>
