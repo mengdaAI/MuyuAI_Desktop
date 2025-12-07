@@ -16,9 +16,17 @@ class LiveInsightsService {
     }
 
     async handleTranscriptUpdate(turn) {
-        if (!turn || !turn.text || !turn.text.trim()) return;
-        if (turn.speaker !== 'Them') return;
+        console.log('[LiveInsightsService] handleTranscriptUpdate called:', { turnId: turn?.id, speaker: turn?.speaker, text: turn?.text?.slice(0, 50) });
+        if (!turn || !turn.text || !turn.text.trim()) {
+            console.log('[LiveInsightsService] Skipping: empty turn');
+            return;
+        }
+        if (turn.speaker !== 'Them') {
+            console.log('[LiveInsightsService] Skipping: speaker is not Them');
+            return;
+        }
         if (this.currentTurnId === turn.id && this.currentQuestion === turn.text && this.isStreaming) {
+            console.log('[LiveInsightsService] Skipping: duplicate turn, already streaming');
             return;
         }
 
@@ -67,6 +75,7 @@ class LiveInsightsService {
     }
 
     async startStream(turn) {
+        console.log('[LiveInsightsService] startStream called:', { turnId: turn.id, text: turn.text?.slice(0, 50) });
         try {
             this.abortController = new AbortController();
             const payload = this.buildStreamPayload ? (this.buildStreamPayload(turn) || {}) : {};
@@ -78,9 +87,12 @@ class LiveInsightsService {
                     timestamp: turn.timestamp || Date.now(),
                 };
             }
+            console.log('[LiveInsightsService] Calling API with payload:', JSON.stringify(payload).slice(0, 200));
             this.reader = await liveInsightsApi.startInsightStream(payload, { signal: this.abortController.signal });
+            console.log('[LiveInsightsService] API returned reader, starting streamLoop');
             this.streamLoop(this.reader, this.abortController.signal, turn.id);
         } catch (error) {
+            console.error('[LiveInsightsService] startStream error:', error.message);
             this.sendToRenderer('listen:live-answer', {
                 turnId: turn.id,
                 status: 'error',
@@ -147,8 +159,24 @@ class LiveInsightsService {
     }
 
     _processChunk(chunk, turnId, reader) {
-        for (const line of chunk.split('\n')) {
-            if (!line.startsWith('data: ')) continue;
+        const lines = chunk.split('\n');
+        let currentEvent = null;
+
+        for (const line of lines) {
+            // 解析 event: 行
+            if (line.startsWith('event: ')) {
+                currentEvent = line.slice(7).trim();
+                continue;
+            }
+
+            if (!line.startsWith('data: ')) {
+                // 空行重置事件类型
+                if (line.trim() === '') {
+                    currentEvent = null;
+                }
+                continue;
+            }
+
             const data = line.slice(6).trim();
             if (!data) continue;
             if (data === '[DONE]') {
@@ -159,8 +187,17 @@ class LiveInsightsService {
 
             try {
                 const json = JSON.parse(data);
+
+                // 处理 skip 事件：服务端判断问题为语气词，无需处理
+                if (currentEvent === 'skip' || json.event === 'skip') {
+                    this._handleSkipEvent(json, turnId, reader);
+                    currentEvent = null;
+                    return;
+                }
+
                 if (json.status || json.answer || json.reason || json.error) {
                     this._handleStatusEvent(json, turnId);
+                    currentEvent = null;
                     continue;
                 }
                 const token = json.choices?.[0]?.delta?.content || json.token || '';
@@ -176,7 +213,28 @@ class LiveInsightsService {
             } catch (err) {
                 continue;
             }
+            currentEvent = null;
         }
+    }
+
+    _handleSkipEvent(event, turnId, reader) {
+        // 取消流读取
+        reader.cancel().catch(() => {});
+
+        // 发送 skipped 状态给渲染进程
+        this.sendToRenderer('listen:live-answer', {
+            turnId: event.turnId || turnId,
+            status: 'skipped',
+            reason: event.reason || 'acknowledgment',
+            confidence: event.confidence,
+            method: event.method,
+            detectionReason: event.detectionReason,
+        });
+
+        // 重置流状态
+        this.isStreaming = false;
+        this.reader = null;
+        this.abortController = null;
     }
 
     _handleStatusEvent(event, turnId) {

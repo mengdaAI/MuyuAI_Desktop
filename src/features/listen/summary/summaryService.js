@@ -40,9 +40,6 @@ class SummaryService {
         this.conversationHistory.push(conversationText);
         console.log(`💬 Added conversation text: ${conversationText}`);
         console.log(`📈 Total conversation history: ${this.conversationHistory.length} texts`);
-
-        // Trigger analysis if needed
-        this.triggerAnalysisIfNeeded();
     }
 
     getConversationHistory() {
@@ -298,28 +295,6 @@ return this.previousAnalysisResult; // On error, return previous result
 
         console.log('📊 Final structured data:', JSON.stringify(structuredData, null, 2));
         return structuredData;
-    }
-
-    /**
-     * Triggers analysis when conversation history reaches 5 texts.
-     */
-    async triggerAnalysisIfNeeded() {
-        if (this.conversationHistory.length >= 5 && this.conversationHistory.length % 5 === 0) {
-            console.log(`Triggering analysis - ${this.conversationHistory.length} conversation texts accumulated`);
-
-            const data = await this.makeOutlineAndRequests(this.conversationHistory);
-            if (data) {
-                console.log('Sending structured data to renderer');
-                this.sendToRenderer('summary-update', data);
-                
-                // Notify callback
-                if (this.onAnalysisComplete) {
-                    this.onAnalysisComplete(data);
-                }
-            } else {
-                console.log('No analysis data returned');
-            }
-        }
     }
 
     getCurrentAnalysisData() {
