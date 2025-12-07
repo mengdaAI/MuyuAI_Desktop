@@ -86,17 +86,21 @@ export function MainInterface({
   // 计算左侧宽度（Group4的宽度）
   // 当面板打开时，左侧宽度 = 窗口宽度 - 右侧panel宽度 - 中间间距(6px)
   // 当面板关闭时，左侧宽度 = 窗口宽度
+  // 左侧宽度最低为 524px（防止拖拽时过小）
   const leftWidth = useMemo(() => {
+    let calculatedWidth: number;
     if (activePanel) {
       // activePanel 打开时，右侧panel宽度为 458px
-      return windowSize.width - 458 - 6;
+      calculatedWidth = windowSize.width - 458 - 6;
     } else if (showSettings) {
       // showSettings 打开时，右侧panel宽度为 298px
-      return windowSize.width - 298 - 6;
+      calculatedWidth = windowSize.width - 298 - 6;
     } else {
       // 面板关闭时，左侧宽度等于窗口宽度
-      return windowSize.width;
+      calculatedWidth = windowSize.width;
     }
+    // 确保左侧宽度最低为 524px
+    return Math.max(524, calculatedWidth);
   }, [windowSize.width, activePanel, showSettings]);
 
   // 使用 state 来存储容器大小，确保响应式更新
@@ -289,8 +293,8 @@ export function MainInterface({
         )}
       </div>
       <div
-        className="absolute top-[16px] h-[361px] flex items-center flex-col justify-between z-10"
-        style={{ left: containerWidth - 49 }}
+        className="absolute top-[16px] flex items-center flex-col justify-between z-10"
+        style={{ left: containerWidth - 49, height: containerHeight - 32 }}
       >
         <div className="flex items-center flex-col gap-[18px]">
           {/* 右上角收音按钮 */}
@@ -319,7 +323,7 @@ export function MainInterface({
       {/* 左侧内容区 */}
       <div
         ref={scrollRef}
-        className="rounded-[19px] absolute left-[22px] top-[18px] h-[330px] overflow-y-auto overflow-x-hidden pb-4"
+        className="absolute left-[22px] top-[18px] h-[330px] overflow-y-auto overflow-x-hidden pb-4"
         style={{ scrollbarWidth: 'none', width: containerWidth - 104 }}
       >
         {turns.length === 0 && (

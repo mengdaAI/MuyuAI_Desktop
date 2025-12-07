@@ -256,6 +256,7 @@ export function MainInterfaceContainer() {
   const prevPanelOpen = useRef(false);
   const prevActivePanel = useRef<'input' | 'screenshot' | 'history' | null>(null);
   const prevShowSettings = useRef(false);
+  const isPanelStateInitialized = useRef(false);
 
   // Shortcuts listener
   const handleShortcutsUpdate = useCallback((event: any, keybinds: Shortcuts) => {
@@ -328,8 +329,9 @@ export function MainInterfaceContainer() {
       setWindowSize(newSize);
     };
 
-    // 初始设置
-    handleResize();
+    // 初始设置 - 使用初始值而不是读取实际窗口大小，避免影响初始高度
+    // 只在后续的 resize 事件中才读取实际窗口大小
+    setWindowSize({ width: 524, height: 393 });
 
     // 监听窗口大小变化
     window.addEventListener('resize', handleResize);
@@ -359,6 +361,15 @@ export function MainInterfaceContainer() {
     const wasPanelOpen = prevPanelOpen.current;
     const wasActivePanel = prevActivePanel.current;
     const wasShowSettings = prevShowSettings.current;
+
+    // 跳过初始渲染，避免影响初始窗口高度
+    if (!isPanelStateInitialized.current) {
+      isPanelStateInitialized.current = true;
+      prevPanelOpen.current = isPanelOpen;
+      prevActivePanel.current = activePanel;
+      prevShowSettings.current = showSettings;
+      return;
+    }
 
     if (wasPanelOpen !== isPanelOpen || wasActivePanel !== activePanel || wasShowSettings !== showSettings) {
       // 计算左侧宽度（Group4的宽度）
@@ -413,6 +424,67 @@ export function MainInterfaceContainer() {
       prevShowSettings.current = showSettings;
     }
   }, [activePanel, showSettings, windowSize]);
+
+  // 监听窗口大小变化，确保左侧宽度最低为 524px
+  // 使用 useRef 来避免循环更新和初始渲染时的误触发
+  const lastAdjustedWidthRef = useRef<number | null>(null);
+  const isInitialMountRef = useRef(true);
+
+  useEffect(() => {
+    // 跳过初始渲染，避免影响初始窗口高度
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      return;
+    }
+
+    const isPanelOpen = !!(activePanel || showSettings);
+
+    // 计算当前左侧宽度
+    let currentLeftWidth: number;
+    if (isPanelOpen) {
+      if (activePanel) {
+        currentLeftWidth = windowSize.width - 458 - 6;
+      } else if (showSettings) {
+        currentLeftWidth = windowSize.width - 298 - 6;
+      } else {
+        currentLeftWidth = windowSize.width;
+      }
+    } else {
+      currentLeftWidth = windowSize.width;
+    }
+
+    // 如果左侧宽度小于 524，需要调整窗口大小
+    if (currentLeftWidth < 524) {
+      const minLeftWidth = 524;
+      let newWidth: number;
+      if (isPanelOpen) {
+        if (activePanel) {
+          newWidth = minLeftWidth + 458 + 6;
+        } else if (showSettings) {
+          newWidth = minLeftWidth + 298 + 6;
+        } else {
+          newWidth = minLeftWidth;
+        }
+      } else {
+        newWidth = minLeftWidth;
+      }
+
+      // 避免重复调整相同的宽度
+      if (lastAdjustedWidthRef.current === newWidth) {
+        return;
+      }
+      lastAdjustedWidthRef.current = newWidth;
+
+      // 保持当前高度不变，只调整宽度
+      const currentHeight = windowSize.height;
+      if (window.api?.headerController?.resizeHeaderWindow) {
+        window.api.headerController.resizeHeaderWindow({ width: newWidth, height: currentHeight }).catch(console.error);
+      }
+    } else {
+      // 如果左侧宽度正常，清除记录
+      lastAdjustedWidthRef.current = null;
+    }
+  }, [windowSize.width, activePanel, showSettings]); // 只依赖 width，不依赖 height
 
   // Handlers adapted for MainInterface
   const handleToggleRecording = useCallback(() => {
