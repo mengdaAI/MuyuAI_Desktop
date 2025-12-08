@@ -66,6 +66,7 @@ mac:
     gatekeeperAssess: false
     entitlements: entitlements.plist
     entitlementsInherit: entitlements.plist
-    notarize: true
+    notarize:
+      teamId: ${env.APPLE_TEAM_ID}
     target:
       - target: dmg
