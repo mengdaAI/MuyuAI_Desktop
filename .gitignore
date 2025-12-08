@@ -109,3 +109,6 @@ data/*.db-wal
 out/
 dist/
 build/ 
+
+.env
+.env.production
