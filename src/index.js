@@ -409,9 +409,9 @@ async function initAutoUpdater() {
             console.log('Update downloaded:', releaseNotes, releaseName, date, url);
             dialog.showMessageBox({
                 type: 'info',
-                title: 'Application Update',
-                message: `A new version of PickleGlass (${releaseName}) has been downloaded. It will be installed the next time you launch the application.`,
-                buttons: ['Restart', 'Later']
+                title: '幕语更新',
+                message: `幕语新版本 (${releaseName}) 已下载完成，是否立即重启应用以完成更新？`,
+                buttons: ['立即重启', '稍后']
             }).then(response => {
                 if (response.response === 0) {
                     autoUpdater.quitAndInstall();

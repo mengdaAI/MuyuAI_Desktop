@@ -12,9 +12,9 @@ artifactName: muyu-${version}-${os}-${arch}.${ext}
 # Publish configuration for GitHub releases
 publish:
     provider: github
-    owner: muyulab
-    repo: muyu-ai-desktop
-    releaseType: draft
+    owner: mengdaAI
+    repo: MuyuAI_Desktop
+    releaseType: release
 
 # Script to run after signing (for notarization)
 afterSign: notarize.js
