@@ -16,8 +16,6 @@ publish:
     repo: MuyuAI_Desktop
     releaseType: release
 
-# Script to run after signing (for notarization)
-afterSign: notarize.js
 
 # List of files to be included in the app package
 files:
@@ -68,6 +66,7 @@ mac:
     gatekeeperAssess: false
     entitlements: entitlements.plist
     entitlementsInherit: entitlements.plist
-    notarize: false
+    notarize:
+        teamId: ${env.APPLE_TEAM_ID}
     target:
       - target: dmg
