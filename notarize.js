@@ -1,4 +1,5 @@
 const { notarize } = require('@electron/notarize');
+require('dotenv').config();
 
 exports.default = async function (context) {
   if (context.electronPlatformName !== 'darwin') {
@@ -20,7 +21,7 @@ exports.default = async function (context) {
   console.log('🔐 Notarizing macOS build...');
 
   await notarize({
-    appBundleId: 'com.muyu.ai',
+    appBundleId: 'com.muyulab.muyu',
     appPath: appPath,
     appleId: process.env.APPLE_ID,
     appleIdPassword: process.env.APPLE_ID_PASSWORD,

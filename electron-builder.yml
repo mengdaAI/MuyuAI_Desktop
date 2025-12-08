@@ -1,7 +1,7 @@
 # electron-builder.yml
 
 # The unique application ID
-appId: com.muyu.ai
+appId: com.muyulab.muyu
 
 # The user-facing application name
 productName: 幕语
@@ -12,11 +12,12 @@ artifactName: muyu-${version}-${os}-${arch}.${ext}
 # Publish configuration for GitHub releases
 publish:
     provider: github
-    owner: muyu-ai
+    owner: muyulab
     repo: muyu-ai-desktop
     releaseType: draft
 
-
+# Script to run after signing (for notarization)
+afterSign: notarize.js
 
 # List of files to be included in the app package
 files:
@@ -67,6 +68,6 @@ mac:
     gatekeeperAssess: false
     entitlements: entitlements.plist
     entitlementsInherit: entitlements.plist
+    notarize: false
     target:
       - target: dmg
-      - target: zip
