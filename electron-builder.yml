@@ -3,6 +3,9 @@
 # The unique application ID
 appId: com.muyulab.muyu
 
+# Custom notarization script (uses xcrun notarytool directly)
+afterSign: ./notarize.js
+
 # The user-facing application name
 productName: 幕语
 
@@ -66,7 +69,7 @@ mac:
     gatekeeperAssess: false
     entitlements: entitlements.plist
     entitlementsInherit: entitlements.plist
-    notarize:
-      teamId: ${env.APPLE_TEAM_ID}
+    # Disable built-in notarization, use custom afterSign hook instead
+    notarize: false
     target:
       - target: dmg

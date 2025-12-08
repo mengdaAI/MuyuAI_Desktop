@@ -1,32 +1,40 @@
-const { notarize } = require('@electron/notarize');
+const { execSync } = require('child_process');
+const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 30000; // 30 seconds
-
-async function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-async function notarizeWithRetry(options, retries = MAX_RETRIES) {
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      console.log(`🔐 Notarization attempt ${attempt}/${retries}...`);
-      await notarize(options);
-      return; // Success
-    } catch (error) {
-      const isNetworkError = error.message && (
-        error.message.includes('offline') ||
-        error.message.includes('NSURLErrorDomain') ||
-        error.message.includes('network')
-      );
-      
-      if (isNetworkError && attempt < retries) {
-        console.log(`⚠️  Network error on attempt ${attempt}. Retrying in ${RETRY_DELAY_MS / 1000}s...`);
-        await sleep(RETRY_DELAY_MS);
-      } else {
-        throw error;
-      }
+/**
+ * Use xcrun notarytool directly instead of @electron/notarize
+ * to avoid network issues with the library
+ */
+async function notarizeWithXcrun(appPath, appleId, password, teamId) {
+  // Create a zip file for notarization
+  const appName = path.basename(appPath, '.app');
+  const zipPath = path.join(path.dirname(appPath), `${appName}.zip`);
+  
+  console.log(`📦 Creating zip archive: ${zipPath}`);
+  execSync(`ditto -c -k --keepParent "${appPath}" "${zipPath}"`, { stdio: 'inherit' });
+  
+  try {
+    console.log('📤 Submitting to Apple notary service...');
+    
+    // Submit for notarization and wait for result
+    const result = execSync(
+      `xcrun notarytool submit "${zipPath}" --apple-id "${appleId}" --password "${password}" --team-id "${teamId}" --wait`,
+      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
+    );
+    
+    console.log(result);
+    
+    // Staple the notarization ticket to the app
+    console.log('📎 Stapling notarization ticket...');
+    execSync(`xcrun stapler staple "${appPath}"`, { stdio: 'inherit' });
+    
+    console.log('✅ Notarization and stapling complete!');
+  } finally {
+    // Clean up zip file
+    if (fs.existsSync(zipPath)) {
+      fs.unlinkSync(zipPath);
     }
   }
 }
@@ -48,15 +56,14 @@ exports.default = async function (context) {
     return;
   }
 
-  console.log('🔐 Notarizing macOS build...');
+  console.log('🔐 Notarizing macOS build using xcrun notarytool...');
 
-  await notarizeWithRetry({
-    appBundleId: 'com.muyulab.muyu',
-    appPath: appPath,
-    appleId: process.env.APPLE_ID,
-    appleIdPassword: process.env.APPLE_APP_SPECIFIC_PASSWORD,
-    teamId: process.env.APPLE_TEAM_ID,
-  });
+  await notarizeWithXcrun(
+    appPath,
+    process.env.APPLE_ID,
+    process.env.APPLE_APP_SPECIFIC_PASSWORD,
+    process.env.APPLE_TEAM_ID
+  );
 
   console.log(`✅ Successfully notarized ${appName}`);
 }; 
