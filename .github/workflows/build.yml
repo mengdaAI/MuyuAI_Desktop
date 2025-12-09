@@ -15,11 +15,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-latest
+          - os: macos-13
             buildArgs: "--mac dmg --x64"
             artifactName: mac-intel-dmg
             artifactPath: "dist/*.dmg"
-          - os: macos-latest
+          - os: macos-14
             buildArgs: "--mac dmg --arm64"
             artifactName: mac-apple-silicon-dmg
             artifactPath: "dist/*.dmg"
