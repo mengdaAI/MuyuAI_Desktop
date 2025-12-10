@@ -29,12 +29,12 @@ export function HistoryButton({ onClick, isActive }: HistoryButtonProps) {
         </svg>
       </button>
 
-      {/* Tooltip - 在按钮右侧，水平居中对齐 */}
+      {/* Tooltip - 在按钮左侧显示 */}
       {showTooltip && (
-        <div className="absolute left-[42px] top-[-4px] z-[99999]">
-          <div className="absolute bg-[rgba(3,0,16,0.9)] h-[30px] left-[6.65px] rounded-[9px] top-0 w-[75.351px]" />
-          <div className="absolute flex h-[15.556px] items-center justify-center left-0 top-[6.67px] w-[15.514px]">
-            <div className="flex-none rotate-[270deg]">
+        <div className="absolute right-[32px] top-[-4px] z-[99999]">
+          <div className="absolute bg-[rgba(3,0,16,0.9)] h-[30px] right-[6.65px] rounded-[9px] top-0 w-[75.351px]" />
+          <div className="absolute flex h-[15.556px] items-center justify-center right-0 top-[6.67px] w-[15.514px]">
+            <div className="flex-none rotate-[90deg]">
               <div className="h-[15.514px] relative w-[15.556px]">
                 <div className="absolute bottom-1/4 left-[11.41%] right-[11.41%] top-[6.42%]">
                   <svg className="block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 12 11">
@@ -44,7 +44,7 @@ export function HistoryButton({ onClick, isActive }: HistoryButtonProps) {
               </div>
             </div>
           </div>
-          <p className="absolute font-['PingFang_SC:Medium',sans-serif] h-[20px] leading-[normal] left-[17px] not-italic text-[14px] text-white top-[5px] w-[57px]">查看对话</p>
+          <p className="absolute font-['PingFang_SC:Medium',sans-serif] h-[20px] leading-[normal] right-[17px] not-italic text-[14px] text-white top-[5px] whitespace-nowrap">查看对话</p>
         </div>
       )}
     </div>

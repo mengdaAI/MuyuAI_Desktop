@@ -104,16 +104,8 @@ export function SettingsPanel({ onClose, onExitInterview, leftWidth }: SettingsP
         </svg>
       </div>
 
-      {/* 快捷键标题 */}
-      <p className="font-['PingFang_SC:Semibold',sans-serif] leading-[normal] not-italic text-[#999999] text-[14px] w-[76px]">快捷键</p>
-
-      {/* 四个快捷键项 */}
-      <div className="flex items-center justify-between w-full mt-[22px]">
-        <p className="font-['PingFang_SC:Regular',sans-serif] leading-[26px] not-italic text-[14px] text-white w-[144px]">展示/隐藏整个窗口</p>
-        <p className="font-['PingFang_SC:Semibold',sans-serif] leading-[26px] not-italic text-[14px] text-white w-[51px]">Cmd+\</p>
-      </div>
       {/* 显示用户信息  */}
-      <div className="footer absolute w-full bottom-0 left-0 flex flex-col gap-[16px] pb-[21px] justify-center">
+      <div className="w-full mt-[16px]">
         {userState && userState.isLoggedIn && (
           <div className="pl-[16px] w-[266px]">
             {/* 分隔线 */}
@@ -151,7 +143,10 @@ export function SettingsPanel({ onClose, onExitInterview, leftWidth }: SettingsP
             </div>
           </div>
         )}
+      </div>
 
+      {/* 底部按钮区域 - 固定在底部 */}
+      <div className="footer absolute w-full bottom-0 left-0 flex flex-col gap-[16px] pb-[21px] justify-center">
         {/* 隐身模式按钮 - 仅开发模式显示 */}
         {process.env.NODE_ENV === 'development' && (
           <button
