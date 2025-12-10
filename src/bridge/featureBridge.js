@@ -56,6 +56,8 @@ module.exports = {
     ipcMain.handle('passcode:verify', (event, input) => passcodeService.verify(input));
     ipcMain.handle('passcode:stop-session', (event, sessionId) => passcodeService.stopActiveSession(sessionId));
     ipcMain.handle('passcode:get-user-time-summary', () => passcodeService.getUserTimeSummary());
+    ipcMain.handle('passcode:start-recording-heartbeat', () => passcodeService.startRecordingHeartbeat());
+    ipcMain.handle('passcode:stop-recording-heartbeat', () => passcodeService.stopRecordingHeartbeat());
 
     // App
     ipcMain.handle('quit-application', () => app.quit());

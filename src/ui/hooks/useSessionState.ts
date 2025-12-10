@@ -46,13 +46,16 @@ export function useSessionState() {
 
     try {
       const listenButtonText = getListenButtonText(listenSessionStatus);
+      const isStartingRecording = listenSessionStatus === 'beforeSession';
+      const isStoppingRecording = listenSessionStatus === 'inSession';
 
       // Optimistic update for instant UI feedback
-      const nextStatus: ListenSessionStatus = {
+      const statusMap: Record<ListenSessionStatus, ListenSessionStatus> = {
         beforeSession: 'inSession',
         inSession: 'afterSession',
         afterSession: 'beforeSession',
-      }[listenSessionStatus] || 'beforeSession';
+      };
+      const nextStatus: ListenSessionStatus = statusMap[listenSessionStatus] || 'beforeSession';
 
       setListenSessionStatus(nextStatus);
       console.log('[useSessionState] Optimistic status update:', listenSessionStatus, '→', nextStatus);
@@ -62,6 +65,18 @@ export function useSessionState() {
 
       if (window.api) {
         await window.api.mainHeader.sendListenButtonClick(listenButtonText);
+
+        // 开始收音时启动心跳上报
+        if (isStartingRecording) {
+          console.log('[useSessionState] Starting recording heartbeat...');
+          (window as any).api?.passcode?.startRecordingHeartbeat?.();
+        }
+
+        // 停止收音时停止心跳上报
+        if (isStoppingRecording) {
+          console.log('[useSessionState] Stopping recording heartbeat...');
+          (window as any).api?.passcode?.stopRecordingHeartbeat?.();
+        }
       }
     } catch (error) {
       console.error('IPC invoke for session change failed:', error);

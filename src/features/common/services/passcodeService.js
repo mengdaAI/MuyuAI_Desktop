@@ -93,10 +93,7 @@ class PasscodeService {
         }
 
         this.activeSession = sessionResult.session || null;
-        const activeSessionId = this.getActiveSessionId();
-        if (activeSessionId) {
-            this._startSessionPingTimer(activeSessionId);
-        }
+        // 登录后不自动启动心跳，改为在开始收音时启动
         this.isVerified = true;
         console.log(`${loggerPrefix} Passcode verified, interview session started.`);
         return { success: true };
@@ -301,20 +298,77 @@ class PasscodeService {
     }
 
     /**
-     * 每隔 60 秒触发一次 session/ping
+     * 开始收音时调用 - 立即上报一次，然后每 60 秒上报一次
      */
-    _startSessionPingTimer(sessionId) {
-        if (!sessionId) return;
+    async startRecordingHeartbeat() {
+        const sessionId = this.getActiveSessionId();
+        if (!sessionId) {
+            console.warn(`${loggerPrefix} No sessionId for recording heartbeat, skipping.`);
+            return { success: false, error: 'No active session' };
+        }
 
+        // 停止之前的定时器（如果有）
         if (this.sessionPingTimer) {
             clearInterval(this.sessionPingTimer);
             this.sessionPingTimer = null;
         }
 
-        console.log(`${loggerPrefix} Starting session ping timer for sessionId:`, sessionId);
+        // 记录开始时间
+        this.recordingStartTime = Date.now();
+        this.lastHeartbeatTime = Date.now();
+
+        console.log(`${loggerPrefix} Starting recording heartbeat for sessionId:`, sessionId);
+
+        // 立即上报一次（预扣 1 分钟）
+        const result = await this._pingSession(sessionId);
+
+        // 启动定时器，每 60 秒上报一次
         this.sessionPingTimer = setInterval(() => {
+            this.lastHeartbeatTime = Date.now();
             this._pingSession(sessionId).catch(() => { /* 已在内部记录日志 */ });
         }, 60 * 1000);
+
+        return result;
+    }
+
+    /**
+     * 停止收音时调用 - 停止定时器，上报最后一段时间（不足 1 分钟按 1 分钟算）
+     */
+    async stopRecordingHeartbeat() {
+        const sessionId = this.getActiveSessionId();
+
+        // 停止定时器
+        if (this.sessionPingTimer) {
+            clearInterval(this.sessionPingTimer);
+            this.sessionPingTimer = null;
+        }
+
+        if (!sessionId) {
+            console.warn(`${loggerPrefix} No sessionId for stop recording heartbeat.`);
+            return { success: false, error: 'No active session' };
+        }
+
+        // 计算距离上次心跳的时间
+        const now = Date.now();
+        const timeSinceLastHeartbeat = this.lastHeartbeatTime ? (now - this.lastHeartbeatTime) : 0;
+
+        console.log(`${loggerPrefix} Stopping recording heartbeat`, {
+            sessionId,
+            timeSinceLastHeartbeat: `${Math.round(timeSinceLastHeartbeat / 1000)}s`,
+        });
+
+        // 如果距离上次心跳超过 1 秒，则再上报一次（不足 1 分钟按 1 分钟算）
+        // 这样可以确保最后一段时间也被计费
+        if (timeSinceLastHeartbeat > 1000) {
+            const result = await this._pingSession(sessionId);
+            this.recordingStartTime = null;
+            this.lastHeartbeatTime = null;
+            return result;
+        }
+
+        this.recordingStartTime = null;
+        this.lastHeartbeatTime = null;
+        return { success: true, skipped: true };
     }
 
     async stopActiveSession(sessionId = null) {

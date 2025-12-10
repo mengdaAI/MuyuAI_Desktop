@@ -51,6 +51,8 @@ contextBridge.exposeInMainWorld('api', {
     getStatus: () => ipcRenderer.invoke('passcode:get-status'),
     verify: (code) => ipcRenderer.invoke('passcode:verify', code),
     getUserTimeSummary: () => ipcRenderer.invoke('passcode:get-user-time-summary'),
+    startRecordingHeartbeat: () => ipcRenderer.invoke('passcode:start-recording-heartbeat'),
+    stopRecordingHeartbeat: () => ipcRenderer.invoke('passcode:stop-recording-heartbeat'),
   },
 
   // UI Component specific namespaces
