@@ -13,7 +13,8 @@ export function Group4({ width = 524, height = 393 }: Group4Props) {
         width,
         height,
         background: '#030010BF',
-        position: 'relative'
+        position: 'relative',
+        zIndex: 0
       }}
       className="group4-container rounded-[19px]"
     >

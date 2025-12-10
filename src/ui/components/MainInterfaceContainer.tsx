@@ -504,6 +504,7 @@ export function MainInterfaceContainer() {
       setActivePanel(null);
     } else {
       setActivePanel('input');
+      setShowSettings(false); // 关闭 settings 面板
       setShowScreenshotAnswer(false);
     }
   }, [activePanel]);
@@ -514,6 +515,7 @@ export function MainInterfaceContainer() {
       setShowScreenshotAnswer(false);
     } else {
       setActivePanel('screenshot');
+      setShowSettings(false); // 关闭 settings 面板
       setShowScreenshotAnswer(false);
     }
   }, [activePanel]);
@@ -523,6 +525,7 @@ export function MainInterfaceContainer() {
       setActivePanel(null);
     } else {
       setActivePanel('history');
+      setShowSettings(false); // 关闭 settings 面板
     }
   }, [activePanel]);
 

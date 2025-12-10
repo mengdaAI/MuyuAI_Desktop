@@ -83,24 +83,50 @@ export function MainInterface({
     }
   }, [turns]);
 
-  // 计算左侧宽度（Group4的宽度）
-  // 当面板打开时，左侧宽度 = 窗口宽度 - 右侧panel宽度 - 中间间距(6px)
-  // 当面板关闭时，左侧宽度 = 窗口宽度
-  // 左侧宽度最低为 524px（防止拖拽时过小）
-  const leftWidth = useMemo(() => {
-    let calculatedWidth: number;
-    if (activePanel) {
-      // activePanel 打开时，右侧panel宽度为 458px
-      calculatedWidth = windowSize.width - 458 - 6;
-    } else if (showSettings) {
-      // showSettings 打开时，右侧panel宽度为 298px
-      calculatedWidth = windowSize.width - 298 - 6;
-    } else {
+  // 基础宽度常量
+  const BASE_LEFT_WIDTH = 524;
+  const BASE_PANEL_WIDTH = 458;
+  const BASE_SETTINGS_WIDTH = 298;
+  const MIN_LEFT_WIDTH = 400; // 左侧最小宽度
+  const MIN_PANEL_WIDTH = 300; // 右侧面板最小宽度
+  const GAP = 6;
+
+  // 计算左侧宽度（Group4的宽度）和右侧面板宽度
+  // 当拖动窗口时，左右两侧按比例同时变化
+  const { leftWidth, rightPanelWidth } = useMemo(() => {
+    if (!activePanel && !showSettings) {
       // 面板关闭时，左侧宽度等于窗口宽度
-      calculatedWidth = windowSize.width;
+      return { leftWidth: windowSize.width, rightPanelWidth: 0 };
     }
-    // 确保左侧宽度最低为 524px
-    return Math.max(524, calculatedWidth);
+
+    const baseRightWidth = showSettings ? BASE_SETTINGS_WIDTH : BASE_PANEL_WIDTH;
+    const baseTotalWidth = BASE_LEFT_WIDTH + baseRightWidth + GAP;
+    
+    // 计算缩放比例
+    const scale = windowSize.width / baseTotalWidth;
+    
+    // 按比例计算左右宽度
+    let newLeftWidth = Math.round(BASE_LEFT_WIDTH * scale);
+    let newRightWidth = Math.round(baseRightWidth * scale);
+    
+    // 确保最小宽度
+    newLeftWidth = Math.max(MIN_LEFT_WIDTH, newLeftWidth);
+    newRightWidth = Math.max(MIN_PANEL_WIDTH, newRightWidth);
+    
+    // 调整以适应窗口宽度（减去间距）
+    const totalContent = newLeftWidth + newRightWidth + GAP;
+    if (totalContent > windowSize.width) {
+      // 如果超出，优先保证最小宽度，然后按比例缩减
+      const excess = totalContent - windowSize.width;
+      const leftRatio = newLeftWidth / (newLeftWidth + newRightWidth);
+      newLeftWidth = Math.max(MIN_LEFT_WIDTH, newLeftWidth - Math.round(excess * leftRatio));
+      newRightWidth = windowSize.width - newLeftWidth - GAP;
+    }
+
+    return {
+      leftWidth: newLeftWidth,
+      rightPanelWidth: Math.max(MIN_PANEL_WIDTH, newRightWidth)
+    };
   }, [windowSize.width, activePanel, showSettings]);
 
   // 使用 state 来存储容器大小，确保响应式更新
@@ -159,20 +185,20 @@ export function MainInterface({
 
   const handleResizeStart = (edge: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    // 不 preventDefault，让浏览器处理鼠标事件
-    const mainDiv = e.currentTarget.closest('.relative') as HTMLElement;
-    if (!mainDiv) return;
+    e.preventDefault(); // 阻止默认行为，避免文本选择等
 
+    // 使用 windowSize 作为起始大小，而不是从 DOM 获取
+    // 这样无论从哪个边沿开始拖拽，都能正确调整窗口大小
     resizeStateRef.current = {
       isResizing: true,
       edge,
       startX: e.screenX,
       startY: e.screenY,
-      startWidth: mainDiv.offsetWidth,
-      startHeight: mainDiv.offsetHeight,
+      startWidth: windowSize.width,
+      startHeight: windowSize.height,
     };
 
-    console.log('[MainInterface] Resize started:', { edge, startX: e.screenX, startY: e.screenY, startWidth: mainDiv.offsetWidth, startHeight: mainDiv.offsetHeight });
+    console.log('[MainInterface] Resize started:', { edge, startX: e.screenX, startY: e.screenY, startWidth: windowSize.width, startHeight: windowSize.height });
   };
 
   // 使用 state 中的容器大小，确保响应式更新
@@ -183,8 +209,6 @@ export function MainInterface({
     <div
       className="relative flex items-center gap-[6px]"
       style={{
-        // width: containerWidth,
-        // height: containerHeight,
         width: 'fit-content',
         height: 'fit-content',
         transform: `translate(${position.x}px, ${position.y}px)`,
@@ -371,14 +395,69 @@ export function MainInterface({
 
       {/* 根据activePanel显示不同内容 - 带动画 */}
       <div
-        className={`rounded-[19px] relative w-[${showSettings ? 298 : 458}px] transition-all duration-300 ease-out delay-75 ${activePanel || showSettings ? '' : 'hidden'}`}
+        className={`rounded-[19px] relative transition-all duration-300 ease-out delay-75 ${activePanel || showSettings ? '' : 'hidden'}`}
         style={{
           pointerEvents: activePanel ? 'auto' : 'none',
           background: '#030010BF',
+          width: rightPanelWidth,
           height: containerHeight,
           padding: '16px 22px',
+          zIndex: 0,
         }}
       >
+        {/* 右侧面板的边沿拖拽区域 */}
+        {/* 上边沿 */}
+        <div
+          className="absolute top-0 left-0 right-0 z-[9999]"
+          style={{
+            height: `${RESIZE_HANDLE_SIZE}px`,
+            cursor: 'ns-resize',
+            WebkitAppRegion: 'no-drag'
+          } as React.CSSProperties & { WebkitAppRegion?: 'drag' | 'no-drag' }}
+          onMouseDown={(e) => handleResizeStart('top', e)}
+        />
+        {/* 下边沿 */}
+        <div
+          className="absolute bottom-0 left-0 right-0 z-[9999]"
+          style={{
+            height: `${RESIZE_HANDLE_SIZE}px`,
+            cursor: 'ns-resize',
+            WebkitAppRegion: 'no-drag'
+          } as React.CSSProperties & { WebkitAppRegion?: 'drag' | 'no-drag' }}
+          onMouseDown={(e) => handleResizeStart('bottom', e)}
+        />
+        {/* 右边沿 */}
+        <div
+          className="absolute top-0 bottom-0 right-0 z-[9999]"
+          style={{
+            width: `${RESIZE_HANDLE_SIZE}px`,
+            cursor: 'ew-resize',
+            WebkitAppRegion: 'no-drag'
+          } as React.CSSProperties & { WebkitAppRegion?: 'drag' | 'no-drag' }}
+          onMouseDown={(e) => handleResizeStart('right', e)}
+        />
+        {/* 右上角 */}
+        <div
+          className="absolute top-0 right-0 z-[9999]"
+          style={{
+            width: `${RESIZE_HANDLE_SIZE}px`,
+            height: `${RESIZE_HANDLE_SIZE}px`,
+            cursor: 'ne-resize',
+            WebkitAppRegion: 'no-drag'
+          } as React.CSSProperties & { WebkitAppRegion?: 'drag' | 'no-drag' }}
+          onMouseDown={(e) => handleResizeStart('top-right', e)}
+        />
+        {/* 右下角 */}
+        <div
+          className="absolute bottom-0 right-0 z-[9999]"
+          style={{
+            width: `${RESIZE_HANDLE_SIZE}px`,
+            height: `${RESIZE_HANDLE_SIZE}px`,
+            cursor: 'se-resize',
+            WebkitAppRegion: 'no-drag'
+          } as React.CSSProperties & { WebkitAppRegion?: 'drag' | 'no-drag' }}
+          onMouseDown={(e) => handleResizeStart('bottom-right', e)}
+        />
         {activePanel === 'history' && <HistoryPanel turns={turns} />}
         {activePanel === 'screenshot' && (
           <ScreenshotPanel
