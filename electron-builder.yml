@@ -12,12 +12,10 @@ productName: 幕语
 # Custom artifact naming
 artifactName: muyu-${version}-${os}-${arch}.${ext}
 
-# Publish configuration for GitHub releases
+# Publish configuration - Volcengine TOS for China users
 publish:
-    provider: github
-    owner: mengdaAI
-    repo: MuyuAI_Desktop
-    releaseType: release
+    provider: generic
+    url: https://desktop-release.tos-cn-beijing.volces.com/
 
 
 # List of files to be included in the app package
