@@ -177,9 +177,12 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.VOLCENGINE_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.VOLCENGINE_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: cn-beijing
         run: |
           set -x  # Enable debug output
+          
+          # Configure AWS CLI for Volcengine TOS
+          aws configure set default.s3.signature_version s3v4
+          aws configure set default.s3.addressing_style path
           
           # Flatten artifacts directory structure for upload
           mkdir -p upload
@@ -189,18 +192,18 @@ jobs:
           ls -lah upload/
           
           # Upload using AWS CLI (Volcengine TOS is S3-compatible)
-          # Debug: test bucket access first
+          TOS_ENDPOINT="https://tos-cn-beijing.volces.com"
+          
           echo "📋 Testing bucket access..."
-          aws s3 ls s3://desktop-release/ --endpoint-url https://tos-cn-beijing.volces.com || echo "⚠️ List failed"
+          aws s3 ls s3://desktop-release/ --endpoint-url "$TOS_ENDPOINT" --region cn-beijing || echo "⚠️ List failed"
           
           echo "📤 Starting upload to Volcengine TOS..."
           for file in upload/*; do
             filename=$(basename "$file")
             echo "Uploading $filename..."
-            # Use path-style addressing for TOS
             aws s3 cp "$file" "s3://desktop-release/$filename" \
-              --endpoint-url https://tos-cn-beijing.volces.com \
-              --debug 2>&1 | tail -50 \
+              --endpoint-url "$TOS_ENDPOINT" \
+              --region cn-beijing \
               || { echo "❌ Failed to upload $filename"; exit 1; }
           done
           
