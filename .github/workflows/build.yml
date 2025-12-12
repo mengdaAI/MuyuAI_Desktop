@@ -183,6 +183,10 @@ jobs:
           # Configure AWS CLI for Volcengine TOS
           aws configure set default.s3.signature_version s3v4
           aws configure set default.s3.addressing_style virtual
+          aws configure set default.s3.max_concurrent_requests 2
+          aws configure set default.s3.multipart_chunksize 64MB
+          aws configure set default.retry_mode standard
+          aws configure set default.max_attempts 10
           
           # Flatten artifacts directory structure for upload
           mkdir -p upload
@@ -193,7 +197,7 @@ jobs:
           
           # Upload using AWS CLI (Volcengine TOS is S3-compatible)
           # Use S3 endpoint for AWS CLI compatibility
-          TOS_ENDPOINT="https://tos-cn-beijing.volces.com"
+          TOS_ENDPOINT="https://tos-s3-cn-beijing.volces.com"
           
           echo "📋 Testing bucket access..."
           aws s3 ls s3://desktop-release/ --endpoint-url "$TOS_ENDPOINT" --region cn-beijing || echo "⚠️ List failed"
