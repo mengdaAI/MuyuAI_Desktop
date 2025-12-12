@@ -195,7 +195,6 @@ jobs:
             echo "Uploading $filename..."
             aws s3 cp "$file" "s3://desktop-release/$filename" \
               --endpoint-url https://tos-cn-beijing.volces.com \
-              --acl public-read \
               || { echo "❌ Failed to upload $filename"; exit 1; }
           done
           
