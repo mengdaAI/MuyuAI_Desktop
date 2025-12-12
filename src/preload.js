@@ -308,6 +308,14 @@ contextBridge.exposeInMainWorld('api', {
     getCurrentShortcuts: () => ipcRenderer.invoke('settings:getCurrentShortcuts'),
     openShortcutSettingsWindow: () => ipcRenderer.invoke('shortcut:openShortcutSettingsWindow'),
 
+    // App Update
+    checkForUpdates: () => ipcRenderer.invoke('updater:check'),
+    getAppVersion: () => ipcRenderer.invoke('updater:get-version'),
+    getUpdateStatus: () => ipcRenderer.invoke('updater:get-status'),
+    installUpdate: () => ipcRenderer.invoke('updater:install'),
+    onUpdateStatus: (callback) => ipcRenderer.on('updater:status', callback),
+    removeOnUpdateStatus: (callback) => ipcRenderer.removeListener('updater:status', callback),
+
     // Window Management
     moveWindowStep: (direction) => ipcRenderer.invoke('move-window-step', direction),
     cancelHideSettingsWindow: () => ipcRenderer.send('cancel-hide-settings-window'),

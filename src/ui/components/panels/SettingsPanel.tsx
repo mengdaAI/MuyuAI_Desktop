@@ -8,9 +8,14 @@ interface SettingsPanelProps {
   leftWidth: number;
 }
 
+type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'not-available' | 'error' | 'development';
+
 export function SettingsPanel({ onClose, onExitInterview, leftWidth }: SettingsPanelProps) {
   const [isContentProtectionOn, setIsContentProtectionOn] = useState(false);
   const [userState, setUserState] = useState<UserState | null>(null);
+  const [appVersion, setAppVersion] = useState<string>('');
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>('idle');
+  const [downloadPercent, setDownloadPercent] = useState<number>(0);
 
   // 初始化时获取当前状态和用户信息
   useEffect(() => {
@@ -21,6 +26,13 @@ export function SettingsPanel({ onClose, onExitInterview, leftWidth }: SettingsP
     if (settingsApi?.getContentProtectionStatus) {
       settingsApi.getContentProtectionStatus().then((status: boolean) => {
         setIsContentProtectionOn(status);
+      });
+    }
+
+    // 获取应用版本
+    if (settingsApi?.getAppVersion) {
+      settingsApi.getAppVersion().then((version: string) => {
+        setAppVersion(version);
       });
     }
 
@@ -59,6 +71,28 @@ export function SettingsPanel({ onClose, onExitInterview, leftWidth }: SettingsP
     }
   }, []);
 
+  // 监听更新状态
+  useEffect(() => {
+    const settingsApi = (window as any).api?.settingsView;
+    if (!settingsApi?.onUpdateStatus) return;
+
+    const handleUpdateStatus = (event: any, data: any) => {
+      console.log('[SettingsPanel] Update status:', data);
+      setUpdateStatus(data.status);
+      if (data.percent !== undefined) {
+        setDownloadPercent(data.percent);
+      }
+    };
+
+    settingsApi.onUpdateStatus(handleUpdateStatus);
+
+    return () => {
+      if (settingsApi?.removeOnUpdateStatus) {
+        settingsApi.removeOnUpdateStatus(handleUpdateStatus);
+      }
+    };
+  }, []);
+
   const handleToggleInvisibility = useCallback(async () => {
     console.log('Toggle Invisibility clicked');
     const settingsApi = (window as any).api?.settingsView;
@@ -67,6 +101,46 @@ export function SettingsPanel({ onClose, onExitInterview, leftWidth }: SettingsP
       setIsContentProtectionOn(newStatus);
     }
   }, []);
+
+  const handleCheckForUpdates = useCallback(async () => {
+    const settingsApi = (window as any).api?.settingsView;
+    if (settingsApi?.checkForUpdates) {
+      setUpdateStatus('checking');
+      const result = await settingsApi.checkForUpdates();
+      console.log('[SettingsPanel] Check for updates result:', result);
+      if (result.status === 'development') {
+        setUpdateStatus('development');
+      }
+    }
+  }, []);
+
+  const handleInstallUpdate = useCallback(async () => {
+    const settingsApi = (window as any).api?.settingsView;
+    if (settingsApi?.installUpdate) {
+      await settingsApi.installUpdate();
+    }
+  }, []);
+
+  const getUpdateStatusText = () => {
+    switch (updateStatus) {
+      case 'checking':
+        return '正在检查...';
+      case 'available':
+        return '发现新版本，准备下载...';
+      case 'downloading':
+        return `正在下载 ${downloadPercent.toFixed(0)}%`;
+      case 'downloaded':
+        return '下载完成，点击安装';
+      case 'not-available':
+        return '已是最新版本';
+      case 'error':
+        return '检查失败';
+      case 'development':
+        return '开发环境';
+      default:
+        return '检查更新';
+    }
+  };
   return (
     <div className="absolute h-full top-0 w-[298px] z-[10000] rounded-[19px]" style={{ left: `${leftWidth + 6}px`, transition: 'none', padding: '53px 21px 21px' }}>
       {/* 关闭按钮 */}
@@ -146,7 +220,32 @@ export function SettingsPanel({ onClose, onExitInterview, leftWidth }: SettingsP
       </div>
 
       {/* 底部按钮区域 - 固定在底部 */}
-      <div className="footer absolute w-full bottom-0 left-0 flex flex-col gap-[16px] pb-[21px] justify-center">
+      <div className="footer absolute w-full bottom-0 left-0 flex flex-col gap-[12px] pb-[21px] justify-center">
+        {/* 版本信息和检查更新 */}
+        <div className="flex flex-col items-center gap-[8px]">
+          {appVersion && (
+            <p className="font-['PingFang_SC:Regular',sans-serif] text-[12px] text-[rgba(255,255,255,0.4)]">
+              当前版本: v{appVersion}
+            </p>
+          )}
+          <button
+            onClick={updateStatus === 'downloaded' ? handleInstallUpdate : handleCheckForUpdates}
+            disabled={updateStatus === 'checking' || updateStatus === 'downloading'}
+            className={`h-[32px] rounded-[16px] px-[16px] flex items-center justify-center border border-solid cursor-pointer transition-colors
+              ${updateStatus === 'downloaded' 
+                ? 'bg-[rgba(34,197,94,0.15)] border-[rgba(34,197,94,0.6)] hover:bg-[rgba(34,197,94,0.25)]' 
+                : 'bg-[rgba(255,255,255,0.05)] border-[rgba(255,255,255,0.2)] hover:bg-[rgba(255,255,255,0.1)]'}
+              ${(updateStatus === 'checking' || updateStatus === 'downloading') ? 'opacity-60 cursor-not-allowed' : ''}
+            `}
+          >
+            <span className={`font-['PingFang_SC:Regular',sans-serif] not-italic text-[12px]
+              ${updateStatus === 'downloaded' ? 'text-[rgba(34,197,94,1)]' : 'text-[rgba(255,255,255,0.6)]'}
+            `}>
+              {getUpdateStatusText()}
+            </span>
+          </button>
+        </div>
+
         {/* 隐身模式按钮 - 仅开发模式显示 */}
         {process.env.NODE_ENV === 'development' && (
           <button

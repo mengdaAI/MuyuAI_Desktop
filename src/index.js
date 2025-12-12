@@ -393,6 +393,8 @@ function setupWebDataHandlers() {
 
 
 // Auto-update initialization
+let updateStatus = 'idle'; // idle, checking, available, downloading, downloaded, not-available, error
+
 async function initAutoUpdater() {
     if (process.env.NODE_ENV === 'development') {
         console.log('Development environment, skipping auto-updater.');
@@ -400,17 +402,45 @@ async function initAutoUpdater() {
     }
 
     try {
-        await autoUpdater.checkForUpdates();
-        autoUpdater.on('update-available', () => {
-            console.log('Update available!');
+        // 设置事件监听器
+        autoUpdater.on('checking-for-update', () => {
+            console.log('[AutoUpdater] Checking for update...');
+            updateStatus = 'checking';
+            broadcastUpdateStatus({ status: 'checking' });
+        });
+
+        autoUpdater.on('update-available', (info) => {
+            console.log('[AutoUpdater] Update available:', info.version);
+            updateStatus = 'available';
+            broadcastUpdateStatus({ status: 'available', version: info.version });
             autoUpdater.downloadUpdate();
         });
-        autoUpdater.on('update-downloaded', (event, releaseNotes, releaseName, date, url) => {
-            console.log('Update downloaded:', releaseNotes, releaseName, date, url);
+
+        autoUpdater.on('update-not-available', (info) => {
+            console.log('[AutoUpdater] Update not available, current version is latest');
+            updateStatus = 'not-available';
+            broadcastUpdateStatus({ status: 'not-available', version: info.version });
+        });
+
+        autoUpdater.on('download-progress', (progress) => {
+            console.log(`[AutoUpdater] Download progress: ${progress.percent.toFixed(1)}%`);
+            updateStatus = 'downloading';
+            broadcastUpdateStatus({ 
+                status: 'downloading', 
+                percent: progress.percent,
+                transferred: progress.transferred,
+                total: progress.total
+            });
+        });
+
+        autoUpdater.on('update-downloaded', (info) => {
+            console.log('[AutoUpdater] Update downloaded:', info.version);
+            updateStatus = 'downloaded';
+            broadcastUpdateStatus({ status: 'downloaded', version: info.version });
             dialog.showMessageBox({
                 type: 'info',
                 title: '幕语更新',
-                message: `幕语新版本 (${releaseName}) 已下载完成，是否立即重启应用以完成更新？`,
+                message: `幕语新版本 (${info.version}) 已下载完成，是否立即重启应用以完成更新？`,
                 buttons: ['立即重启', '稍后']
             }).then(response => {
                 if (response.response === 0) {
@@ -418,10 +448,62 @@ async function initAutoUpdater() {
                 }
             });
         });
+
         autoUpdater.on('error', (err) => {
-            console.error('Error in auto-updater:', err);
+            console.error('[AutoUpdater] Error:', err);
+            updateStatus = 'error';
+            broadcastUpdateStatus({ status: 'error', error: err.message });
         });
+
+        // 启动时自动检查更新
+        await autoUpdater.checkForUpdates();
     } catch (err) {
-        console.error('Error initializing auto-updater:', err);
+        console.error('[AutoUpdater] Error initializing:', err);
+        updateStatus = 'error';
     }
 }
+
+// 广播更新状态到所有渲染进程
+function broadcastUpdateStatus(data) {
+    const { BrowserWindow } = require('electron');
+    BrowserWindow.getAllWindows().forEach(win => {
+        if (!win.isDestroyed()) {
+            win.webContents.send('updater:status', data);
+        }
+    });
+}
+
+// 手动检查更新
+ipcMain.handle('updater:check', async () => {
+    if (process.env.NODE_ENV === 'development') {
+        return { status: 'development', message: '开发环境不支持更新检查' };
+    }
+    
+    try {
+        updateStatus = 'checking';
+        const result = await autoUpdater.checkForUpdates();
+        return { status: 'success', updateInfo: result?.updateInfo };
+    } catch (err) {
+        console.error('[AutoUpdater] Manual check error:', err);
+        return { status: 'error', message: err.message };
+    }
+});
+
+// 获取当前应用版本
+ipcMain.handle('updater:get-version', () => {
+    return app.getVersion();
+});
+
+// 获取当前更新状态
+ipcMain.handle('updater:get-status', () => {
+    return { status: updateStatus };
+});
+
+// 安装已下载的更新
+ipcMain.handle('updater:install', () => {
+    if (updateStatus === 'downloaded') {
+        autoUpdater.quitAndInstall();
+        return { status: 'success' };
+    }
+    return { status: 'error', message: '没有可安装的更新' };
+});
