@@ -175,22 +175,11 @@ jobs:
 
       - name: ☁️ Upload to Volcengine TOS
         env:
-          TOS_ACCESS_KEY: ${{ secrets.VOLCENGINE_ACCESS_KEY_ID }}
-          TOS_SECRET_KEY: ${{ secrets.VOLCENGINE_SECRET_ACCESS_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.VOLCENGINE_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.VOLCENGINE_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: cn-beijing
         run: |
           set -x  # Enable debug output
-          
-          # Install tosutil (Volcengine TOS CLI)
-          wget -q https://tos-tools.tos-cn-beijing.volces.com/tosutil/0.1.30/tosutil-linux-amd64.tar.gz
-          tar -xzf tosutil-linux-amd64.tar.gz
-          chmod +x tosutil
-          
-          # Configure credentials
-          ./tosutil config -i "$TOS_ACCESS_KEY" -k "$TOS_SECRET_KEY" -e "tos-cn-beijing.volces.com"
-          
-          # Verify configuration
-          echo "📋 Checking tosutil configuration..."
-          ./tosutil config -s || echo "Config check failed"
           
           # Flatten artifacts directory structure for upload
           mkdir -p upload
@@ -199,16 +188,16 @@ jobs:
           echo "📦 Files to upload:"
           ls -lah upload/
           
-          # List bucket to verify access
-          echo "📋 Testing bucket access..."
-          ./tosutil ls tos://desktop-release/ || echo "⚠️ Bucket listing failed"
-          
-          # Upload all files to releases/ directory with verbose output
-          echo "📤 Starting upload..."
-          ./tosutil cp upload/ tos://desktop-release/ -r -f -v 2>&1 || {
-            echo "❌ Upload failed with exit code $?"
-            exit 1
-          }
+          # Upload using AWS CLI (Volcengine TOS is S3-compatible)
+          echo "📤 Starting upload to Volcengine TOS..."
+          for file in upload/*; do
+            filename=$(basename "$file")
+            echo "Uploading $filename..."
+            aws s3 cp "$file" "s3://desktop-release/$filename" \
+              --endpoint-url https://tos-cn-beijing.volces.com \
+              --acl public-read \
+              || { echo "❌ Failed to upload $filename"; exit 1; }
+          done
           
           echo "✅ Uploaded to Volcengine TOS successfully"
           echo "📍 URL: https://desktop-release.tos-cn-beijing.volces.com/"
