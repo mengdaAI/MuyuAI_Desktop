@@ -355,7 +355,7 @@ export function MainInterfaceContainer() {
     };
   }, []);
 
-  // Resize window when panel state changes
+  // 当面板状态变化时，调整窗口大小
   useEffect(() => {
     const isPanelOpen = !!(activePanel || showSettings);
     const wasPanelOpen = prevPanelOpen.current;
@@ -371,120 +371,67 @@ export function MainInterfaceContainer() {
       return;
     }
 
-    if (wasPanelOpen !== isPanelOpen || wasActivePanel !== activePanel || wasShowSettings !== showSettings) {
-      // 计算左侧宽度（Group4的宽度）
-      // 如果之前面板是打开的，需要从当前窗口宽度中减去右侧panel宽度和间距
-      let leftWidth: number;
-      if (wasPanelOpen) {
-        // 从打开状态切换到关闭状态或其他状态，计算左侧宽度
-        if (wasActivePanel) {
-          // 之前是 activePanel 打开，左侧宽度 = 当前窗口宽度 - 458 - 6
-          leftWidth = windowSize.width - 458 - 6;
-        } else if (wasShowSettings) {
-          // 之前是 showSettings 打开，左侧宽度 = 当前窗口宽度 - 298 - 6
-          leftWidth = windowSize.width - 298 - 6;
-        } else {
-          leftWidth = windowSize.width;
-        }
-      } else {
-        // 从关闭状态切换到打开状态，左侧宽度应该是基础宽度 524
-        // 如果当前窗口宽度是 524（未拖拽过），则使用 524
-        // 如果当前窗口宽度不是 524（已拖拽过），则从当前宽度中计算左侧宽度
-        // 但为了保持一致性，我们始终使用 524 作为基础左侧宽度
-        leftWidth = 524;
-      }
-
-      // 计算新的窗口宽度
-      let newWidth: number;
-      if (isPanelOpen) {
-        if (activePanel) {
-          // activePanel 打开时，总宽度 = 左侧宽度 + 458 + 6
-          newWidth = leftWidth + 458 + 6;
-        } else if (showSettings) {
-          // showSettings 打开时，总宽度 = 左侧宽度 + 298 + 6
-          newWidth = leftWidth + 298 + 6;
-        } else {
-          newWidth = leftWidth;
-        }
-      } else {
-        // 面板关闭时，总宽度 = 左侧宽度
-        newWidth = leftWidth;
-      }
-
-      // 高度始终使用当前窗口高度
-      const height = windowSize.height;
-
-      if (window.api?.headerController?.resizeHeaderWindow) {
-        window.api.headerController.resizeHeaderWindow({ width: newWidth, height }).catch(console.error);
-      }
-
-      // 更新之前的状态
-      prevPanelOpen.current = isPanelOpen;
-      prevActivePanel.current = activePanel;
-      prevShowSettings.current = showSettings;
-    }
-  }, [activePanel, showSettings, windowSize]);
-
-  // 监听窗口大小变化，确保左侧宽度最低为 524px
-  // 使用 useRef 来避免循环更新和初始渲染时的误触发
-  const lastAdjustedWidthRef = useRef<number | null>(null);
-  const isInitialMountRef = useRef(true);
-
-  useEffect(() => {
-    // 跳过初始渲染，避免影响初始窗口高度
-    if (isInitialMountRef.current) {
-      isInitialMountRef.current = false;
+    // 只在面板状态实际变化时才调整窗口大小
+    if (wasPanelOpen === isPanelOpen && wasActivePanel === activePanel && wasShowSettings === showSettings) {
       return;
     }
 
-    const isPanelOpen = !!(activePanel || showSettings);
+    // 直接从 DOM 获取当前窗口宽度，确保是最新的
+    const currentWidth = window.innerWidth;
+    
+    // 计算当前左侧宽度（基于当前窗口宽度和之前的面板状态）
+    let leftWidth: number;
+    if (wasPanelOpen) {
+      // 之前面板是打开的，从当前宽度减去之前的面板宽度得到左侧宽度
+      if (wasActivePanel) {
+        leftWidth = currentWidth - 458 - 6;
+      } else if (wasShowSettings) {
+        leftWidth = currentWidth - 298 - 6;
+      } else {
+        leftWidth = currentWidth;
+      }
+    } else {
+      // 之前面板是关闭的，当前宽度就是左侧宽度
+      leftWidth = currentWidth;
+    }
 
-    // 计算当前左侧宽度
-    let currentLeftWidth: number;
+    // 计算新的窗口宽度
+    let newWidth: number;
     if (isPanelOpen) {
       if (activePanel) {
-        currentLeftWidth = windowSize.width - 458 - 6;
+        newWidth = leftWidth + 458 + 6;
       } else if (showSettings) {
-        currentLeftWidth = windowSize.width - 298 - 6;
+        newWidth = leftWidth + 298 + 6;
       } else {
-        currentLeftWidth = windowSize.width;
+        newWidth = leftWidth;
       }
     } else {
-      currentLeftWidth = windowSize.width;
+      newWidth = leftWidth;
     }
 
-    // 如果左侧宽度小于 524，需要调整窗口大小
-    if (currentLeftWidth < 524) {
-      const minLeftWidth = 524;
-      let newWidth: number;
-      if (isPanelOpen) {
-        if (activePanel) {
-          newWidth = minLeftWidth + 458 + 6;
-        } else if (showSettings) {
-          newWidth = minLeftWidth + 298 + 6;
-        } else {
-          newWidth = minLeftWidth;
-        }
-      } else {
-        newWidth = minLeftWidth;
-      }
+    // 获取当前窗口高度
+    const height = window.innerHeight || 393;
 
-      // 避免重复调整相同的宽度
-      if (lastAdjustedWidthRef.current === newWidth) {
-        return;
-      }
-      lastAdjustedWidthRef.current = newWidth;
+    console.log('[MainInterfaceContainer] Panel state changed:', { 
+      currentWidth, leftWidth, newWidth, 
+      wasPanelOpen, isPanelOpen, 
+      wasActivePanel, activePanel 
+    });
 
-      // 保持当前高度不变，只调整宽度
-      const currentHeight = windowSize.height;
-      if (window.api?.headerController?.resizeHeaderWindow) {
-        window.api.headerController.resizeHeaderWindow({ width: newWidth, height: currentHeight }).catch(console.error);
-      }
-    } else {
-      // 如果左侧宽度正常，清除记录
-      lastAdjustedWidthRef.current = null;
+    if (window.api?.headerController?.resizeHeaderWindow) {
+      window.api.headerController.resizeHeaderWindow({ width: newWidth, height }).catch(console.error);
     }
-  }, [windowSize.width, activePanel, showSettings]); // 只依赖 width，不依赖 height
+
+    // 更新之前的状态
+    prevPanelOpen.current = isPanelOpen;
+    prevActivePanel.current = activePanel;
+    prevShowSettings.current = showSettings;
+  }, [activePanel, showSettings]); // 不依赖 windowSize，避免循环触发
+
+  // 这个 useEffect 已被移除，因为：
+  // 1. 最小宽度限制已经在 windowManager.js 的 resizeHeaderWindow 中强制执行
+  // 2. 面板切换时的宽度计算已经在上面的 useEffect 中正确处理
+  // 3. 这个 useEffect 会在面板状态变化时使用旧的 windowSize 导致错误的宽度计算
 
   // Handlers adapted for MainInterface
   const handleToggleRecording = useCallback(() => {

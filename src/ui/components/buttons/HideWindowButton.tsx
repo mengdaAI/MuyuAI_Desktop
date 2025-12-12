@@ -31,7 +31,7 @@ export function HideWindowButton({ onClick }: HideWindowButtonProps) {
       {/* Tooltip - 在按钮左侧显示，避免超出窗口边界 */}
       {showTooltip && (
         <div className="absolute right-[32px] top-[-10px] z-[99999]">
-          <div className="absolute bg-[rgba(3,0,16,0.9)] h-[42px] right-[6.65px] rounded-[9px] top-0 w-[90px]" />
+          <div className="absolute bg-[rgba(3,0,16,0.9)] h-[50px] right-[6.65px] rounded-[9px] top-0 w-[90px]" />
           {/* 箭头指向右侧 */}
           <div className="absolute flex h-[15.556px] items-center justify-center right-0 top-[12px] w-[15.514px]">
             <div className="flex-none rotate-[90deg]">

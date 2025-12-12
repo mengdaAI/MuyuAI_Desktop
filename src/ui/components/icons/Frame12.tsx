@@ -17,7 +17,7 @@ export function Frame12({ onClick }: Frame12Props) {
     >
       <button
         onClick={onClick}
-        className="relative overflow-clip size-[20px] cursor-pointer bg-transparent border-none p-0"
+        className="relative overflow-clip size-[20px] cursor-pointer bg-transparent border-none p-0 focus:outline-none"
         data-name="Frame"
       >
         <div className="absolute left-0 size-[16px] top-0">
@@ -32,9 +32,9 @@ export function Frame12({ onClick }: Frame12Props) {
         </div>
       </button>
 
-      {/* Tooltip - 在按钮左侧显示 */}
+      {/* Tooltip - 在按钮左侧显示，垂直居中 */}
       {showTooltip && (
-        <div className="absolute right-[30px] top-[-5px] z-[99999]">
+        <div className="absolute right-[30px] top-[2px] z-[99999]">
           <div className="absolute bg-[rgba(3,0,16,0.9)] h-[30px] right-[6.65px] rounded-[9px] top-0 w-[50px]" />
           <div className="absolute flex h-[15.556px] items-center justify-center right-0 top-[6.67px] w-[15.514px]">
             <div className="flex-none rotate-[90deg]">

@@ -155,6 +155,12 @@ function setupWindowController(windowPool, layoutManager, movementManager) {
     });
 
     internalBridge.on('window:resizeHeaderWindow', ({ width, height }) => {
+        // 最小尺寸限制
+        const MIN_WIDTH = 524;
+        const MIN_HEIGHT = 393;
+        const safeWidth = Math.max(MIN_WIDTH, width);
+        const safeHeight = Math.max(MIN_HEIGHT, height);
+
         // Support resizing main window if it's active
         const mainWin = windowPool.get('main');
         if (mainWin && !mainWin.isDestroyed() && mainWin.isVisible()) {
@@ -166,8 +172,8 @@ function setupWindowController(windowPool, layoutManager, movementManager) {
             const workArea = display.workArea;
 
             // If extending right goes beyond right edge, shift left to fit
-            if (newX + width > workArea.x + workArea.width) {
-                const overflow = (newX + width) - (workArea.x + workArea.width);
+            if (newX + safeWidth > workArea.x + workArea.width) {
+                const overflow = (newX + safeWidth) - (workArea.x + workArea.width);
                 newX -= overflow;
 
                 // Ensure we don't go past left edge
@@ -176,12 +182,18 @@ function setupWindowController(windowPool, layoutManager, movementManager) {
                 }
             }
 
-            // Use movementManager for smooth transition instead of instant setBounds
-            movementManager.animateWindowBounds(mainWin, {
+            // 直接设置窗口大小，不使用动画，避免面板切换时的跳动
+            mainWin.setBounds({
                 x: newX,
                 y: bounds.y,
-                width,
-                height
+                width: safeWidth,
+                height: safeHeight
+            });
+            
+            // 通知渲染进程窗口大小已变化
+            mainWin.webContents.send('window:size-changed', {
+                width: safeWidth,
+                height: safeHeight
             });
             return;
         }
@@ -945,7 +957,10 @@ function createMainOnlyWindow() {
         ...commonOptions,
         width: 524,
         height: 393,
+        minWidth: 524,
+        minHeight: 393,
         maxHeight: 900,
+        resizable: true,
         parent: undefined,
     });
     mainWin.setContentProtection(isContentProtectionOn);
@@ -1078,42 +1093,62 @@ function resizeMainWindow(senderWebContents, { edge, deltaX, deltaY, startWidth,
 
     let newBounds = { ...startBounds };
 
-    // 根据边沿方向调整窗口大小 - 移除最小尺寸限制，允许自由调整
+    // 最小尺寸限制 - 确保窗口内容能正确显示
+    const MIN_WIDTH = 524;
+    const MIN_HEIGHT = 393;
+
+    // 根据边沿方向调整窗口大小
     switch (edge) {
         case 'top':
             newBounds.y = Math.max(workArea.y, startBounds.y + deltaY);
-            newBounds.height = startHeight - deltaY; // 移除最小尺寸限制
+            newBounds.height = startHeight - deltaY;
             break;
         case 'bottom':
-            newBounds.height = startHeight + deltaY; // 移除最小尺寸限制
+            newBounds.height = startHeight + deltaY;
             break;
         case 'left':
             newBounds.x = Math.max(workArea.x, startBounds.x + deltaX);
-            newBounds.width = startWidth - deltaX; // 移除最小尺寸限制
+            newBounds.width = startWidth - deltaX;
             break;
         case 'right':
-            newBounds.width = startWidth + deltaX; // 移除最小尺寸限制
+            newBounds.width = startWidth + deltaX;
             break;
         case 'top-left':
             newBounds.x = Math.max(workArea.x, startBounds.x + deltaX);
             newBounds.y = Math.max(workArea.y, startBounds.y + deltaY);
-            newBounds.width = startWidth - deltaX; // 移除最小尺寸限制
-            newBounds.height = startHeight - deltaY; // 移除最小尺寸限制
+            newBounds.width = startWidth - deltaX;
+            newBounds.height = startHeight - deltaY;
             break;
         case 'top-right':
             newBounds.y = Math.max(workArea.y, startBounds.y + deltaY);
-            newBounds.width = startWidth + deltaX; // 移除最小尺寸限制
-            newBounds.height = startHeight - deltaY; // 移除最小尺寸限制
+            newBounds.width = startWidth + deltaX;
+            newBounds.height = startHeight - deltaY;
             break;
         case 'bottom-left':
             newBounds.x = Math.max(workArea.x, startBounds.x + deltaX);
-            newBounds.width = startWidth - deltaX; // 移除最小尺寸限制
-            newBounds.height = startHeight + deltaY; // 移除最小尺寸限制
+            newBounds.width = startWidth - deltaX;
+            newBounds.height = startHeight + deltaY;
             break;
         case 'bottom-right':
-            newBounds.width = startWidth + deltaX; // 移除最小尺寸限制
-            newBounds.height = startHeight + deltaY; // 移除最小尺寸限制
+            newBounds.width = startWidth + deltaX;
+            newBounds.height = startHeight + deltaY;
             break;
+    }
+
+    // 强制执行最小尺寸限制
+    if (newBounds.width < MIN_WIDTH) {
+        // 如果是从左边拖拽，需要调整 x 坐标
+        if (edge.includes('left')) {
+            newBounds.x = startBounds.x + startBounds.width - MIN_WIDTH;
+        }
+        newBounds.width = MIN_WIDTH;
+    }
+    if (newBounds.height < MIN_HEIGHT) {
+        // 如果是从上边拖拽，需要调整 y 坐标
+        if (edge.includes('top')) {
+            newBounds.y = startBounds.y + startBounds.height - MIN_HEIGHT;
+        }
+        newBounds.height = MIN_HEIGHT;
     }
 
     // 限制在工作区内
@@ -1124,9 +1159,9 @@ function resizeMainWindow(senderWebContents, { edge, deltaX, deltaY, startWidth,
         newBounds.height = workArea.y + workArea.height - newBounds.y;
     }
 
-    // 确保宽度和高度至少为 1px（避免窗口消失）
-    newBounds.width = Math.max(1, newBounds.width);
-    newBounds.height = Math.max(1, newBounds.height);
+    // 再次确保最小尺寸（工作区限制后可能变小）
+    newBounds.width = Math.max(MIN_WIDTH, newBounds.width);
+    newBounds.height = Math.max(MIN_HEIGHT, newBounds.height);
 
     win.setBounds(newBounds);
     

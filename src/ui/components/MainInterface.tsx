@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { Turn } from "../types";
 import { Frame1, Frame2, Frame3, Group4 } from "./icons";
 import { HideWindowButton } from "./buttons/HideWindowButton";
@@ -91,58 +91,87 @@ export function MainInterface({
   const MIN_PANEL_WIDTH = 300; // 右侧面板最小宽度
   const GAP = 6;
 
+  // 使用 ref 记录上一次的面板状态和左侧宽度，用于平滑过渡
+  const prevPanelStateRef = useRef<{ activePanel: typeof activePanel; showSettings: boolean }>({
+    activePanel: null,
+    showSettings: false
+  });
+  const lastLeftWidthRef = useRef(BASE_LEFT_WIDTH);
+
   // 计算左侧宽度（Group4的宽度）和右侧面板宽度
-  // 当拖动窗口时，左右两侧按比例同时变化
+  // 使用固定的面板宽度，避免展开/收起时的跳动
   const { leftWidth, rightPanelWidth } = useMemo(() => {
-    if (!activePanel && !showSettings) {
-      // 面板关闭时，左侧宽度等于窗口宽度
+    const prevState = prevPanelStateRef.current;
+    const wasPanelOpen = !!(prevState.activePanel || prevState.showSettings);
+    const isPanelOpen = !!(activePanel || showSettings);
+    
+    // 检测面板状态是否刚刚变化
+    const panelStateChanged = prevState.activePanel !== activePanel || prevState.showSettings !== showSettings;
+    
+    if (panelStateChanged) {
+      // 面板状态变化时，使用上一次保存的左侧宽度，而不是从当前窗口宽度计算
+      // 这样可以避免在窗口大小调整完成前出现跳动
+      let currentLeftWidth: number;
+      
+      if (wasPanelOpen) {
+        // 之前面板是打开的，从窗口宽度减去之前的面板宽度
+        if (prevState.activePanel) {
+          currentLeftWidth = windowSize.width - BASE_PANEL_WIDTH - GAP;
+        } else if (prevState.showSettings) {
+          currentLeftWidth = windowSize.width - BASE_SETTINGS_WIDTH - GAP;
+        } else {
+          currentLeftWidth = windowSize.width;
+        }
+      } else {
+        // 之前面板是关闭的，窗口宽度就是左侧宽度
+        currentLeftWidth = windowSize.width;
+      }
+      
+      // 确保最小宽度
+      currentLeftWidth = Math.max(MIN_LEFT_WIDTH, currentLeftWidth);
+      lastLeftWidthRef.current = currentLeftWidth;
+      
+      // 更新 prevState
+      prevPanelStateRef.current = { activePanel, showSettings };
+      
+      if (!isPanelOpen) {
+        // 面板关闭，左侧宽度就是之前计算的值
+        return { leftWidth: currentLeftWidth, rightPanelWidth: 0 };
+      }
+      
+      // 面板打开，使用固定的面板宽度
+      const fixedRightWidth = showSettings ? BASE_SETTINGS_WIDTH : BASE_PANEL_WIDTH;
+      return {
+        leftWidth: currentLeftWidth,
+        rightPanelWidth: fixedRightWidth
+      };
+    }
+    
+    // 面板状态没有变化，正常计算
+    if (!isPanelOpen) {
+      lastLeftWidthRef.current = windowSize.width;
       return { leftWidth: windowSize.width, rightPanelWidth: 0 };
     }
 
-    const baseRightWidth = showSettings ? BASE_SETTINGS_WIDTH : BASE_PANEL_WIDTH;
-    const baseTotalWidth = BASE_LEFT_WIDTH + baseRightWidth + GAP;
+    // 使用固定的右侧面板宽度
+    const fixedRightWidth = showSettings ? BASE_SETTINGS_WIDTH : BASE_PANEL_WIDTH;
     
-    // 计算缩放比例
-    const scale = windowSize.width / baseTotalWidth;
+    // 左侧宽度 = 窗口宽度 - 右侧面板宽度 - 间距
+    const calculatedLeftWidth = windowSize.width - fixedRightWidth - GAP;
     
-    // 按比例计算左右宽度
-    let newLeftWidth = Math.round(BASE_LEFT_WIDTH * scale);
-    let newRightWidth = Math.round(baseRightWidth * scale);
-    
-    // 确保最小宽度
-    newLeftWidth = Math.max(MIN_LEFT_WIDTH, newLeftWidth);
-    newRightWidth = Math.max(MIN_PANEL_WIDTH, newRightWidth);
-    
-    // 调整以适应窗口宽度（减去间距）
-    const totalContent = newLeftWidth + newRightWidth + GAP;
-    if (totalContent > windowSize.width) {
-      // 如果超出，优先保证最小宽度，然后按比例缩减
-      const excess = totalContent - windowSize.width;
-      const leftRatio = newLeftWidth / (newLeftWidth + newRightWidth);
-      newLeftWidth = Math.max(MIN_LEFT_WIDTH, newLeftWidth - Math.round(excess * leftRatio));
-      newRightWidth = windowSize.width - newLeftWidth - GAP;
-    }
+    // 确保左侧最小宽度
+    const finalLeftWidth = Math.max(MIN_LEFT_WIDTH, calculatedLeftWidth);
+    lastLeftWidthRef.current = finalLeftWidth;
 
     return {
-      leftWidth: newLeftWidth,
-      rightPanelWidth: Math.max(MIN_PANEL_WIDTH, newRightWidth)
+      leftWidth: finalLeftWidth,
+      rightPanelWidth: fixedRightWidth
     };
   }, [windowSize.width, activePanel, showSettings]);
 
-  // 使用 state 来存储容器大小，确保响应式更新
-  const [containerSize, setContainerSize] = useState({
-    width: leftWidth,
-    height: windowSize.height
-  });
-
-  // 当左侧宽度或窗口高度变化时，更新 containerSize state
-  useEffect(() => {
-    setContainerSize({
-      width: leftWidth,
-      height: windowSize.height,
-    });
-    console.log('[MainInterface] Container size updated:', { leftWidth, windowSize });
-  }, [leftWidth, windowSize.height]);
+  // 直接使用计算值，避免额外的 state 和 useEffect 导致的跳动
+  const containerWidth = leftWidth;
+  const containerHeight = windowSize.height;
 
   const RESIZE_HANDLE_SIZE = 12; // 窗口边沿拖拽区域大小（像素）- 增大以提高捕获率
   const resizeStateRef = useRef<{ isResizing: boolean; edge: string | null; startX: number; startY: number; startWidth: number; startHeight: number } | null>(null);
@@ -200,10 +229,6 @@ export function MainInterface({
 
     console.log('[MainInterface] Resize started:', { edge, startX: e.screenX, startY: e.screenY, startWidth: windowSize.width, startHeight: windowSize.height });
   };
-
-  // 使用 state 中的容器大小，确保响应式更新
-  const containerWidth = containerSize.width;
-  const containerHeight = containerSize.height;
 
   return (
     <div
@@ -307,7 +332,10 @@ export function MainInterface({
         onMouseDown={(e) => handleResizeStart('bottom-right', e)}
       />
       <Group4 width={containerWidth} height={containerHeight} />
-      <div className="absolute pr-[18px] pl-[18px] bottom-[18px] left-0 w-[462px] flex item-center justify-between">
+      <div 
+        className="absolute pr-[18px] pl-[18px] bottom-[18px] left-0 flex item-center justify-between"
+        style={{ width: containerWidth - 62 }}
+      >
         <StatusIndicator isRecording={isRecording} />
         {typeof remainingMinutes === 'number' && remainingMinutes > 0 && (
           <p className="flex items-center gap-[3px] font-['PingFang_SC:Medium',sans-serif] leading-[normal] not-italic text-[12px] text-[rgba(255,255,255,0.6)] text-nowrap whitespace-pre">
