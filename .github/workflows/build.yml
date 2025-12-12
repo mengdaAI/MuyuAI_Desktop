@@ -192,7 +192,8 @@ jobs:
           ls -lah upload/
           
           # Upload using AWS CLI (Volcengine TOS is S3-compatible)
-          TOS_ENDPOINT="https://tos-cn-beijing.volces.com"
+          # Use S3 endpoint for AWS CLI compatibility
+          TOS_ENDPOINT="https://tos-s3-cn-beijing.volces.com"
           
           echo "📋 Testing bucket access..."
           aws s3 ls s3://desktop-release/ --endpoint-url "$TOS_ENDPOINT" --region cn-beijing || echo "⚠️ List failed"
