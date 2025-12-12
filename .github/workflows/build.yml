@@ -189,12 +189,18 @@ jobs:
           ls -lah upload/
           
           # Upload using AWS CLI (Volcengine TOS is S3-compatible)
+          # Debug: test bucket access first
+          echo "📋 Testing bucket access..."
+          aws s3 ls s3://desktop-release/ --endpoint-url https://tos-cn-beijing.volces.com || echo "⚠️ List failed"
+          
           echo "📤 Starting upload to Volcengine TOS..."
           for file in upload/*; do
             filename=$(basename "$file")
             echo "Uploading $filename..."
+            # Use path-style addressing for TOS
             aws s3 cp "$file" "s3://desktop-release/$filename" \
               --endpoint-url https://tos-cn-beijing.volces.com \
+              --debug 2>&1 | tail -50 \
               || { echo "❌ Failed to upload $filename"; exit 1; }
           done
           
