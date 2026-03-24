@@ -23,7 +23,7 @@ export function ScreenshotPanel({ showAnswer, onAnswer, answer = "", isLoading =
       {/* 截图按钮区域 - 固定在顶部 */}
       <button
         onClick={onAnswer}
-        disabled={isLoading}
+        disabled={isLoading || !remainingMinutes || remainingMinutes <= 0}
         style={{
           marginLeft: '50%',
           transform: 'translateX(-50%)'

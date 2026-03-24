@@ -29,6 +29,7 @@ interface StartupScreenProps {
   onStartInterview: () => void;
   onClose?: () => void;
   onCreateInterview?: () => void;
+  onRecharge?: () => void;
   passcodeError?: string;
   passcodeVerified?: boolean;
   isVerifyingPasscode?: boolean;
@@ -46,6 +47,7 @@ export function StartupScreen({
   onStartInterview,
   onClose,
   onCreateInterview,
+  onRecharge,
   passcodeError,
   passcodeVerified = false,
   isVerifyingPasscode = false,
@@ -148,6 +150,16 @@ export function StartupScreen({
         {passcodeError && (
           <div className="absolute left-[35px] top-[214px] w-[385px] text-center text-[#ff9c9c] text-[13px] min-h-[18px] overflow-hidden text-ellipsis whitespace-nowrap">
             {passcodeError}
+            {onRecharge && (
+              <button
+                type="button"
+                onClick={onRecharge}
+                className="ml-[4px] text-[#c17fff] underline cursor-pointer hover:opacity-80 transition-opacity bg-transparent border-none p-0 font-inherit text-[13px]"
+                style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties & { WebkitAppRegion?: 'drag' | 'no-drag' }}
+              >
+                前往充值
+              </button>
+            )}
           </div>
         )}
 

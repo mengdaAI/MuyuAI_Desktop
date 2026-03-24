@@ -2,6 +2,7 @@ const fetch = require('node-fetch');
 const { BrowserWindow } = require('electron');
 const authService = require('./authService');
 const { API_PATHS } = require('../config/constants');
+const internalBridge = require('../../../bridge/internalBridge');
 
 const loggerPrefix = '[PasscodeService]';
 const SESSION_START_PATH = API_PATHS.SESSION_START;
@@ -130,9 +131,16 @@ class PasscodeService {
 
             const data = await response.json().catch(() => ({}));
             if (!response.ok) {
+                let errorMsg = data?.message || data?.error || '口令验证失败，请重试';
+                // 将服务端英文错误提示翻译为中文
+                const isInsufficientBalance = typeof errorMsg === 'string' && errorMsg.toLowerCase().includes('insufficient time balance');
+                if (isInsufficientBalance) {
+                    errorMsg = '面试时长余额不足';
+                }
                 return {
                     success: false,
-                    error: data?.message || data?.error || '口令验证失败，请重试',
+                    error: errorMsg,
+                    rechargeRequired: isInsufficientBalance,
                 };
             }
 
@@ -286,6 +294,20 @@ class PasscodeService {
             this.getUserTimeSummary().catch(err => {
                 console.warn(`${loggerPrefix} Failed to refresh user time summary after ping:`, err);
             });
+
+            if (data?.sessionStatus === 'completed' || data?.status === 'completed' || data?.error === 'balance_exhausted') {
+                console.log(`${loggerPrefix} Session auto-finalized by server, stopping local session.`);
+                internalBridge.emit('session:force-stop', {
+                    reason: 'balance_exhausted',
+                    message: data?.message || '面试时长已耗尽，本次面试已自动结束。'
+                });
+                
+                // Also stop the ping timer since session is ended
+                if (this.sessionPingTimer) {
+                    clearInterval(this.sessionPingTimer);
+                    this.sessionPingTimer = null;
+                }
+            }
 
             return { success: true, data };
         } catch (error) {

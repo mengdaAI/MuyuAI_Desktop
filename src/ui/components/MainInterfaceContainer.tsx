@@ -460,8 +460,13 @@ export function MainInterfaceContainer() {
 
   // Handlers adapted for MainInterface
   const handleToggleRecording = useCallback(() => {
+    // 仅开始收音时检查时长；停止收音不拦截
+    if (listenSessionStatus !== 'inSession' && remainingSeconds <= 0) {
+      console.warn('[MainInterfaceContainer] 剩余时长不足，拒绝开始收音');
+      return;
+    }
     toggleSession();
-  }, [toggleSession]);
+  }, [toggleSession, listenSessionStatus, remainingSeconds]);
 
   const handleToggleSettings = useCallback(() => {
     if (!showSettings) {
@@ -506,6 +511,10 @@ export function MainInterfaceContainer() {
   }, []);
 
   const handleSend = useCallback(async () => {
+    if (remainingSeconds <= 0) {
+      console.warn('[MainInterfaceContainer] 剩余时长不足，拒绝发送提问');
+      return;
+    }
     if (inputValue.trim()) {
       const question = inputValue.trim();
       console.log('[MainView] Sending input:', question);
@@ -521,10 +530,14 @@ export function MainInterfaceContainer() {
         await window.api.listenCapture.sendManualInput(question, 'Them');
       }
     }
-  }, [inputValue]);
+  }, [inputValue, remainingSeconds]);
 
   const handleScreenshotAnswer = useCallback(async () => {
     if (wasJustDragged) return;
+    if (remainingSeconds <= 0) {
+      console.warn('[MainInterfaceContainer] 剩余时长不足，拒绝截屏分析');
+      return;
+    }
 
     try {
       console.log('[MainInterfaceContainer] Starting screenshot analysis...');
@@ -541,7 +554,7 @@ export function MainInterfaceContainer() {
       setIsScreenshotLoading(false);
       setScreenshotAnswer(`错误: ${error instanceof Error ? error.message : '截图分析失败'}`);
     }
-  }, [wasJustDragged]);
+  }, [wasJustDragged, remainingSeconds]);
 
   const handleHideWindow = useCallback(async () => {
     if (wasJustDragged) return;

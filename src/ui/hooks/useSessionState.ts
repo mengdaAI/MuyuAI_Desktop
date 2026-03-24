@@ -32,6 +32,23 @@ export function useSessionState() {
     [handleSessionResult]
   );
 
+  const handleForceEnded = useCallback((event: any, data: any) => {
+    console.log('[useSessionState] Session force ended:', data);
+    setListenSessionStatus('beforeSession');
+    new Notification('面试结束', { body: data?.message || '面试时长已耗尽，本次面试已自动结束。' });
+    
+    if (window.api) {
+        (window as any).api?.passcode?.stopRecordingHeartbeat?.();
+    }
+  }, []);
+
+  useIpcListener(
+    (window.api.mainHeader as any).onSessionForceEnded,
+    (window.api.mainHeader as any).removeOnSessionForceEnded,
+    handleForceEnded,
+    [handleForceEnded]
+  );
+
   const toggleSession = useCallback(async () => {
     if (isTogglingSession) return;
 

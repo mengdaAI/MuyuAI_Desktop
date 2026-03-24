@@ -53,6 +53,13 @@ class ListenService {
                 this.sendToRenderer('update-status', status);
             }
         });
+
+        internalBridge.on('session:force-stop', async (data) => {
+            console.log('[ListenService] Force stopping session due to event:', data?.reason);
+            await this.closeSession();
+            this.sendToRenderer('session-state-changed', { isActive: false });
+            this.sendToRenderer('session-force-ended', data);
+        });
     }
 
     resetTurnState() {

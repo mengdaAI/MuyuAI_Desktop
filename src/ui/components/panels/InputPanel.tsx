@@ -19,6 +19,8 @@ export function InputPanel({ inputValue, history = [], isAnswering = false, rema
     }
   }, [history, isAnswering]);
 
+  const isTimeExhausted = !remainingMinutes || remainingMinutes <= 0;
+
   return (
     <div className="w-full h-full">
       <div
@@ -28,12 +30,13 @@ export function InputPanel({ inputValue, history = [], isAnswering = false, rema
           type="text"
           value={inputValue}
           onChange={(e) => onInputChange(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && inputValue.trim() && onSend()}
-          className="h-full w-full bg-transparent border-none outline-none leading-[normal] text-white w-full placeholder:text-white placeholder:opacity-50"
-          placeholder="输入你想问的任何问题"
+          onKeyDown={(e) => e.key === 'Enter' && !isTimeExhausted && inputValue.trim() && onSend()}
+          disabled={isTimeExhausted}
+          className="h-full w-full bg-transparent border-none outline-none leading-[normal] text-white w-full placeholder:text-white placeholder:opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          placeholder={isTimeExhausted ? '剩余时长不足，请兑换后继续使用' : '输入你想问的任何问题'}
         />
         {/* 发送按钮 */}
-        {inputValue.trim() && (
+        {inputValue.trim() && !isTimeExhausted && (
           <button
             onClick={onSend}
             className="absolute top-[12px] size-[21px] cursor-pointer bg-transparent border-none p-0"

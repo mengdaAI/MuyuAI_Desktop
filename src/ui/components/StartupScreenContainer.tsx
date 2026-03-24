@@ -16,12 +16,13 @@ export function StartupScreenContainer({
 }: StartupScreenContainerProps) {
     const [passcodeValue, setPasscodeValue] = useState('');
     const [passcodeError, setPasscodeError] = useState('');
+    const [showRechargeLink, setShowRechargeLink] = useState(false);
     const [isVerifyingPasscode, setIsVerifyingPasscode] = useState(false);
 
     useEffect(() => {
         onContentChanged?.();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [passcodeValue, passcodeError, passcodeVerified, isVerifyingPasscode]);
+    }, [passcodeValue, passcodeError, passcodeVerified, isVerifyingPasscode, showRechargeLink]);
 
     const passcodeGateActive = passcodeRequired && !passcodeVerified;
 
@@ -29,6 +30,7 @@ export function StartupScreenContainer({
         const sanitized = value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 8);
         setPasscodeValue(sanitized);
         setPasscodeError('');
+        setShowRechargeLink(false);
     };
 
     const handlePasscodeSubmit = async () => {
@@ -50,6 +52,7 @@ export function StartupScreenContainer({
 
         setIsVerifyingPasscode(true);
         setPasscodeError('');
+        setShowRechargeLink(false);
         try {
             const result = await window.api.passcode?.verify(code);
             if (result?.success) {
@@ -57,9 +60,11 @@ export function StartupScreenContainer({
                 onPasscodeVerified?.();
             } else {
                 setPasscodeError(result?.error || '面试码验证失败，请重试');
+                setShowRechargeLink(!!result?.rechargeRequired);
             }
         } catch (error: any) {
             setPasscodeError(error?.message || '面试码验证失败，请稍后再试');
+            setShowRechargeLink(false);
         } finally {
             setIsVerifyingPasscode(false);
         }
@@ -81,6 +86,17 @@ export function StartupScreenContainer({
         }
     };
 
+    const handleRecharge = async () => {
+        const fallback = 'https://www.muyulab.com/';
+        try {
+            const webUrl = await window.api?.common?.getWebUrl();
+            const baseUrl = (webUrl || fallback).replace(/\/$/, '');
+            await window.api?.common?.openExternal(baseUrl + '/duration/recharge');
+        } catch {
+            await window.api?.common?.openExternal(fallback + 'duration/recharge');
+        }
+    };
+
     return (
         <StartupScreen
             interviewCode={passcodeValue}
@@ -88,6 +104,7 @@ export function StartupScreenContainer({
             onStartInterview={handlePasscodeSubmit}
             onClose={handleClose}
             onCreateInterview={handleCreateInterview}
+            onRecharge={showRechargeLink ? handleRecharge : undefined}
             passcodeError={passcodeError}
             passcodeVerified={passcodeVerified}
             isVerifyingPasscode={isVerifyingPasscode}

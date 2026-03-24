@@ -3,10 +3,11 @@ import svgPathsTooltip from "../../imports/svg-9mojr1x5i6";
 
 interface RecordingButtonProps {
   isRecording: boolean;
+  disabled?: boolean;
   onClick: () => void;
 }
 
-export function RecordingButton({ isRecording, onClick }: RecordingButtonProps) {
+export function RecordingButton({ isRecording, disabled = false, onClick }: RecordingButtonProps) {
   const [showTooltip, setShowTooltip] = useState(false);
 
   return (
@@ -17,7 +18,8 @@ export function RecordingButton({ isRecording, onClick }: RecordingButtonProps) 
     >
       <button
         onClick={onClick}
-        className="size-[36px] rounded-[19.5px] cursor-pointer transition-colors flex items-center justify-center"
+        disabled={disabled}
+        className="size-[36px] rounded-[19.5px] cursor-pointer transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
         style={{
           backgroundColor: isRecording ? 'rgba(222,145,255,0.2)' : 'rgba(193,127,255,0.15)',
           border: '1px solid #c17fff'
