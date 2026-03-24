@@ -364,6 +364,7 @@ export function MainInterface({
           {/* 右上角收音按钮 */}
           <RecordingButton
             isRecording={isRecording}
+            disabled={!isRecording && (!remainingMinutes || remainingMinutes <= 0)}
             onClick={onToggleRecording}
           />
           <InputButton onClick={onToggleInputPanel} isActive={activePanel === 'input'} />

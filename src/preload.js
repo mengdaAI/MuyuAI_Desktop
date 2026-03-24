@@ -162,6 +162,8 @@ contextBridge.exposeInMainWorld('api', {
     // Listeners
     onListenChangeSessionResult: (callback) => ipcRenderer.on('listen:changeSessionResult', callback),
     removeOnListenChangeSessionResult: (callback) => ipcRenderer.removeListener('listen:changeSessionResult', callback),
+    onSessionForceEnded: (callback) => ipcRenderer.on('session-force-ended', callback),
+    removeOnSessionForceEnded: (callback) => ipcRenderer.removeListener('session-force-ended', callback),
     onShortcutsUpdated: (callback) => ipcRenderer.on('shortcuts-updated', callback),
     removeOnShortcutsUpdated: (callback) => ipcRenderer.removeListener('shortcuts-updated', callback)
   },

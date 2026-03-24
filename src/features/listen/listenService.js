@@ -53,6 +53,13 @@ class ListenService {
                 this.sendToRenderer('update-status', status);
             }
         });
+
+        internalBridge.on('session:force-stop', async (data) => {
+            console.log('[ListenService] Force stopping session due to event:', data?.reason);
+            await this.closeSession();
+            this.sendToRenderer('session-state-changed', { isActive: false });
+            this.sendToRenderer('session-force-ended', data);
+        });
     }
 
     resetTurnState() {
@@ -426,7 +433,10 @@ class ListenService {
                     console.log('[ListenService] changeSession to "Listen"');
                     // internalBridge.emit('window:requestVisibility', { name: 'listen', visible: true });
                     {
-                        const ok = await this.initializeSession();
+                        // Get language from active session, default to 'zh' if not specified
+                        const language = passcodeService.activeSession?.language || 'zh';
+                        console.log(`[ListenService] Initializing session with language: ${language}`);
+                        const ok = await this.initializeSession(language);
                         if (!ok) {
                             throw new Error('Listen session initialization failed');
                         }
