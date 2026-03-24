@@ -33,19 +33,12 @@ asarUnpack:
 # Windows configuration
 win:
     icon: src/ui/assets/logo.ico
-    # 确保安装程序图标与应用主图标一致
-    installerIcon: src/ui/assets/logo.ico
-    uninstallerIcon: src/ui/assets/logo.ico
     target:
         - target: nsis
         - target: portable
     requestedExecutionLevel: asInvoker
-    signAndEditExecutable: false
-    forceCodeSigning: false
     # cscLink: build\certs\glass-dev.pfx
     # cscKeyPassword: "${env.CSC_KEY_PASSWORD}"
-    # signtoolOptions:
-    #     certificateSubjectName: "Glass Dev Code Signing"
 
 # NSIS installer configuration for Windows
 nsis:
