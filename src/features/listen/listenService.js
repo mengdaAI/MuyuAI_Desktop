@@ -433,7 +433,10 @@ class ListenService {
                     console.log('[ListenService] changeSession to "Listen"');
                     // internalBridge.emit('window:requestVisibility', { name: 'listen', visible: true });
                     {
-                        const ok = await this.initializeSession();
+                        // Get language from active session, default to 'zh' if not specified
+                        const language = passcodeService.activeSession?.language || 'zh';
+                        console.log(`[ListenService] Initializing session with language: ${language}`);
+                        const ok = await this.initializeSession(language);
                         if (!ok) {
                             throw new Error('Listen session initialization failed');
                         }
