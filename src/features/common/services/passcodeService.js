@@ -109,9 +109,15 @@ class PasscodeService {
             return { success: true, token: result.token };
         } catch (error) {
             console.error(`${loggerPrefix} login error:`, error);
+            const errorMsg = error?.message || '登录失败，请稍后重试';
+            // 检查是否为时长余额不足错误，需要显示充值链接
+            const isInsufficientBalance = typeof errorMsg === 'string' && (
+                errorMsg.includes('时长余额不足') || errorMsg.includes('时长不足')
+            );
             return {
                 success: false,
-                error: error?.message || '登录失败，请稍后重试',
+                error: errorMsg,
+                rechargeRequired: isInsufficientBalance,
             };
         }
     }

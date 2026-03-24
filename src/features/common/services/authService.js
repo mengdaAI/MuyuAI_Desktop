@@ -111,7 +111,13 @@ class AuthService {
 
             const data = await response.json().catch(() => ({}));
             if (!response.ok) {
-                throw new Error(data?.message || data?.error || '登录失败，请重试');
+                let errorMsg = data?.message || data?.error || '登录失败，请重试';
+                // 将服务端英文错误提示翻译为中文
+                const isInsufficientBalance = typeof errorMsg === 'string' && errorMsg.toLowerCase().includes('insufficient time balance');
+                if (isInsufficientBalance) {
+                    errorMsg = '面试时长余额不足';
+                }
+                throw new Error(errorMsg);
             }
 
             const jwtToken = data?.token || data?.jwt || data?.accessToken || data?.access_token;
