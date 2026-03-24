@@ -111,6 +111,19 @@ console.log('>>> [DEBUG] Waiting for app.whenReady()');
 app.whenReady().then(async () => {
     console.log('>>> [DEBUG] app.whenReady() fired');
 
+    // Windows-specific icon and taskbar setup
+    if (process.platform === 'win32') {
+        console.log('[Windows] Setting up Windows-specific icon configuration');
+        
+        // Set App User Model ID for Windows taskbar
+        // This helps Windows associate the app with its icon
+        app.setAppUserModelId('com.muyulab.muyu.desktop');
+        
+        // On Windows, we need to ensure the app icon is properly set
+        // even when windows skip the taskbar
+        console.log('[Windows] App User Model ID set');
+    }
+
     // Setup native loopback audio capture for Windows
     session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
         desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {

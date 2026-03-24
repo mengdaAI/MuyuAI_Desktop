@@ -33,12 +33,16 @@ asarUnpack:
 # Windows configuration
 win:
     icon: src/ui/assets/logo.ico
+    # 确保图标被正确使用
+    iconId: app
+    # 为不同的Windows场景指定图标
     target:
         - target: nsis
         - target: portable
     requestedExecutionLevel: asInvoker
     signAndEditExecutable: false
     forceCodeSigning: false
+    # 额外的Windows图标配置
     # cscLink: build\certs\glass-dev.pfx
     # cscKeyPassword: "${env.CSC_KEY_PASSWORD}"
     # signtoolOptions:

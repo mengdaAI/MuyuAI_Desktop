@@ -24,8 +24,7 @@ async function generateIco() {
   console.log('📦 生成 logo.ico (Windows 图标)...');
   
   // ICO 文件需要多个尺寸：16x16, 32x32, 48x48, 64x64, 128x128, 256x256
-  // Windows 通常需要 16x16, 32x32, 48x48, 256x256
-  const sizes = [16, 24, 32, 48, 64, 96, 128, 256];
+  const sizes = [16, 32, 48, 64, 128, 256];
   const tempDir = path.join(__dirname, '../temp-ico');
   
   // 创建临时目录
@@ -33,18 +32,15 @@ async function generateIco() {
     fs.mkdirSync(tempDir, { recursive: true });
   }
   
-  console.log('  🎨 生成各个尺寸的图标...');
-  
   // 生成各个尺寸的 PNG
   for (const size of sizes) {
     await sharp(LOGO_PNG)
       .resize(size, size, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
       .png()
       .toFile(path.join(tempDir, `icon-${size}.png`));
-    console.log(`    ✓ ${size}x${size}`);
   }
   
-  console.log('  ✅ 生成了各个尺寸的图标');
+  console.log('  ✓ 生成了各个尺寸的图标');
   
   // 检查是否安装了 ImageMagick
   try {
@@ -57,47 +53,14 @@ async function generateIco() {
       execSync('convert -version', { stdio: 'ignore' });
     }
     
-    console.log('  🔧 使用 ImageMagick 生成 ICO 文件...');
-    
-    // 使用 ImageMagick 合并成 ICO，指定正确的格式参数
-    // -depth 8 指定 8-bit 颜色深度
-    // 使用 BMP 格式作为中间格式可能更可靠
+    // 使用 ImageMagick 合并成 ICO
     const pngFiles = sizes.map(s => path.join(tempDir, `icon-${s}.png`)).join(' ');
-    
-    // 先将 PNG 转换为 BMP（某些 Windows 系统对 PNG-in-ICO 支持不好）
-    for (const size of sizes) {
-      const pngPath = path.join(tempDir, `icon-${size}.png`);
-      const bmpPath = path.join(tempDir, `icon-${size}.bmp`);
-      execSync(`${convertCmd} "${pngPath}" "${bmpPath}"`, { stdio: 'ignore' });
-    }
-    
-    // 使用 BMP 文件创建 ICO
-    const bmpFiles = sizes.map(s => path.join(tempDir, `icon-${s}.bmp`)).join(' ');
-    execSync(`${convertCmd} ${bmpFiles} -compress none ${LOGO_ICO}`, { stdio: 'ignore' });
-    
-    console.log('  ✅ 使用 ImageMagick 生成 logo.ico');
+    execSync(`${convertCmd} ${pngFiles} ${LOGO_ICO}`, { stdio: 'ignore' });
+    console.log('  ✓ 使用 ImageMagick 生成 logo.ico');
   } catch (error) {
-    console.log('  ⚠️  ImageMagick 处理失败:', error.message);
-    
-    try {
-      // 尝试使用 sharp 直接生成 ICO（需要将 PNG 转换为 Buffer 然后合并）
-      console.log('  🔄 尝试替代方法生成 ICO...');
-      
-      // 对于简单情况，直接复制最大的 PNG 作为 ICO
-      const largestPng = path.join(tempDir, `icon-256.png`);
-      if (fs.existsSync(largestPng)) {
-        fs.copyFileSync(largestPng, LOGO_ICO);
-        console.log('  ⚠️  使用 256x256 PNG 作为 ICO（功能有限）');
-      } else {
-        throw new Error('无法生成 ICO 文件');
-      }
-    } catch (fallbackError) {
-      console.error('  ❌ 所有 ICO 生成方法都失败了:', fallbackError.message);
-      console.log('  请安装 ImageMagick 并重试:');
-      console.log('  macOS: brew install imagemagick');
-      console.log('  Ubuntu/Debian: sudo apt-get install imagemagick');
-      process.exit(1);
-    }
+    // 如果没有 ImageMagick，使用最大的尺寸作为 ICO
+    console.log('  ⚠️  未安装 ImageMagick，使用 256x256 PNG 作为 ICO');
+    fs.copyFileSync(path.join(tempDir, 'icon-256.png'), LOGO_ICO);
   }
   
   // 清理临时文件

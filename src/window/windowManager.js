@@ -840,7 +840,7 @@ function createWindows() {
         vibrancy: false,
         hasShadow: false,
         alwaysOnTop: isAlwaysOnTopOn, // 确保窗口始终置顶
-        skipTaskbar: true,
+        skipTaskbar: process.platform !== 'win32', // 在Windows上显示在任务栏中以便正确显示图标
         hiddenInMissionControl: true,
         resizable: false,
         focusable: true,
