@@ -7,6 +7,11 @@ const shortcutsService = require('../features/shortcuts/shortcutsService');
 const internalBridge = require('../bridge/internalBridge');
 const permissionRepository = require('../features/common/repositories/permission');
 
+// Windows icon path (macOS uses the .icns bundled in the .app)
+const WIN_ICON = process.platform === 'win32'
+    ? path.join(__dirname, '../ui/assets/logo.ico')
+    : undefined;
+
 /* ────────────────[ GLASS BYPASS ]─────────────── */
 let liquidGlass;
 const isLiquidGlassSupported = () => {
@@ -530,6 +535,7 @@ function createFeatureWindows(header, namesToCreate) {
         skipTaskbar: true,
         hiddenInMissionControl: true,
         resizable: false,
+        ...(WIN_ICON && { icon: WIN_ICON }),
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
@@ -846,6 +852,7 @@ function createWindows() {
         focusable: true,
         acceptFirstMouse: true,
         show: true, // 确保窗口默认显示
+        ...(WIN_ICON && { icon: WIN_ICON }),
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
@@ -954,6 +961,7 @@ function createMainOnlyWindow() {
         skipTaskbar: true,
         hiddenInMissionControl: true,
         resizable: false,
+        ...(WIN_ICON && { icon: WIN_ICON }),
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,

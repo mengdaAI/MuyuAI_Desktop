@@ -108,7 +108,9 @@ data/*.db-wal
 # Build output
 out/
 dist/
-build/ 
+build/
+!build/icon.ico
+!build/icon.icns
 
 .env
 .env.production
