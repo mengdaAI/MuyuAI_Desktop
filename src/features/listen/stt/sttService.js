@@ -46,6 +46,15 @@ class SttService {
         this.myLastReceivedText = '';
         this.theirLastReceivedText = '';
 
+        // Doubao-specific: track the last raw cumulative text sent to onTranscriptionComplete
+        // and the latest raw cumulative text received (may differ if flush is pending).
+        // Used to extract truly-new incremental text before sending to listenService,
+        // avoiding the bug where server-side retroactive punctuation breaks startsWith prefix matching.
+        this.theirLastFlushedDoubaoText = '';
+        this.theirLastDoubaoRawText = '';
+        this.myLastFlushedDoubaoText = '';
+        this.myLastDoubaoRawText = '';
+
         // System audio capture
         this.systemAudioProc = null;
 
@@ -65,13 +74,6 @@ class SttService {
         this.onTranscriptionComplete = onTranscriptionComplete;
         this.onStatusUpdate = onStatusUpdate;
         this.onPartialTranscript = onPartialTranscript;
-        try {
-            console.log('[SttService] Callbacks set:', {
-                onTranscriptionComplete: typeof onTranscriptionComplete,
-                onStatusUpdate: typeof onStatusUpdate,
-                onPartialTranscript: typeof onPartialTranscript,
-            });
-        } catch (e) { }
     }
 
     emitPartialTranscript(speaker, text, extra = {}) {
@@ -147,29 +149,12 @@ class SttService {
 
     flushTheirCompletion() {
         const finalText = (this.theirCompletionBuffer + this.theirCurrentUtterance).trim();
-        try {
-            console.log('[SttService-Them] flushTheirCompletion invoked', {
-                provider: this.modelInfo?.provider,
-                bufferLen: (this.theirCompletionBuffer || '').length,
-                currentLen: (this.theirCurrentUtterance || '').length,
-                finalLen: (finalText || '').length,
-            });
-        } catch (e) { }
         if (!this.modelInfo || !finalText) {
-            try {
-                console.log('[SttService-Them] flushTheirCompletion skipped', {
-                    hasModelInfo: !!this.modelInfo,
-                    finalTextEmpty: !finalText,
-                });
-            } catch (e) { }
             return;
         }
 
         // Notify completion callback
         if (this.onTranscriptionComplete) {
-            try {
-                console.log('[SttService-Them] onTranscriptionComplete firing', { finalText });
-            } catch (e) { }
             this.onTranscriptionComplete('Them', finalText);
         }
 
@@ -181,7 +166,6 @@ class SttService {
             isFinal: true,
             timestamp: Date.now(),
         });
-        try { console.log('[SttService-Them] stt-update final dispatched'); } catch (e) { }
 
         // 保存最后完成的 utterance，用于检测下一次是否包含重复内容
         this.theirLastCompletedUtterance = finalText;
@@ -189,7 +173,6 @@ class SttService {
         this.theirCompletionBuffer = '';
         this.theirCompletionTimer = null;
         this.theirCurrentUtterance = '';
-        try { console.log('[SttService-Them] completion buffers reset'); } catch (e) { }
 
         if (this.onStatusUpdate) {
             this.onStatusUpdate('Listening...');
@@ -214,21 +197,10 @@ class SttService {
             this.theirCompletionBuffer += (this.theirCompletionBuffer ? ' ' : '') + text;
         }
 
-        try {
-            console.log('[SttService-Them] debounceTheirCompletion called', {
-                provider: this.modelInfo?.provider,
-                textLen: (text || '').length,
-                bufferLen: (this.theirCompletionBuffer || '').length,
-            });
-        } catch (e) { }
-
         if (this.theirCompletionTimer) {
-            try { console.log('[SttService-Them] clearing previous completion timer'); } catch (e) { }
             clearTimeout(this.theirCompletionTimer);
         }
-        try { console.log(`[SttService-Them] setting completion timer ${COMPLETION_DEBOUNCE_MS}ms`); } catch (e) { }
         this.theirCompletionTimer = setTimeout(() => {
-            try { console.log('[SttService-Them] completion timer fired'); } catch (e) { }
             this.flushTheirCompletion();
         }, COMPLETION_DEBOUNCE_MS);
     }
@@ -274,31 +246,14 @@ class SttService {
     }
 
     _extractIncrementalText(lastReceived, newComplete) {
-        if (!lastReceived) {
-            // First time receiving text, return the complete text
-            console.log('[SttService] _extractIncrementalText: first text, returning complete');
-            return newComplete;
-        }
+        if (!lastReceived) return newComplete;
+        if (!newComplete) return '';
 
-        if (!newComplete) {
-            return '';
-        }
-
-        // If newComplete starts with lastReceived, extract the new part
         if (newComplete.startsWith(lastReceived)) {
-            const incremental = newComplete.slice(lastReceived.length).trim();
-            console.log('[SttService] _extractIncrementalText: extracted incremental', {
-                lastLength: lastReceived.length,
-                newLength: newComplete.length,
-                incrementalLength: incremental.length,
-                incremental: incremental.slice(0, 50)
-            });
-            return incremental;
+            // 去掉头部多余的空白和标点（Doubao 回溯补标点会把标点留在拼接处）
+            return newComplete.slice(lastReceived.length).replace(/^[\s\u0020,，。、！？!?.…—–‐-]+/, '');
         }
 
-        // If newComplete is completely different (new utterance detected elsewhere)
-        // or doesn't start with lastReceived, return the complete new text
-        console.log('[SttService] _extractIncrementalText: new text doesn\'t start with last, returning complete');
         return newComplete;
     }
 
@@ -308,7 +263,6 @@ class SttService {
 
         // Fast path: incoming extends current (normal accumulation)
         if (incoming.startsWith(current)) {
-            console.log('[SttService] _mergeSlidingWindow: incoming extends current');
             return incoming;
         }
 
@@ -318,7 +272,6 @@ class SttService {
 
         for (let len = maxOverlap; len >= minOverlap; len--) {
             if (current.slice(-len) === incoming.slice(0, len)) {
-                console.log('[SttService] _mergeSlidingWindow: found overlap of length', len);
                 return current + incoming.slice(len);
             }
         }
@@ -331,19 +284,15 @@ class SttService {
         
         // If current is contained within incoming (even with corrections before/after), use incoming
         if (incoming.includes(current.slice(0, Math.min(current.length, 20)))) {
-            // Incoming likely contains the corrected/extended version
-            console.log('[SttService] _mergeSlidingWindow: incoming contains current start, using incoming');
             return incoming;
         }
         
         // If incoming is significantly longer, it likely has more content
         if (incoming.length > current.length) {
-            console.log('[SttService] _mergeSlidingWindow: incoming is longer, replacing');
             return incoming;
         }
         
         // Default: trust the API's latest result
-        console.log('[SttService] _mergeSlidingWindow: default to incoming (API latest)');
         return incoming;
     }
 
@@ -355,11 +304,9 @@ class SttService {
             throw new Error('AI model or API key is not configured.');
         }
         this.modelInfo = modelInfo;
-        console.log(`[SttService] Initializing STT for ${modelInfo.provider} using model ${modelInfo.model}`);
 
         const handleMyMessage = message => {
             if (!this.modelInfo) {
-                console.log('[SttService] Ignoring message - session already closed');
                 return;
             }
             // console.log('[SttService] handleMyMessage', message);
@@ -398,16 +345,10 @@ class SttService {
                             isFinal: true,
                             timestamp: Date.now(),
                         });
-                    } else {
-                        console.log(`[Whisper-Me] Filtered noise: "${finalText}"`);
                     }
                 }
                 return;
             } else if (this.modelInfo.provider === 'gemini') {
-                if (!message.serverContent?.modelTurn) {
-                    console.log('[Gemini STT - Me]', JSON.stringify(message, null, 2));
-                }
-
                 if (message.serverContent?.turnComplete) {
                     if (this.myCompletionTimer) {
                         clearTimeout(this.myCompletionTimer);
@@ -449,12 +390,10 @@ class SttService {
                     text = message.channel?.alternatives?.[0]?.transcript;
                     isFinal = message.is_final;
                     if (!text || text.trim().length === 0) return;
-                    console.log(`[SttService-Me-Deepgram] Received: isFinal=${isFinal}, text="${text}"`);
                 } else {
                     text = message.text || message.transcript || message.raw?.result?.text;
                     if (!text || text.trim().length === 0) return;
                     isFinal = message.isFinal ?? false;
-                    console.log(`[SttService-Me-Doubao] Received: isFinal=${isFinal}, text="${text}"`);
                 }
 
                 if (isFinal) {
@@ -507,15 +446,6 @@ class SttService {
                         const overlapLen = this._calculateOverlapLength(currentUtterance, text);
                         const uniquePart = overlapLen > 0 ? text.slice(overlapLen).trim() : text;
                         
-                        console.log('[SttService-Me-Doubao] NEW UTTERANCE DETECTED:', {
-                            currentLength: currentUtterance.length,
-                            newLength: text.length,
-                            isExtension,
-                            isDuplicate,
-                            overlapLen,
-                            uniquePart: uniquePart.slice(0, 50)
-                        });
-                        
                         // 1. 先发送 finalize 事件，完成当前 turn
                         const finalText = (this.myCompletionBuffer + ' ' + currentUtterance).trim();
                         this.emitPartialTranscript('Me', {
@@ -541,16 +471,7 @@ class SttService {
                         // 1. 正常累积（新文本以旧文本开头）
                         // 2. 滑动窗口重置（新文本和旧文本有重叠）
                         // 3. 完全不同（应该由混合策略处理，这里会替换）
-                        const beforeMerge = this.myCurrentUtterance;
                         this.myCurrentUtterance = this._mergeSlidingWindow(this.myCurrentUtterance, text);
-                        
-                        console.log('[SttService-Me-Doubao] Merged text:', {
-                            beforeLength: beforeMerge.length,
-                            afterLength: this.myCurrentUtterance.length,
-                            newTextLength: text.length,
-                            beforeText: beforeMerge.slice(-30),
-                            afterText: this.myCurrentUtterance.slice(-30),
-                        });
                         
                         const continuousText = (this.myCompletionBuffer + ' ' + this.myCurrentUtterance).trim();
 
@@ -611,11 +532,9 @@ class SttService {
         };
 
         const handleTheirMessage = message => {
-            console.log('------------------- handleTheirMessage message.text:', message.text);
             if (!message || typeof message !== 'object') return;
 
             if (!this.modelInfo) {
-                console.log('[SttService] Ignoring message - session already closed');
                 return;
             }
 
@@ -654,16 +573,10 @@ class SttService {
                             isFinal: true,
                             timestamp: Date.now(),
                         });
-                    } else {
-                        console.log(`[Whisper-Them] Filtered noise: "${finalText}"`);
                     }
                 }
                 return;
             } else if (this.modelInfo.provider === 'gemini') {
-                if (!message.serverContent?.modelTurn) {
-                    console.log('[Gemini STT - Them]', JSON.stringify(message, null, 2));
-                }
-
                 if (message.serverContent?.turnComplete) {
                     if (this.theirCompletionTimer) {
                         clearTimeout(this.theirCompletionTimer);
@@ -704,47 +617,54 @@ class SttService {
                     text = message.channel?.alternatives?.[0]?.transcript;
                     if (!text || text.trim().length === 0) return;
                     isFinal = message.is_final;
-                    console.log(`[SttService-Them-Deepgram] Received: isFinal=${isFinal}, text="${text}"`);
                 } else {
                     text = message.text || message.transcript || message.raw?.result?.text;
                     if (!text || text.trim().length === 0) return;
                     isFinal = message.isFinal ?? false;
-                    console.log(`[SttService-Them-Doubao] Received: isFinal=${isFinal}, text="${text}"`);
                 }
 
                 if (isFinal) {
-                    try { console.log('[SttService-Them-Doubao] Final received; flushing immediately'); } catch (e) { }
-                    
                     // 1. 先清除定时器，避免竞态条件
                     if (this.theirCompletionTimer) {
-                        try { console.log('[SttService-Them-Doubao] clearing previous completion timer'); } catch (e) { }
                         clearTimeout(this.theirCompletionTimer);
                         this.theirCompletionTimer = null;
                     }
-                    
-                    // 2. 更新状态并 flush
-                    // 注意：debounceTheirCompletion 会把 text 添加到 buffer
-                    // flushTheirCompletion 会合并 buffer + currentUtterance
-                    // 所以这里清空 currentUtterance，避免 text 被重复计算
-                    this.theirCurrentUtterance = '';
-                    this.debounceTheirCompletion(text);
+
+                    // 2. Doubao 增量提取：只取相比上次 flush 真正新增的内容
+                    //    避免服务端回溯修正标点导致 startsWith 失败、全量透传的 bug
                     if (this.modelInfo.provider === 'doubao') {
+                        const incrementalText = this._extractIncrementalText(this.theirLastFlushedDoubaoText, text);
+                        this.theirLastFlushedDoubaoText = text;
+                        this.theirLastDoubaoRawText = text;
+                        if (!incrementalText || !incrementalText.trim()) return;
+                        this.theirCurrentUtterance = '';
+                        this.debounceTheirCompletion(incrementalText);
                         this.flushTheirCompletion();
+                    } else {
+                        this.theirCurrentUtterance = '';
+                        this.debounceTheirCompletion(text);
                     }
                 } else {
                     // ========== isFinal=false: 处理中间结果 ==========
-                    try { console.log('[SttService-Them-Doubao] Partial received; processing interim result'); } catch (e) { }
-                    
+
                     if (this.theirCompletionTimer) {
-                        try { console.log('[SttService-Them-Doubao] clearing previous completion timer'); } catch (e) { }
                         clearTimeout(this.theirCompletionTimer);
                     }
 
+                    // Doubao：从上次 flush 位置截取当前正在识别的增量部分，避免显示全量累积
+                    const displayText = this.modelInfo.provider === 'doubao'
+                        ? (this._extractIncrementalText(this.theirLastFlushedDoubaoText, text) || text)
+                        : text;
+
+                    if (this.modelInfo.provider === 'doubao') {
+                        this.theirLastDoubaoRawText = text;
+                    }
+
                     // 更新当前识别内容（用于后续 flush 时计算 finalText）
-                    this.theirCurrentUtterance = text;
+                    this.theirCurrentUtterance = displayText;
 
                     // 计算当前展示文本：buffer + 当前识别内容
-                    const continuousText = (this.theirCompletionBuffer + ' ' + text).trim();
+                    const continuousText = (this.theirCompletionBuffer + ' ' + displayText).trim();
 
                     // 1. 同步到 UI（显示中间结果）
                     this.sendToRenderer('stt-update', {
@@ -763,9 +683,11 @@ class SttService {
 
                     // 3. 启动自动完成倒计时（如果在2秒内没有收到新的识别结果，则自动完成）
                     const COMPLETION_DEBOUNCE_MS = this.modelInfo.provider === 'doubao' ? 2000 : 800;
-                    try { console.log(`[SttService-Them-Doubao] setting completion timer ${COMPLETION_DEBOUNCE_MS}ms (interim)`); } catch (e) { }
                     this.theirCompletionTimer = setTimeout(() => {
-                        try { console.log('[SttService-Them-Doubao] completion timer fired (interim path)'); } catch (e) { }
+                        // timer 触发时，将 raw 文本标记为已 flush，确保下轮增量计算正确
+                        if (this.modelInfo?.provider === 'doubao') {
+                            this.theirLastFlushedDoubaoText = this.theirLastDoubaoRawText;
+                        }
                         this.flushTheirCompletion();
                     }, COMPLETION_DEBOUNCE_MS);
                 }
@@ -810,7 +732,7 @@ class SttService {
             callbacks: {
                 onmessage: handleMyMessage,
                 onerror: error => console.error('My STT session error:', error.message),
-                onclose: event => console.log('My STT session closed:', event.reason),
+                onclose: event => console.warn('My STT session closed:', event.reason),
             },
         };
 
@@ -819,7 +741,7 @@ class SttService {
             callbacks: {
                 onmessage: handleTheirMessage,
                 onerror: error => console.error('Their STT session error:', error.message),
-                onclose: event => console.log('Their STT session closed:', event.reason),
+                onclose: event => console.warn('Their STT session closed:', event.reason),
             },
         };
 
@@ -841,8 +763,6 @@ class SttService {
             createSTT(this.modelInfo.provider, theirOptions),
         ]);
 
-        console.log('✅ Both STT sessions initialized successfully.');
-
         // ── Setup keep-alive heart-beats ────────────────────────────────────────
         if (this.keepAliveInterval) clearInterval(this.keepAliveInterval);
         this.keepAliveInterval = setInterval(() => {
@@ -853,7 +773,6 @@ class SttService {
         if (this.sessionRenewTimeout) clearTimeout(this.sessionRenewTimeout);
         this.sessionRenewTimeout = setTimeout(async () => {
             try {
-                console.log('[SttService] Auto-renewing STT sessions…');
                 await this.renewSessions(language);
             } catch (err) {
                 console.error('[SttService] Failed to renew STT sessions:', err);
@@ -894,8 +813,6 @@ class SttService {
         const oldMySession = this.mySttSession;
         const oldTheirSession = this.theirSttSession;
 
-        console.log('[SttService] Spawning fresh STT sessions in the background…');
-
         // We reuse initializeSttSessions to create fresh sessions with the same
         // language and handlers. The method will update the session pointers
         // and timers, but crucially it does NOT touch the system audio capture
@@ -907,7 +824,6 @@ class SttService {
             try {
                 oldMySession?.close?.();
                 oldTheirSession?.close?.();
-                console.log('[SttService] Old STT sessions closed after hand-off.');
             } catch (err) {
                 console.error('[SttService] Error closing old STT sessions:', err.message);
             }
@@ -970,23 +886,15 @@ class SttService {
 
     killExistingSystemAudioDump() {
         return new Promise(resolve => {
-            console.log('Checking for existing SystemAudioDump processes...');
-
             const killProc = spawn('pkill', ['-f', 'SystemAudioDump'], {
                 stdio: 'ignore',
             });
 
             killProc.on('close', code => {
-                if (code === 0) {
-                    console.log('Killed existing SystemAudioDump processes');
-                } else {
-                    console.log('No existing SystemAudioDump processes found');
-                }
                 resolve();
             });
 
             killProc.on('error', err => {
-                console.log('Error checking for existing processes (this is normal):', err.message);
                 resolve();
             });
 
@@ -1001,15 +909,12 @@ class SttService {
         if (process.platform !== 'darwin' || !this.theirSttSession) return false;
 
         await this.killExistingSystemAudioDump();
-        console.log('Starting macOS audio capture for "Them"...');
 
         const { app } = require('electron');
         const path = require('path');
         const systemAudioPath = app.isPackaged
             ? path.join(process.resourcesPath, 'app.asar.unpacked', 'src', 'ui', 'assets', 'SystemAudioDump')
             : path.join(app.getAppPath(), 'src', 'ui', 'assets', 'SystemAudioDump');
-
-        console.log('SystemAudioDump path:', systemAudioPath);
 
         this.systemAudioProc = spawn(systemAudioPath, [], {
             stdio: ['ignore', 'pipe', 'pipe'],
@@ -1020,8 +925,6 @@ class SttService {
             return false;
         }
 
-        console.log('SystemAudioDump started with PID:', this.systemAudioProc.pid);
-
         const CHUNK_DURATION = 0.1;
         const SAMPLE_RATE = 24000;
         const BYTES_PER_SAMPLE = 2;
@@ -1029,9 +932,6 @@ class SttService {
         const CHUNK_SIZE = SAMPLE_RATE * BYTES_PER_SAMPLE * CHANNELS * CHUNK_DURATION;
 
         let audioBuffer = Buffer.alloc(0);
-
-        // const provider = await this.getAiProvider();
-        // const isGemini = provider === 'gemini';
 
         let modelInfo = this.modelInfo;
         if (!modelInfo) {
@@ -1078,7 +978,7 @@ class SttService {
         });
 
         this.systemAudioProc.on('close', code => {
-            console.log('SystemAudioDump process closed with code:', code);
+            console.warn('SystemAudioDump process closed with code:', code);
             this.systemAudioProc = null;
         });
 
@@ -1155,6 +1055,12 @@ class SttService {
         this.theirCurrentUtterance = '';
         this.myCompletionBuffer = '';
         this.theirCompletionBuffer = '';
+        this.myLastReceivedText = '';
+        this.theirLastReceivedText = '';
+        this.theirLastFlushedDoubaoText = '';
+        this.theirLastDoubaoRawText = '';
+        this.myLastFlushedDoubaoText = '';
+        this.myLastDoubaoRawText = '';
         this.modelInfo = null;
     }
 }

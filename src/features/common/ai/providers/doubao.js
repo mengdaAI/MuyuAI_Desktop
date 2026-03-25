@@ -299,8 +299,6 @@ class DoubaoSttSession extends EventEmitter {
 
             if (response.payloadMsg) {
                 const text = extractTranscript(response.payloadMsg);
-                console.log('[DoubaoSTT] --------------------------- text:', text);
-                console.log('[DoubaoSTT] --------------------------- response:', response);
                 if (text) {
                     let isFinal = response.isLastPackage || !!response.payloadMsg?.is_final || !!response.payloadMsg?.final;
                     const message = {

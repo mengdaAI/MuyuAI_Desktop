@@ -87,9 +87,7 @@ class LiveInsightsService {
                     timestamp: turn.timestamp || Date.now(),
                 };
             }
-            console.log('[LiveInsightsService] Calling API with payload:', JSON.stringify(payload).slice(0, 200));
             this.reader = await liveInsightsApi.startInsightStream(payload, { signal: this.abortController.signal });
-            console.log('[LiveInsightsService] API returned reader, starting streamLoop');
             this.streamLoop(this.reader, this.abortController.signal, turn.id);
         } catch (error) {
             console.error('[LiveInsightsService] startStream error:', error.message);
@@ -105,7 +103,6 @@ class LiveInsightsService {
     async streamLoop(reader, signal, turnId) {
         this.isStreaming = true;
         this.fullAnswer = '';
-        console.log(`[LiveInsightsService] streamLoop started for turn ${turnId}`);
         this.sendToRenderer('listen:live-answer', {
             turnId,
             status: 'started',
@@ -205,7 +202,6 @@ class LiveInsightsService {
                 const token = json.choices?.[0]?.delta?.content || json.token || '';
                 if (token) {
                     this.fullAnswer += token;
-                    console.log(`[LiveInsightsService] Received token for turn ${turnId}: ${token.slice(0, 10)}... (Total length: ${this.fullAnswer.length})`);
                     this.sendToRenderer('listen:live-answer', {
                         turnId,
                         status: 'streaming',

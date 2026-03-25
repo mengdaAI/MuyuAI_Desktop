@@ -160,31 +160,11 @@ class ListenService {
     }
 
     _extractIncrementalText(lastReceived, newComplete) {
-        if (!lastReceived) {
-            // First time receiving text, return the complete text
-            console.log('[ListenService] _extractIncrementalText: first text, returning complete');
-            return newComplete;
-        }
-
-        if (!newComplete) {
-            return '';
-        }
-
-        // If newComplete starts with lastReceived, extract the new part
+        if (!lastReceived) return newComplete;
+        if (!newComplete) return '';
         if (newComplete.startsWith(lastReceived)) {
-            const incremental = newComplete.slice(lastReceived.length).trim();
-            console.log('[ListenService] _extractIncrementalText: extracted incremental', {
-                lastLength: lastReceived.length,
-                newLength: newComplete.length,
-                incrementalLength: incremental.length,
-                incremental: incremental.slice(0, 50)
-            });
-            return incremental;
+            return newComplete.slice(lastReceived.length).replace(/^[\s\u0020,，。、！？!?.…—–‐-]+/, '');
         }
-
-        // If newComplete is completely different (new utterance detected elsewhere)
-        // or doesn't start with lastReceived, return the complete new text
-        console.log('[ListenService] _extractIncrementalText: new text doesn\'t start with last, returning complete');
         return newComplete;
     }
 
@@ -485,20 +465,28 @@ class ListenService {
     }
 
     async handleTranscriptionComplete(speaker, text) {
-        console.log(`[ListenService] Transcription complete: ${speaker} - ${text}`);
-
         const normalizedSpeaker = speaker === 'Me' ? 'Me' : 'Them';
-        
-        // text 是 STT 服务传来的完整文本，直接使用
-        // normalizeTextForSpeaker 只用于检测完全重复的情况（返回空字符串）
-        // 不应该用来截断文本
+        const otherSpeaker = normalizedSpeaker === 'Me' ? 'Them' : 'Me';
+
         const activeTurn = this.activeTurns[normalizedSpeaker];
         const prefix = (activeTurn && activeTurn.trimPrefix) || this.lastCompletedText[normalizedSpeaker] || '';
-        
+
         // 如果文本和前缀完全一样，说明是重复，跳过
         if (text === prefix) {
-            console.log('[ListenService] Skipping duplicate text');
             return;
+        }
+
+        // 回声防护：Me 的识别结果若与对方最近的完成文本高度重叠，判定为麦克风回声，丢弃
+        if (normalizedSpeaker === 'Me') {
+            const otherText = this.lastCompletedText[otherSpeaker] || '';
+            if (otherText && text && otherText.length > 5 && text.length > 5) {
+                const shorter = text.length < otherText.length ? text : otherText;
+                const longer = text.length < otherText.length ? otherText : text;
+                if (longer.includes(shorter) || shorter === longer) {
+                    console.warn('[ListenService] Echo detected, dropping Me transcript:', text.slice(0, 60));
+                    return;
+                }
+            }
         }
         
         const cumulativeText = text;
@@ -520,9 +508,6 @@ class ListenService {
         if (!partial || !partial.text) return;
 
         const speaker = partial.speaker === 'Me' ? 'Me' : 'Them';
-        if (speaker === 'Me') {
-            console.log('[ListenService] Me partial:', { text: partial.text, isFinal: partial.isFinal });
-        }
         const timestamp = partial.timestamp || Date.now();
         const provider = partial.provider || this.sttService?.modelInfo?.provider || null;
 
@@ -603,15 +588,6 @@ class ListenService {
             turn.provider = provider;
         }
         
-        // 只记录有意义的更新
-        if (newText && newText.trim().length > 0) {
-            console.log('[ListenService] Updating partial transcript', {
-                speaker,
-                text: newText.slice(0, 120),
-                turnId: turn.id,
-            });
-        }
-
         this.emitTurnUpdate(turn, {
             text: newText,
             timestamp,
