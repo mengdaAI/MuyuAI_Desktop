@@ -224,32 +224,106 @@ jobs:
                   aws configure set default.retry_mode standard
                   aws configure set default.max_attempts 10
 
-                  # Flatten artifacts directory structure for upload
+                  # 准备上传目录
                   mkdir -p upload
+                  
+                  # 复制所有文件到上传目录
                   find artifacts -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.zip" -o -name "*.yml" \) -exec cp {} upload/ \;
 
-                  echo "📦 Files to upload:"
+                  echo "📦 准备上传的文件:"
                   ls -lah upload/
 
                   # Upload using AWS CLI (Volcengine TOS is S3-compatible)
-                  # Use S3 endpoint for AWS CLI compatibility
                   TOS_ENDPOINT="https://tos-s3-cn-beijing.volces.com"
 
-                  echo "📋 Testing bucket access..."
-                  aws s3 ls s3://desktop-release/ --endpoint-url "$TOS_ENDPOINT" --region cn-beijing || echo "⚠️ List failed"
+                  echo "📋 测试存储桶访问..."
+                  aws s3 ls s3://desktop-release/ --endpoint-url "$TOS_ENDPOINT" --region cn-beijing || echo "⚠️ 列出失败，可能是首次使用"
 
-                  echo "📤 Starting upload to Volcengine TOS..."
-                  for file in upload/*; do
-                    filename=$(basename "$file")
-                    echo "Uploading $filename..."
-                    aws s3 cp "$file" "s3://desktop-release/$filename" \
-                      --endpoint-url "$TOS_ENDPOINT" \
-                      --region cn-beijing \
-                      || { echo "❌ Failed to upload $filename"; exit 1; }
+                  echo "🚀 第1步：上传新版本构建产物..."
+                  # 上传所有构建产物
+                  for file in upload/*.dmg upload/*.exe upload/*.zip; do
+                    if [ -f "$file" ]; then
+                      filename=$(basename "$file")
+                      echo "正在上传构建产物: $filename..."
+                      aws s3 cp "$file" "s3://desktop-release/$filename" \
+                        --endpoint-url "$TOS_ENDPOINT" \
+                        --region cn-beijing \
+                        || { echo "❌ 上传 $filename 失败"; exit 1; }
+                      echo "✅ $filename 上传完成"
+                    fi
                   done
 
-                  echo "✅ Uploaded to Volcengine TOS successfully"
-                  echo "📍 URL: https://desktop-release.tos-cn-beijing.volces.com/"
+                  echo "✅ 所有构建产物上传完成！"
+
+                  echo "🔍 第2步：验证文件可访问性..."
+                  sleep 30  # 等待 TOS 最终一致性
+                  
+                  # 获取新版本信息
+                  VERSION="${{ github.ref_name }}"
+                  VERSION_NUM="${VERSION#v}"
+                  
+                  # 验证关键文件是否可访问
+                  echo "🔄 验证远程文件可访问性..."
+                  all_files_accessible=true
+                  
+                  # 检查新版本文件
+                  for file in upload/*.dmg upload/*.exe upload/*.zip; do
+                    if [ -f "$file" ]; then
+                      filename=$(basename "$file")
+                      echo "  检查 $filename..."
+                      # 使用 curl 检查文件是否可访问
+                      if curl -I --fail "https://desktop-release.tos-cn-beijing.volces.com/$filename" 2>/dev/null | head -n 1 | grep -q "200"; then
+                        echo "    ✅ $filename 可访问"
+                      else
+                        echo "    ⚠️ $filename 暂时不可访问"
+                        all_files_accessible=false
+                      fi
+                    fi
+                  done
+
+                  if [ "$all_files_accessible" = false ]; then
+                    echo "⚠️ 部分文件尚未完全同步，等待 60 秒..."
+                    sleep 60
+                    
+                    # 重新检查
+                    echo "🔄 重新检查文件可访问性..."
+                    still_failed=false
+                    for file in upload/*.dmg upload/*.exe upload/*.zip; do
+                      if [ -f "$file" ]; then
+                        filename=$(basename "$file")
+                        if curl -I --fail "https://desktop-release.tos-cn-beijing.volces.com/$filename" 2>/dev/null | head -n 1 | grep -q "200"; then
+                          echo "    ✅ $filename 现在可访问"
+                        else
+                          echo "    ❌ $filename 仍然不可访问"
+                          still_failed=true
+                        fi
+                      fi
+                    done
+                    
+                    if [ "$still_failed" = true ]; then
+                      echo "❌ 部分文件无法访问，发布中止"
+                      exit 1
+                    fi
+                  fi
+
+                  echo "📤 第3步：上传新版本 manifest 文件（原子性更新）..."
+                  # 上传新版本的 manifest 文件（最后一步，原子性操作）
+                  echo "正在上传新版本 manifest 文件..."
+                  aws s3 cp "artifacts/latest.yml" "s3://desktop-release/latest.yml" \
+                    --endpoint-url "$TOS_ENDPOINT" \
+                    --region cn-beijing \
+                    || { echo "❌ 上传 latest.yml 失败"; exit 1; }
+                  
+                  aws s3 cp "artifacts/latest-mac.yml" "s3://desktop-release/latest-mac.yml" \
+                    --endpoint-url "$TOS_ENDPOINT" \
+                    --region cn-beijing \
+                    || { echo "❌ 上传 latest-mac.yml 失败"; exit 1; }
+
+                  echo "✅ Manifest 文件上传完成"
+
+                  echo "🎉 发布完成！"
+                  echo "✅ 新版本已发布：v${VERSION_NUM}"
+                  echo "📍 下载地址: https://desktop-release.tos-cn-beijing.volces.com/"
 
             - name: �📤 Create GitHub Release
               uses: softprops/action-gh-release@v2

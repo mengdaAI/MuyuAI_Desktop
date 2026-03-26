@@ -46,14 +46,6 @@ class SttService {
         this.myLastReceivedText = '';
         this.theirLastReceivedText = '';
 
-        // Doubao-specific: track the last raw cumulative text sent to onTranscriptionComplete
-        // and the latest raw cumulative text received (may differ if flush is pending).
-        // Used to extract truly-new incremental text before sending to listenService,
-        // avoiding the bug where server-side retroactive punctuation breaks startsWith prefix matching.
-        this.theirLastFlushedDoubaoText = '';
-        this.theirLastDoubaoRawText = '';
-        this.myLastFlushedDoubaoText = '';
-        this.myLastDoubaoRawText = '';
 
         // System audio capture
         this.systemAudioProc = null;
@@ -139,6 +131,9 @@ class SttService {
         });
 
         this.myCompletionBuffer = '';
+        if (this.myCompletionTimer) {
+            clearTimeout(this.myCompletionTimer);
+        }
         this.myCompletionTimer = null;
         this.myCurrentUtterance = '';
 
@@ -169,8 +164,11 @@ class SttService {
 
         // 保存最后完成的 utterance，用于检测下一次是否包含重复内容
         this.theirLastCompletedUtterance = finalText;
-        
+
         this.theirCompletionBuffer = '';
+        if (this.theirCompletionTimer) {
+            clearTimeout(this.theirCompletionTimer); // 确保 debounce 设的延迟 timer 也被清掉
+        }
         this.theirCompletionTimer = null;
         this.theirCurrentUtterance = '';
 
@@ -249,11 +247,27 @@ class SttService {
         if (!lastReceived) return newComplete;
         if (!newComplete) return '';
 
+        // 快速路径：严格前缀匹配
         if (newComplete.startsWith(lastReceived)) {
-            // 去掉头部多余的空白和标点（Doubao 回溯补标点会把标点留在拼接处）
-            return newComplete.slice(lastReceived.length).replace(/^[\s\u0020,，。、！？!?.…—–‐-]+/, '');
+            return newComplete.slice(lastReceived.length).replace(/^[\s,，。、！？!?.…—–‐-]+/, '');
         }
 
+        // 模糊回退：匹配 lastReceived 末尾 N 个字符在 newComplete 中的位置。
+        // Doubao 回溯补标点时通常只改中间的拼接点，而不会改"已处理文本的末尾"，
+        // 因此用尾部定位比用整段前缀更稳定。
+        const TAIL_MIN = 6;
+        const TAIL_MAX = Math.min(lastReceived.length, 20);
+        for (let tailLen = TAIL_MAX; tailLen >= TAIL_MIN; tailLen--) {
+            const tail = lastReceived.slice(-tailLen);
+            const idx = newComplete.indexOf(tail);
+            // 匹配位置必须在合理范围内（不超过 lastReceived 长度的 1.5 倍+10），
+            // 避免把正文中偶然出现的相同片段误判为拼接点
+            if (idx !== -1 && idx + tailLen <= lastReceived.length * 1.5 + 10) {
+                return newComplete.slice(idx + tailLen).replace(/^[\s,，。、！？!?.…—–‐-]+/, '');
+            }
+        }
+
+        // 完全没有重叠：可能是 session 重置后的全新内容，直接返回
         return newComplete;
     }
 
@@ -624,25 +638,17 @@ class SttService {
                 }
 
                 if (isFinal) {
-                    // 1. 先清除定时器，避免竞态条件
+                    // 先清除定时器，避免竞态条件
                     if (this.theirCompletionTimer) {
                         clearTimeout(this.theirCompletionTimer);
                         this.theirCompletionTimer = null;
                     }
-
-                    // 2. Doubao 增量提取：只取相比上次 flush 真正新增的内容
-                    //    避免服务端回溯修正标点导致 startsWith 失败、全量透传的 bug
+                    // Doubao result_type='full' 仍返回全量累积文本，
+                    // 增量提取交由下游 _extractIncrementalText (tail-matching) 处理。
+                    this.theirCurrentUtterance = '';
+                    this.debounceTheirCompletion(text);
                     if (this.modelInfo.provider === 'doubao') {
-                        const incrementalText = this._extractIncrementalText(this.theirLastFlushedDoubaoText, text);
-                        this.theirLastFlushedDoubaoText = text;
-                        this.theirLastDoubaoRawText = text;
-                        if (!incrementalText || !incrementalText.trim()) return;
-                        this.theirCurrentUtterance = '';
-                        this.debounceTheirCompletion(incrementalText);
                         this.flushTheirCompletion();
-                    } else {
-                        this.theirCurrentUtterance = '';
-                        this.debounceTheirCompletion(text);
                     }
                 } else {
                     // ========== isFinal=false: 处理中间结果 ==========
@@ -651,20 +657,11 @@ class SttService {
                         clearTimeout(this.theirCompletionTimer);
                     }
 
-                    // Doubao：从上次 flush 位置截取当前正在识别的增量部分，避免显示全量累积
-                    const displayText = this.modelInfo.provider === 'doubao'
-                        ? (this._extractIncrementalText(this.theirLastFlushedDoubaoText, text) || text)
-                        : text;
+                    // single 模式下 text 是当前分句的实时识别内容（不含历史分句）
+                    this.theirCurrentUtterance = text;
 
-                    if (this.modelInfo.provider === 'doubao') {
-                        this.theirLastDoubaoRawText = text;
-                    }
-
-                    // 更新当前识别内容（用于后续 flush 时计算 finalText）
-                    this.theirCurrentUtterance = displayText;
-
-                    // 计算当前展示文本：buffer + 当前识别内容
-                    const continuousText = (this.theirCompletionBuffer + ' ' + displayText).trim();
+                    // 计算当前展示文本：buffer（已完成分句）+ 当前识别内容
+                    const continuousText = (this.theirCompletionBuffer + ' ' + text).trim();
 
                     // 1. 同步到 UI（显示中间结果）
                     this.sendToRenderer('stt-update', {
@@ -681,13 +678,9 @@ class SttService {
                         provider: this.modelInfo?.provider,
                     });
 
-                    // 3. 启动自动完成倒计时（如果在2秒内没有收到新的识别结果，则自动完成）
+                    // 3. 启动自动完成倒计时
                     const COMPLETION_DEBOUNCE_MS = this.modelInfo.provider === 'doubao' ? 2000 : 800;
                     this.theirCompletionTimer = setTimeout(() => {
-                        // timer 触发时，将 raw 文本标记为已 flush，确保下轮增量计算正确
-                        if (this.modelInfo?.provider === 'doubao') {
-                            this.theirLastFlushedDoubaoText = this.theirLastDoubaoRawText;
-                        }
                         this.flushTheirCompletion();
                     }, COMPLETION_DEBOUNCE_MS);
                 }
@@ -1004,7 +997,7 @@ class SttService {
 
     stopMacOSAudioCapture() {
         if (this.systemAudioProc) {
-            console.log('Stopping SystemAudioDump...');
+            console.warn('Stopping SystemAudioDump...');
             this.systemAudioProc.kill('SIGTERM');
             this.systemAudioProc = null;
         }
@@ -1048,7 +1041,7 @@ class SttService {
         }
 
         await Promise.all(closePromises);
-        console.log('All STT sessions closed.');
+        console.warn('All STT sessions closed.');
 
         // Reset state
         this.myCurrentUtterance = '';
@@ -1057,10 +1050,6 @@ class SttService {
         this.theirCompletionBuffer = '';
         this.myLastReceivedText = '';
         this.theirLastReceivedText = '';
-        this.theirLastFlushedDoubaoText = '';
-        this.theirLastDoubaoRawText = '';
-        this.myLastFlushedDoubaoText = '';
-        this.myLastDoubaoRawText = '';
         this.modelInfo = null;
     }
 }

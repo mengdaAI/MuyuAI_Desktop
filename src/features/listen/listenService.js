@@ -162,9 +162,22 @@ class ListenService {
     _extractIncrementalText(lastReceived, newComplete) {
         if (!lastReceived) return newComplete;
         if (!newComplete) return '';
+
         if (newComplete.startsWith(lastReceived)) {
-            return newComplete.slice(lastReceived.length).replace(/^[\s\u0020,，。、！？!?.…—–‐-]+/, '');
+            return newComplete.slice(lastReceived.length).replace(/^[\s,，。、！？!?.…—–‐-]+/, '');
         }
+
+        // 模糊回退：匹配 lastReceived 尾部在 newComplete 中的位置（与 sttService 保持一致）
+        const TAIL_MIN = 6;
+        const TAIL_MAX = Math.min(lastReceived.length, 20);
+        for (let tailLen = TAIL_MAX; tailLen >= TAIL_MIN; tailLen--) {
+            const tail = lastReceived.slice(-tailLen);
+            const idx = newComplete.indexOf(tail);
+            if (idx !== -1 && idx + tailLen <= lastReceived.length * 1.5 + 10) {
+                return newComplete.slice(idx + tailLen).replace(/^[\s,，。、！？!?.…—–‐-]+/, '');
+            }
+        }
+
         return newComplete;
     }
 
