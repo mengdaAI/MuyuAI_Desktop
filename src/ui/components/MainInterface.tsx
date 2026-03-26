@@ -242,6 +242,60 @@ export function MainInterface({
     console.log('[MainInterface] Resize started:', { edge, startX: e.screenX, startY: e.screenY, startWidth: windowSize.width, startHeight: windowSize.height });
   };
 
+  const renderAnswerWithHighlights = (
+    answer: string,
+    highlightRanges?: Turn['highlightRanges']
+  ) => {
+    if (!answer) {
+      return null;
+    }
+    const ranges = Array.isArray(highlightRanges) ? highlightRanges : [];
+    if (ranges.length === 0) {
+      return answer;
+    }
+    const validRanges = ranges
+      .filter((range) =>
+        Number.isInteger(range.start) &&
+        Number.isInteger(range.end) &&
+        range.start >= 0 &&
+        range.end > range.start &&
+        range.end <= answer.length
+      )
+      .sort((a, b) => a.start - b.start || a.end - b.end);
+    if (validRanges.length === 0) {
+      return answer;
+    }
+
+    const nodes: React.ReactNode[] = [];
+    let cursor = 0;
+    validRanges.forEach((range, index) => {
+      if (range.start < cursor) {
+        return;
+      }
+      if (cursor < range.start) {
+        nodes.push(
+          <span key={`plain-${cursor}-${range.start}`}>
+            {answer.slice(cursor, range.start)}
+          </span>
+        );
+      }
+      nodes.push(
+        <mark
+          key={`highlight-${index}-${range.start}`}
+          style={{ backgroundColor: 'rgba(255, 214, 10, 0.35)', borderRadius: 2, padding: 0 }}
+          title={`${range.type} (${Math.round((range.score || 0) * 100)}%)`}
+        >
+          {answer.slice(range.start, range.end)}
+        </mark>
+      );
+      cursor = range.end;
+    });
+    if (cursor < answer.length) {
+      nodes.push(<span key={`plain-tail-${cursor}`}>{answer.slice(cursor)}</span>);
+    }
+    return nodes;
+  };
+
   return (
     <div
       className="relative flex items-center gap-[6px]"
@@ -429,7 +483,7 @@ export function MainInterface({
                     AI回答
                   </div>
                   <div className="text-[rgba(255,255,255,0.9)] text-[14px] font-['PingFang_SC:Regular',sans-serif] leading-relaxed whitespace-pre-wrap">
-                    {turn.answer}
+                    {renderAnswerWithHighlights(turn.answer, turn.highlightRanges)}
                   </div>
                 </div>
               )}

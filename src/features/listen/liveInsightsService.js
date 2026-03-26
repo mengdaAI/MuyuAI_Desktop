@@ -9,6 +9,8 @@ class LiveInsightsService {
         this.currentSpeaker = null;
         this.currentQuestion = '';
         this.fullAnswer = '';
+        this.highlightVersion = 0;
+        this.highlightRanges = [];
         this.isStreaming = false;
         this.abortController = null;
         this.reader = null;
@@ -47,6 +49,8 @@ class LiveInsightsService {
         this.currentSpeaker = null;
         this.currentQuestion = '';
         this.fullAnswer = '';
+        this.highlightVersion = 0;
+        this.highlightRanges = [];
         this.isStreaming = false;
     }
 
@@ -103,10 +107,15 @@ class LiveInsightsService {
     async streamLoop(reader, signal, turnId) {
         this.isStreaming = true;
         this.fullAnswer = '';
+        this.highlightVersion = 0;
+        this.highlightRanges = [];
+        console.log(`[LiveInsightsService] streamLoop started for turn ${turnId}`);
         this.sendToRenderer('listen:live-answer', {
             turnId,
             status: 'started',
             answer: '',
+            highlightVersion: 0,
+            highlightRanges: [],
         });
 
         signal.addEventListener('abort', () => {
@@ -193,6 +202,11 @@ class LiveInsightsService {
                     currentEvent = null;
                     return;
                 }
+                if (currentEvent === 'highlight') {
+                    this._handleHighlightEvent(json, turnId);
+                    currentEvent = null;
+                    continue;
+                }
 
                 if (json.status || json.answer || json.reason || json.error) {
                     this._handleStatusEvent(json, turnId);
@@ -207,6 +221,8 @@ class LiveInsightsService {
                         status: 'streaming',
                         token,
                         answer: this.fullAnswer,
+                        highlightVersion: this.highlightVersion,
+                        highlightRanges: this.highlightRanges,
                     });
                 }
             } catch (err) {
@@ -242,6 +258,8 @@ class LiveInsightsService {
             turnId,
             status: event.status || 'streaming',
             answer: event.answer ?? this.fullAnswer,
+            highlightVersion: this.highlightVersion,
+            highlightRanges: this.highlightRanges,
         };
 
         if (event.reason) {
@@ -257,6 +275,23 @@ class LiveInsightsService {
         }
 
         this.sendToRenderer('listen:live-answer', payload);
+    }
+
+    _handleHighlightEvent(event, turnId) {
+        const version = Number(event?.version || 0);
+        const ranges = Array.isArray(event?.ranges) ? event.ranges : [];
+        if (version <= this.highlightVersion) {
+            return;
+        }
+        this.highlightVersion = version;
+        this.highlightRanges = ranges;
+        this.sendToRenderer('listen:live-answer', {
+            turnId,
+            status: 'streaming',
+            answer: this.fullAnswer,
+            highlightVersion: this.highlightVersion,
+            highlightRanges: this.highlightRanges,
+        });
     }
 }
 
