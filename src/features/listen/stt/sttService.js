@@ -411,11 +411,12 @@ class SttService {
                 }
 
                 if (isFinal) {
-                    // When the final result arrives, clear the current partial utterance
-                    // and run debounce with the final text.
                     this.myCurrentUtterance = '';
-                    this.debounceMyCompletion(text);
                     if (this.modelInfo.provider === 'doubao') {
+                        // Doubao result_type='full' 跨句累积全量文本：提取相对上次位置的新增内容
+                        const incrementalText = this._extractIncrementalText(this.myLastReceivedText, text) || text;
+                        this.myLastReceivedText = text;
+                        this.debounceMyCompletion(incrementalText);
                         this.flushMyCompletion();
                     } else {
                         // For Deepgram/others that send isFinal but don't auto-flush in flushMyCompletion logic
@@ -643,12 +644,15 @@ class SttService {
                         clearTimeout(this.theirCompletionTimer);
                         this.theirCompletionTimer = null;
                     }
-                    // Doubao result_type='full' 仍返回全量累积文本，
-                    // 增量提取交由下游 _extractIncrementalText (tail-matching) 处理。
                     this.theirCurrentUtterance = '';
-                    this.debounceTheirCompletion(text);
                     if (this.modelInfo.provider === 'doubao') {
+                        // Doubao result_type='full' 跨句累积全量文本：提取相对上次位置的新增内容
+                        const incrementalText = this._extractIncrementalText(this.theirLastReceivedText, text) || text;
+                        this.theirLastReceivedText = text; // 记录本次全量位置，供下次提取用（不重置为 ''）
+                        this.debounceTheirCompletion(incrementalText);
                         this.flushTheirCompletion();
+                    } else {
+                        this.debounceTheirCompletion(text);
                     }
                 } else {
                     // ========== isFinal=false: 处理中间结果 ==========
@@ -657,11 +661,19 @@ class SttService {
                         clearTimeout(this.theirCompletionTimer);
                     }
 
-                    // single 模式下 text 是当前分句的实时识别内容（不含历史分句）
-                    this.theirCurrentUtterance = text;
+                    let displayText;
+                    if (this.modelInfo.provider === 'doubao') {
+                        // Doubao result_type='full'：相对最后一次 isFinal 位置提取当前句子完整进度
+                        // theirLastReceivedText 只在 isFinal 时更新，partial 不改动，
+                        // 这样 displayText 随 partial 递增展示，而不是仅显示最新 delta
+                        displayText = this._extractIncrementalText(this.theirLastReceivedText, text) || text;
+                    } else {
+                        displayText = text;
+                    }
+                    this.theirCurrentUtterance = displayText;
 
-                    // 计算当前展示文本：buffer（已完成分句）+ 当前识别内容
-                    const continuousText = (this.theirCompletionBuffer + ' ' + text).trim();
+                    // 计算当前展示文本：buffer（已完成分句）+ 当前增量内容
+                    const continuousText = (this.theirCompletionBuffer + ' ' + displayText).trim();
 
                     // 1. 同步到 UI（显示中间结果）
                     this.sendToRenderer('stt-update', {

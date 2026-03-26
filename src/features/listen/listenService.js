@@ -261,7 +261,8 @@ class ListenService {
             return trimmed;
         }
 
-        return text;
+        // startsWith 失败时（如 Doubao 回溯补标点改变了前缀），用 tail-matching 兜底
+        return this._extractIncrementalText(prefix, text);
     }
 
 

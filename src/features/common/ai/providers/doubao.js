@@ -269,7 +269,7 @@ class DoubaoSttSession extends EventEmitter {
                     enable_ddc: true,
                     show_utterances: true,
                     enable_nonstream: false,
-                    result_type: 'full' // 全量返回：服务端累积历史文本，客户端用 tail-matching 提取增量。
+                    result_type: 'full' // 全量返回：服务端跨句累积历史文本，sttService 用 _extractIncrementalText 在每次收到结果时提取新增内容。
                 }
             };
 
