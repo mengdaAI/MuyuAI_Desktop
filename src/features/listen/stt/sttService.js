@@ -25,6 +25,11 @@ const SESSION_RENEW_INTERVAL_MS = 20 * 60 * 1000; // 20 minutes
 // miss any packets at the exact swap moment.
 const SOCKET_OVERLAP_MS = 2 * 1000; // 2 seconds
 
+// ── Auto-reconnect constants ───────────────────────────────────────────────
+const MAX_RECONNECT_ATTEMPTS = 3;           // 最大重连次数
+const RECONNECT_DELAY_MS = 2000;            // 重连间隔 2 秒
+const RECONNECT_BACKOFF_MS = 3000;          // 指数退避增量
+
 class SttService {
     constructor() {
         this.mySttSession = null;
@@ -66,6 +71,12 @@ class SttService {
         this.theirAiTriggerTimer = null;
 
         this.modelInfo = null;
+
+        // ── Auto-reconnect state ───────────────────────────────────────────
+        this._isReconnecting = false;
+        this._reconnectAttempts = { my: 0, their: 0 };
+        this._language = 'zh';
+        this._reconnectTimeout = null;  // 保存重连超时引用以便清理
     }
 
     setCallbacks({ onTranscriptionComplete, onStatusUpdate, onPartialTranscript, onAiTriggerOnly }) {
@@ -328,6 +339,10 @@ class SttService {
             throw new Error('AI model or API key is not configured.');
         }
         this.modelInfo = modelInfo;
+
+        // 保存 message handlers 供重连时使用
+        this._myMessageHandler = null;
+        this._theirMessageHandler = null;
 
         const handleMyMessage = message => {
             if (!this.modelInfo) {
@@ -771,8 +786,14 @@ class SttService {
             language: effectiveLanguage,
             callbacks: {
                 onmessage: handleMyMessage,
-                onerror: error => console.error('My STT session error:', error.message),
-                onclose: event => console.warn('My STT session closed:', event.reason),
+                onerror: error => {
+                    console.error('My STT session error:', error.message);
+                    this._handleSTTError('my', error);
+                },
+                onclose: event => {
+                    console.warn('My STT session closed:', event.reason);
+                    this._handleSTTClose('my', event);
+                },
             },
         };
 
@@ -780,8 +801,14 @@ class SttService {
             language: effectiveLanguage,
             callbacks: {
                 onmessage: handleTheirMessage,
-                onerror: error => console.error('Their STT session error:', error.message),
-                onclose: event => console.warn('Their STT session closed:', event.reason),
+                onerror: error => {
+                    console.error('Their STT session error:', error.message);
+                    this._handleSTTError('their', error);
+                },
+                onclose: event => {
+                    console.warn('Their STT session closed:', event.reason);
+                    this._handleSTTClose('their', event);
+                },
             },
         };
 
@@ -818,6 +845,16 @@ class SttService {
                 console.error('[SttService] Failed to renew STT sessions:', err);
             }
         }, SESSION_RENEW_INTERVAL_MS);
+
+        // 保存 language 供重连使用
+        this._language = language;
+
+        // 重置重连计数
+        this._reconnectAttempts = { my: 0, their: 0 };
+
+        // 保存 message handlers 供重连时使用
+        this._myMessageHandler = handleMyMessage;
+        this._theirMessageHandler = handleTheirMessage;
 
         return true;
     }
@@ -1054,6 +1091,169 @@ class SttService {
         return !!this.mySttSession && !!this.theirSttSession;
     }
 
+    /**
+     * 处理 STT 错误事件，触发自动重连
+     */
+    _handleSTTError(sessionType, error) {
+        const isMySession = sessionType === 'my';
+        const session = isMySession ? this.mySttSession : this.theirSttSession;
+
+        // 如果会话已不存在，不处理
+        if (!session) return;
+
+        // 检查是否需要重连
+        if (this._reconnectAttempts[sessionType] < MAX_RECONNECT_ATTEMPTS) {
+            const delay = RECONNECT_DELAY_MS + (this._reconnectAttempts[sessionType] * RECONNECT_BACKOFF_MS);
+            console.log(`[SttService] Scheduling ${sessionType} STT reconnect attempt ${this._reconnectAttempts[sessionType] + 1}/${MAX_RECONNECT_ATTEMPTS} in ${delay}ms`);
+            this._scheduleReconnect(sessionType, delay);
+        } else {
+            console.error(`[SttService] ${sessionType} STT max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached, giving up.`);
+            this._notifyReconnectFailure(sessionType);
+        }
+    }
+
+    /**
+     * 处理 STT 会话关闭事件，触发自动重连
+     */
+    _handleSTTClose(sessionType, event) {
+        const isMySession = sessionType === 'my';
+        const session = isMySession ? this.mySttSession : this.theirSttSession;
+
+        // 如果会话已不存在，不处理
+        if (!session) return;
+
+        // 检查是否是正常关闭（如用户主动停止）
+        // 这里假设 code 1000 是正常关闭
+        if (event.code === 1000 || event.wasClean) {
+            console.log(`[SttService] ${sessionType} STT session closed cleanly, not reconnecting.`);
+            return;
+        }
+
+        // 非正常关闭，触发重连
+        if (this._reconnectAttempts[sessionType] < MAX_RECONNECT_ATTEMPTS) {
+            const delay = RECONNECT_DELAY_MS + (this._reconnectAttempts[sessionType] * RECONNECT_BACKOFF_MS);
+            console.log(`[SttService] ${sessionType} STT session closed unexpectedly (code: ${event.code}), scheduling reconnect in ${delay}ms`);
+            this._scheduleReconnect(sessionType, delay);
+        } else {
+            console.error(`[SttService] ${sessionType} STT max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached, giving up.`);
+            this._notifyReconnectFailure(sessionType);
+        }
+    }
+
+    /**
+     * 调度重连任务
+     */
+    _scheduleReconnect(sessionType, delay) {
+        this._reconnectAttempts[sessionType]++;
+
+        // 清除之前的重连超时
+        if (this._reconnectTimeout) {
+            clearTimeout(this._reconnectTimeout);
+        }
+
+        this._reconnectTimeout = setTimeout(async () => {
+            try {
+                await this._reconnectSTTSession(sessionType);
+                console.log(`[SttService] ${sessionType} STT reconnected successfully.`);
+            } catch (err) {
+                console.error(`[SttService] ${sessionType} STT reconnection failed:`, err.message);
+                // 如果还有重试次数，继续重连
+                if (this._reconnectAttempts[sessionType] < MAX_RECONNECT_ATTEMPTS) {
+                    const retryDelay = RECONNECT_DELAY_MS + (this._reconnectAttempts[sessionType] * RECONNECT_BACKOFF_MS);
+                    this._scheduleReconnect(sessionType, retryDelay);
+                } else {
+                    this._notifyReconnectFailure(sessionType);
+                }
+            }
+        }, delay);
+    }
+
+    /**
+     * 重新创建单个 STT 会话
+     */
+    async _reconnectSTTSession(sessionType) {
+        const isMySession = sessionType === 'my';
+        const oldSession = isMySession ? this.mySttSession : this.theirSttSession;
+
+        // 关闭旧会话
+        try {
+            if (oldSession) {
+                await oldSession.close();
+            }
+        } catch (err) {
+            console.warn(`[SttService] Error closing old ${sessionType} STT session:`, err.message);
+        }
+
+        const language = this._language || 'zh';
+        const effectiveLanguage = process.env.OPENAI_TRANSCRIBE_LANG || language || 'zh';
+        const isVirtualProvider = isVirtualOpenAIProvider(this.modelInfo.provider);
+
+        // 复用 initializeSttSessions 中的配置逻辑来创建新会话
+        const sttOptions = {
+            apiKey: this.modelInfo.apiKey,
+            language: effectiveLanguage,
+            model: this.modelInfo.model,
+            usePortkey: isVirtualProvider,
+            portkeyVirtualKey: isVirtualProvider ? this.modelInfo.apiKey : undefined,
+        };
+
+        if (isMySession) {
+            const mySttConfig = {
+                language: effectiveLanguage,
+                callbacks: {
+                    onmessage: this._myMessageHandler || (() => {}),
+                    onerror: error => {
+                        console.error('My STT session error:', error.message);
+                        this._handleSTTError('my', error);
+                    },
+                    onclose: event => {
+                        console.warn('My STT session closed:', event.reason);
+                        this._handleSTTClose('my', event);
+                    },
+                },
+            };
+            const myOptions = { ...sttOptions, callbacks: mySttConfig.callbacks, sessionType: 'my' };
+            this.mySttSession = await createSTT(this.modelInfo.provider, myOptions);
+        } else {
+            const theirSttConfig = {
+                language: effectiveLanguage,
+                callbacks: {
+                    onmessage: this._theirMessageHandler || (() => {}),
+                    onerror: error => {
+                        console.error('Their STT session error:', error.message);
+                        this._handleSTTError('their', error);
+                    },
+                    onclose: event => {
+                        console.warn('Their STT session closed:', event.reason);
+                        this._handleSTTClose('their', event);
+                    },
+                },
+            };
+            const theirOptions = { ...sttOptions, callbacks: theirSttConfig.callbacks, sessionType: 'their' };
+            this.theirSttSession = await createSTT(this.modelInfo.provider, theirOptions);
+        }
+
+        // 更新会话活跃状态
+        console.log(`[SttService] ${sessionType} STT session recreated.`);
+    }
+
+    /**
+     * 通知重连失败（可选：可以通过 callback 通知 UI）
+     */
+    _notifyReconnectFailure(sessionType) {
+        // 可以通过 onStatusUpdate 通知 UI
+        if (this.onStatusUpdate) {
+            this.onStatusUpdate(`语音服务连接失败，请重新开始面试`);
+        }
+
+        // 同时发送错误事件给 renderer
+        this.sendToRenderer('stt-error', {
+            sessionType,
+            message: `${sessionType === 'my' ? '我方' : '对方'}语音识别服务连接失败`,
+            timestamp: Date.now(),
+        });
+    }
+
     async closeSessions() {
         this.stopMacOSAudioCapture();
 
@@ -1066,6 +1266,15 @@ class SttService {
             clearTimeout(this.sessionRenewTimeout);
             this.sessionRenewTimeout = null;
         }
+
+        // Clear reconnect timeout
+        if (this._reconnectTimeout) {
+            clearTimeout(this._reconnectTimeout);
+            this._reconnectTimeout = null;
+        }
+
+        // Reset reconnect attempts
+        this._reconnectAttempts = { my: 0, their: 0 };
 
         // Clear timers
         if (this.myCompletionTimer) {
@@ -1101,6 +1310,11 @@ class SttService {
             clearTimeout(this.theirAiTriggerTimer);
             this.theirAiTriggerTimer = null;
         }
+
+        // Clear message handlers
+        this._myMessageHandler = null;
+        this._theirMessageHandler = null;
+
         this.modelInfo = null;
     }
 }
