@@ -40,9 +40,6 @@ export function SettingsPanel({ onClose, onExitInterview, leftWidth }: SettingsP
     if (commonApi?.getCurrentUser) {
       commonApi.getCurrentUser().then((user: UserState) => {
         if (user && user.isLoggedIn) {
-          console.log('[SettingsPanel] getCurrentUser result:', user);
-          console.log('[SettingsPanel] user.phone:', user.phone);
-          console.log('[SettingsPanel] user.email:', user.email);
           setUserState(user);
         }
       });
@@ -52,9 +49,6 @@ export function SettingsPanel({ onClose, onExitInterview, leftWidth }: SettingsP
     if (commonApi?.onUserStateChanged) {
       const handleUserStateChanged = (event: any, user: UserState) => {
         if (user && user.isLoggedIn) {
-          console.log('[SettingsPanel] onUserStateChanged result:', user);
-          console.log('[SettingsPanel] user.phone:', user.phone);
-          console.log('[SettingsPanel] user.email:', user.email);
           setUserState(user);
         } else {
           setUserState(null);
@@ -77,7 +71,6 @@ export function SettingsPanel({ onClose, onExitInterview, leftWidth }: SettingsP
     if (!settingsApi?.onUpdateStatus) return;
 
     const handleUpdateStatus = (event: any, data: any) => {
-      console.log('[SettingsPanel] Update status:', data);
       setUpdateStatus(data.status);
       if (data.percent !== undefined) {
         setDownloadPercent(data.percent);
@@ -94,7 +87,6 @@ export function SettingsPanel({ onClose, onExitInterview, leftWidth }: SettingsP
   }, []);
 
   const handleToggleInvisibility = useCallback(async () => {
-    console.log('Toggle Invisibility clicked');
     const settingsApi = (window as any).api?.settingsView;
     if (settingsApi?.toggleContentProtection) {
       const newStatus = await settingsApi.toggleContentProtection();

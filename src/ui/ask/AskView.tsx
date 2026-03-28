@@ -88,14 +88,11 @@ export function AskView() {
 
   // Set up IPC listeners
   useEffect(() => {
-    console.log('📱 AskView connectedCallback - Set up IPC event listeners');
-    
     document.addEventListener('keydown', handleEscKey);
 
     if (!window.api) return;
 
     const handleShowTextInput = () => {
-      console.log('Show text input signal received');
       setShowTextInput(true);
       focusTextInput();
     };
@@ -132,10 +129,7 @@ export function AskView() {
     window.api.askView.onScrollResponseDown(handleScrollDown);
     window.api.askView.onAskStateUpdate(handleAskStateUpdate);
 
-    console.log('AskView: IPC event listeners registered');
-
     return () => {
-      console.log('📱 AskView disconnectedCallback - Remove IPC event listeners');
       document.removeEventListener('keydown', handleEscKey);
 
       if (window.api) {
@@ -143,7 +137,6 @@ export function AskView() {
         window.api.askView.removeOnShowTextInput(handleShowTextInput);
         window.api.askView.removeOnScrollResponseUp(handleScrollUp);
         window.api.askView.removeOnScrollResponseDown(handleScrollDown);
-        console.log('✅ AskView: IPC event listener removal needed');
       }
     };
   }, [handleEscKey, handleScroll, focusTextInput, showTextInput]);

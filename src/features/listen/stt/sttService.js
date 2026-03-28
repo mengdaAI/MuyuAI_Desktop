@@ -58,14 +58,21 @@ class SttService {
         this.onTranscriptionComplete = null;
         this.onStatusUpdate = null;
         this.onPartialTranscript = null;
+        this.onAiTriggerOnly = null; // 软触发：只启动 AI，不创建新行
+
+        // 两阶段定时器（Doubao 专用）
+        // Timer A：1800ms 后仅触发 AI（不分行）
+        // Timer B：3500ms 后完整 flush（分行 + AI 兜底）
+        this.theirAiTriggerTimer = null;
 
         this.modelInfo = null;
     }
 
-    setCallbacks({ onTranscriptionComplete, onStatusUpdate, onPartialTranscript }) {
+    setCallbacks({ onTranscriptionComplete, onStatusUpdate, onPartialTranscript, onAiTriggerOnly }) {
         this.onTranscriptionComplete = onTranscriptionComplete;
         this.onStatusUpdate = onStatusUpdate;
         this.onPartialTranscript = onPartialTranscript;
+        this.onAiTriggerOnly = onAiTriggerOnly || null;
     }
 
     emitPartialTranscript(speaker, text, extra = {}) {
@@ -93,8 +100,11 @@ class SttService {
 
     sendToRenderer(channel, data) {
         // Send Listen-related events only to the Listen window (prevents conflicts with Ask window)
-        const { windowPool } = require('../../../window/windowManager');
-        const listenWindow = windowPool?.get('listen');
+        // Lazy-cache windowPool to avoid circular dependency at module load time
+        if (!this._windowPool) {
+            this._windowPool = require('../../../window/windowManager').windowPool;
+        }
+        const listenWindow = this._windowPool?.get('listen');
 
         if (listenWindow && !listenWindow.isDestroyed()) {
             listenWindow.webContents.send(channel, data);
@@ -639,7 +649,11 @@ class SttService {
                 }
 
                 if (isFinal) {
-                    // 先清除定时器，避免竞态条件
+                    // 先清除所有定时器，避免竞态条件
+                    if (this.theirAiTriggerTimer) {
+                        clearTimeout(this.theirAiTriggerTimer);
+                        this.theirAiTriggerTimer = null;
+                    }
                     if (this.theirCompletionTimer) {
                         clearTimeout(this.theirCompletionTimer);
                         this.theirCompletionTimer = null;
@@ -690,11 +704,32 @@ class SttService {
                         provider: this.modelInfo?.provider,
                     });
 
-                    // 3. 启动自动完成倒计时
-                    const COMPLETION_DEBOUNCE_MS = this.modelInfo.provider === 'doubao' ? 2000 : 800;
-                    this.theirCompletionTimer = setTimeout(() => {
-                        this.flushTheirCompletion();
-                    }, COMPLETION_DEBOUNCE_MS);
+                    // 3. 启动两阶段定时器（Doubao 专用）
+                    if (this.modelInfo.provider === 'doubao') {
+                        // Timer A（1800ms）：软触发 AI，不分行
+                        // VAD 已配置 800ms 判停，正常情况 is_final 会先于此定时器到达
+                        // 此定时器仅为 VAD 判停延迟或网络抖动时的保底
+                        if (this.theirAiTriggerTimer) clearTimeout(this.theirAiTriggerTimer);
+                        this.theirAiTriggerTimer = setTimeout(() => {
+                            this.theirAiTriggerTimer = null;
+                            const text = (this.theirCompletionBuffer + ' ' + this.theirCurrentUtterance).trim();
+                            if (text && this.onAiTriggerOnly) {
+                                this.onAiTriggerOnly('Them', text);
+                            }
+                        }, 1800);
+
+                        // Timer B（3500ms）：完整 flush，创建新行 + AI 兜底（防止极端网络条件下永远不分行）
+                        if (this.theirCompletionTimer) clearTimeout(this.theirCompletionTimer);
+                        this.theirCompletionTimer = setTimeout(() => {
+                            this.theirCompletionTimer = null;
+                            this.flushTheirCompletion();
+                        }, 3500);
+                    } else {
+                        if (this.theirCompletionTimer) clearTimeout(this.theirCompletionTimer);
+                        this.theirCompletionTimer = setTimeout(() => {
+                            this.flushTheirCompletion();
+                        }, 800);
+                    }
                 }
 
             } else {
@@ -1062,6 +1097,10 @@ class SttService {
         this.theirCompletionBuffer = '';
         this.myLastReceivedText = '';
         this.theirLastReceivedText = '';
+        if (this.theirAiTriggerTimer) {
+            clearTimeout(this.theirAiTriggerTimer);
+            this.theirAiTriggerTimer = null;
+        }
         this.modelInfo = null;
     }
 }

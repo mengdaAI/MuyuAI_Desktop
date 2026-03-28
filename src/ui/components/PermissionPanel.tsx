@@ -122,7 +122,6 @@ export default function PermissionPanel({ onComplete, onClose, continueCallback 
     // 立即执行第一次权限检查
     const initialCheckTimeout = setTimeout(() => {
       if (mounted && checkPermissionsRef.current) {
-        console.log('[PermissionPanel] Running initial permission check');
         checkPermissionsRef.current();
       }
     }, 300); // 减少延迟，更快响应
@@ -134,7 +133,6 @@ export default function PermissionPanel({ onComplete, onClose, continueCallback 
 
       // 只在没有正在检查时才执行
       if (isCheckingRef.current) {
-        console.log('[PermissionPanel] Skipping check, already in progress');
         return;
       }
 
@@ -146,7 +144,6 @@ export default function PermissionPanel({ onComplete, onClose, continueCallback 
 
       if (permissionStates.mic === 'granted' &&
         permissionStates.screen === 'granted') {
-        console.log('[PermissionPanel] All permissions granted, reducing check frequency');
         // 权限已全部授予，跳过本次检查
         return;
       }
@@ -295,7 +292,6 @@ export default function PermissionPanel({ onComplete, onClose, continueCallback 
   }, [continueCallback, onComplete, microphoneGranted, screenGranted]);
 
   const handleClose = useCallback(() => {
-    console.log('Close button clicked');
     if (onClose) {
       onClose();
     } else if ((window as any).api) {

@@ -16,19 +16,9 @@ class LiveInsightsService {
     }
 
     async handleTranscriptUpdate(turn) {
-        console.log('[LiveInsightsService] handleTranscriptUpdate called:', { turnId: turn?.id, speaker: turn?.speaker, text: turn?.text?.slice(0, 50) });
-        if (!turn || !turn.text || !turn.text.trim()) {
-            console.log('[LiveInsightsService] Skipping: empty turn');
-            return;
-        }
-        if (turn.speaker !== 'Them') {
-            console.log('[LiveInsightsService] Skipping: speaker is not Them');
-            return;
-        }
-        if (this.currentTurnId === turn.id && this.currentQuestion === turn.text && this.isStreaming) {
-            console.log('[LiveInsightsService] Skipping: duplicate turn, already streaming');
-            return;
-        }
+        if (!turn || !turn.text || !turn.text.trim()) return;
+        if (turn.speaker !== 'Them') return;
+        if (this.currentTurnId === turn.id && this.currentQuestion === turn.text && this.isStreaming) return;
 
         if (this.currentTurnId && this.currentTurnId !== turn.id) {
             this.abortStream('new_turn');
@@ -75,7 +65,6 @@ class LiveInsightsService {
     }
 
     async startStream(turn) {
-        console.log('[LiveInsightsService] startStream called:', { turnId: turn.id, text: turn.text?.slice(0, 50) });
         try {
             this.abortController = new AbortController();
             const payload = this.buildStreamPayload ? (this.buildStreamPayload(turn) || {}) : {};
@@ -110,7 +99,6 @@ class LiveInsightsService {
         });
 
         signal.addEventListener('abort', () => {
-            console.log(`[LiveInsightsService] Stream aborted for turn ${turnId}, reason: ${signal.reason}`);
             if (this.reader) {
                 this.reader.cancel(signal.reason).catch(() => {});
             }

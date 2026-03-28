@@ -16,9 +16,12 @@ if (require('electron-squirrel-startup')) {
 }
 
 const electron = require('electron');
-console.log('>>> [DEBUG] electron module:', Object.keys(electron));
 const { app, BrowserWindow, shell, ipcMain, dialog, desktopCapturer, session } = electron;
-console.log('>>> [DEBUG] app after destructuring:', typeof app, app ? 'app exists' : 'app is null/undefined');
+
+// ── 日志文件初始化（必须在所有其他 console 调用之前）────────────────────────
+const appLogger = require('./utils/appLogger');
+appLogger.init(app);
+// ────────────────────────────────────────────────────────────────────────────
 
 const { loadEnvironment } = require('./features/common/config/constants');
 
@@ -244,6 +247,7 @@ app.on('before-quit', async (event) => {
     } finally {
         // Actually quit the app now
         console.log('[Shutdown] Exiting application...');
+        appLogger.close(); // 关闭日志文件写入流
         app.exit(0); // Use app.exit() instead of app.quit() to force quit
     }
 });
@@ -252,6 +256,14 @@ app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
         createMainOnlyWindow();
     }
+});
+
+// 自动将所有 BrowserWindow 的 Renderer console 输出写入 app.log
+// 使用窗口标题作为名称标签（创建后 title 可能尚未设置，监听 page-title-updated 补充）
+app.on('browser-window-created', (_event, win) => {
+    // 先用创建时序编号注册，等 title 确定后更新已无必要（标签用于区分来源即可）
+    const id = win.id;
+    appLogger.attachRenderer(win, `win${id}`);
 });
 
 function setupWebDataHandlers() {

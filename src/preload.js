@@ -388,6 +388,10 @@ contextBridge.exposeInMainWorld('api', {
   renderer: {
     // Listeners
     onChangeListenCaptureState: (callback) => ipcRenderer.on('change-listen-capture-state', callback),
-    removeOnChangeListenCaptureState: (callback) => ipcRenderer.removeListener('change-listen-capture-state', callback)
+    removeOnChangeListenCaptureState: (callback) => ipcRenderer.removeListener('change-listen-capture-state', callback),
+    onSessionForceEnded: (callback) => ipcRenderer.on('session-force-ended', callback),
+    removeOnSessionForceEnded: (callback) => ipcRenderer.removeListener('session-force-ended', callback),
+    onSessionStateChanged: (callback) => ipcRenderer.on('session-state-changed', callback),
+    removeOnSessionStateChanged: (callback) => ipcRenderer.removeListener('session-state-changed', callback)
   }
 });

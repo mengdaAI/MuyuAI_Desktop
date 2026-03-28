@@ -100,12 +100,9 @@ class WindowNotificationManager {
         const relevantWindows = this.getRelevantWindows(windowTypes);
         
         if (relevantWindows.length === 0) {
-            console.log(`[WindowNotificationManager] No relevant windows found for event: ${event}`);
             return;
         }
 
-        console.log(`[WindowNotificationManager] Sending ${event} to ${relevantWindows.length} relevant windows`);
-        
         relevantWindows.forEach(win => {
             try {
                 if (data) {
@@ -421,16 +418,13 @@ async function setAutoUpdateSetting(isEnabled) {
 }
 
 function initialize() {
-    // cleanup 
+    // cleanup
     windowNotificationManager.cleanup();
-    
-    console.log('[SettingsService] Initialized and ready.');
 }
 
 // Cleanup function
 function cleanup() {
     windowNotificationManager.cleanup();
-    console.log('[SettingsService] Cleaned up resources.');
 }
 
 function notifyPresetUpdate(action, presetId, title = null) {

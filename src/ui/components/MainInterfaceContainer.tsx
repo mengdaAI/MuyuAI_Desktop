@@ -32,21 +32,27 @@ export function MainInterfaceContainer() {
   const sortTurns = useCallback(() => {
     const values = Array.from(turnMapRef.current.values()) as Turn[];
     const filtered = values.filter((turn: Turn) => turn.question && turn.question.trim().length > 0);
-    const sorted = filtered.sort((a: Turn, b: Turn) => {
-      // 首先按 startedAt 排序，如果相同则按 id 排序确保稳定性
+    return filtered.sort((a: Turn, b: Turn) => {
       const timeDiff = a.startedAt - b.startedAt;
       if (timeDiff !== 0) return timeDiff;
       return a.id.localeCompare(b.id);
     });
-    console.log('[MainInterfaceContainer] sortTurns - total in map:', values.length, 'filtered:', filtered.length, 'ids:', sorted.map(t => t.id));
-    return sorted;
   }, []);
+
+  // rAF 节流：合并同一帧内的多次 turn 更新，避免每次 STT partial 都触发全量重排
+  const pendingTurnUpdateRef = useRef<number | null>(null);
+  const scheduleTurnUpdate = useCallback(() => {
+    if (pendingTurnUpdateRef.current !== null) return;
+    pendingTurnUpdateRef.current = requestAnimationFrame(() => {
+      pendingTurnUpdateRef.current = null;
+      setTurns(sortTurns());
+    });
+  }, [sortTurns]);
 
   const handleTurnReset = useCallback(() => {
     // 用户要求停止 Listen 后保留历史记录，因此不再清空 turns
     // 增加 ID 前缀计数，确保新会话的 turn ID (如 turn-1) 不会覆盖旧会话的同名 ID，从而实现追加效果
     turnIdPrefixRef.current += 1;
-    console.log('[MainInterfaceContainer] Turn state reset received. Keeping history, incremented ID prefix to:', turnIdPrefixRef.current);
   }, []);
 
   const handleTurnUpdate = useCallback((event: any, payload: any) => {
@@ -54,9 +60,6 @@ export function MainInterfaceContainer() {
 
     // 构造带前缀的唯一 ID，防止不同 Session 间的 ID 冲突
     const uniqueId = `${payload.id}_${turnIdPrefixRef.current}`;
-    
-    console.log('[MainInterfaceContainer] handleTurnUpdate - payload.id:', payload.id, 'uniqueId:', uniqueId, 'event:', payload.event, 'status:', payload.status);
-    console.log('[MainInterfaceContainer] handleTurnUpdate - payload.text:', payload.text?.slice(0, 50));
 
     const existing = turnMapRef.current.get(uniqueId) || {
       id: uniqueId,
@@ -68,11 +71,9 @@ export function MainInterfaceContainer() {
       startedAt: payload.startedAt || payload.timestamp || Date.now(),
     };
 
-    // 更新 speaker 信息（如果之前没有或有更新）
     if (payload.speaker) {
       existing.speaker = payload.speaker;
     }
-
     if (payload.text) {
       existing.question = payload.text.trim();
     }
@@ -84,24 +85,16 @@ export function MainInterfaceContainer() {
     existing.updatedAt = payload.timestamp || Date.now();
 
     turnMapRef.current.set(uniqueId, existing);
-    const newTurns = sortTurns();
-    console.log('[MainInterfaceContainer] handleTurnUpdate - new turns length:', newTurns.length);
-    setTurns(newTurns);
-  }, [sortTurns]);
+    // 使用 rAF 节流：同一帧内的多次 STT partial 更新只触发一次重排和重渲染
+    scheduleTurnUpdate();
+  }, [scheduleTurnUpdate]);
 
   const handleLiveAnswer = useCallback((event: any, payload: any) => {
     if (!payload || !payload.turnId) return;
 
-    // 使用当前前缀查找 Turn
     const uniqueId = `${payload.turnId}_${turnIdPrefixRef.current}`;
-
     const existing = turnMapRef.current.get(uniqueId);
-    if (!existing) {
-      console.log('[MainInterfaceContainer] handleLiveAnswer - turn not found:', uniqueId);
-      return;
-    }
-
-    console.log('[MainInterfaceContainer] handleLiveAnswer - turnId:', payload.turnId, 'hasAnswer:', payload.answer !== undefined, 'hasToken:', !!payload.token, 'status:', payload.status);
+    if (!existing) return;
 
     if (payload.answer !== undefined) {
       existing.answer = payload.answer;
@@ -119,9 +112,10 @@ export function MainInterfaceContainer() {
 
     existing.updatedAt = Date.now();
     turnMapRef.current.set(uniqueId, existing);
-    const newTurns = sortTurns();
-    setTurns(newTurns);
-  }, [sortTurns]);
+
+    // answer 更新不改变排序，直接原地替换当前 turn，避免全量 sortTurns
+    setTurns(prev => prev.map(t => (t.id === uniqueId ? { ...existing } : t)));
+  }, []);
 
   // Input panel stream listener
   useEffect(() => {
@@ -160,8 +154,6 @@ export function MainInterfaceContainer() {
   // Screenshot state listener
   useEffect(() => {
     const handleScreenshotStateUpdate = (event: any, payload: any) => {
-      console.log('[MainInterfaceContainer] Screenshot state update:', payload);
-
       if (payload.isLoading) {
         setIsScreenshotLoading(true);
         // 仅当没有提供 currentResponse 时才清空，意味着这是一个新的开始
@@ -278,7 +270,6 @@ export function MainInterfaceContainer() {
 
   // Shortcuts listener
   const handleShortcutsUpdate = useCallback((event: any, keybinds: Shortcuts) => {
-    console.log('[MainView] Received updated shortcuts:', keybinds);
     setShortcuts(keybinds);
   }, []);
 
@@ -329,7 +320,6 @@ export function MainInterfaceContainer() {
         ? payload.effectiveRemainingSeconds
         : payload.remainingSeconds;
       if (typeof seconds === 'number') {
-        console.log('[MainInterfaceContainer] Received user-time-summary-updated:', payload);
         setRemainingSeconds(seconds);
       }
     }, []),
@@ -343,7 +333,6 @@ export function MainInterfaceContainer() {
         width: window.innerWidth,
         height: window.innerHeight,
       };
-      console.log('[MainInterfaceContainer] Window resize event:', newSize);
       setWindowSize(newSize);
     };
 
@@ -356,7 +345,6 @@ export function MainInterfaceContainer() {
 
     // 监听 IPC 事件通知的窗口大小变化（当通过 resizeMainWindow 调整时）
     const handleIpcResize = (event: any, size: { width: number; height: number }) => {
-      console.log('[MainInterfaceContainer] Window size changed via IPC:', size);
       setWindowSize(size);
     };
 
@@ -437,12 +425,6 @@ export function MainInterfaceContainer() {
     // 获取当前窗口高度
     const height = window.innerHeight || 393;
 
-    console.log('[MainInterfaceContainer] Panel state changed:', { 
-      currentWidth, leftWidth, newWidth, 
-      wasPanelOpen, isPanelOpen, 
-      wasActivePanel, activePanel 
-    });
-
     if (window.api?.headerController?.resizeHeaderWindow) {
       window.api.headerController.resizeHeaderWindow({ width: newWidth, height, minWidth }).catch(console.error);
     }
@@ -517,7 +499,6 @@ export function MainInterfaceContainer() {
     }
     if (inputValue.trim()) {
       const question = inputValue.trim();
-      console.log('[MainView] Sending input:', question);
 
       // Add to history immediately
       setInputHistory(prev => [...prev, { question, answer: '' }]);
@@ -540,7 +521,6 @@ export function MainInterfaceContainer() {
     }
 
     try {
-      console.log('[MainInterfaceContainer] Starting screenshot analysis...');
       setIsScreenshotLoading(true);
       setScreenshotAnswer("");
       setShowScreenshotAnswer(true);

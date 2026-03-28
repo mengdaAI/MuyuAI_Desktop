@@ -7,6 +7,7 @@ const sessionRepository = require('../common/repositories/session');
 const sttRepository = require('./stt/repositories');
 const internalBridge = require('../../bridge/internalBridge');
 const passcodeService = require('../common/services/passcodeService');
+const { windowPool } = require('../../window/windowManager');
 
 class ListenService {
     constructor() {
@@ -18,6 +19,7 @@ class ListenService {
         });
         this.currentSessionId = null;
         this.isInitializingSession = false;
+        this.isActiveSession = false; // 标记 session 是否处于活跃状态，用于防止在关闭后继续发送音频
         this.turnSequence = 0;
         this.activeTurns = {};
         this.turnHistory = [];
@@ -27,7 +29,6 @@ class ListenService {
         this.lastReceivedText = { Me: '', Them: '' };
 
         this.setupServiceCallbacks();
-        console.log('[ListenService] Service instance created.');
     }
 
     setupServiceCallbacks() {
@@ -41,6 +42,9 @@ class ListenService {
             },
             onPartialTranscript: (partial) => {
                 this.handlePartialTranscript(partial);
+            },
+            onAiTriggerOnly: (speaker, text) => {
+                this.triggerAiOnly(speaker, text);
             },
         });
 
@@ -71,7 +75,6 @@ class ListenService {
             this.liveInsightsService.reset();
         }
         try {
-            console.log('[ListenService] Live insights turn state reset');
         } catch (e) { }
         this.sendToRenderer('listen:turn-state-reset', {});
     }
@@ -211,13 +214,7 @@ class ListenService {
             trimPrefix: this.lastCompletedText[normalizedSpeaker] || '',
         };
         this.activeTurns[normalizedSpeaker] = turn;
-        
-        console.log('[ListenService] startNewTurn:', {
-            turnId: turn.id,
-            speaker: normalizedSpeaker,
-            turnSequence: this.turnSequence,
-        });
-        
+
         this.emitTurnUpdate(turn, {
             event: 'started',
             emitTranscript: false,
@@ -306,14 +303,6 @@ class ListenService {
                 event,
             };
             this.sendToRenderer('listen:partial-transcript', transcriptPayload);
-
-            // Also broadcast to stt-update channel for SttView
-            this.sendToRenderer('stt-update', {
-                speaker: turn.speaker,
-                text,
-                isFinal,
-                isPartial
-            });
         }
     }
 
@@ -395,7 +384,6 @@ class ListenService {
     }
 
     sendToRenderer(channel, data) {
-        const { windowPool } = require('../../window/windowManager');
         const listenWindow = windowPool?.get('listen');
         const mainWindow = windowPool?.get('main');
         const transcriptWindow = windowPool?.get('transcript');
@@ -413,7 +401,6 @@ class ListenService {
 
     initialize() {
         this.setupIpcHandlers();
-        console.log('[ListenService] Initialized and ready.');
     }
 
     async handleListenRequest(listenButtonText) {
@@ -424,12 +411,10 @@ class ListenService {
         try {
             switch (listenButtonText) {
                 case 'Listen':
-                    console.log('[ListenService] changeSession to "Listen"');
                     // internalBridge.emit('window:requestVisibility', { name: 'listen', visible: true });
                     {
                         // Get language from active session, default to 'zh' if not specified
                         const language = passcodeService.activeSession?.language || 'zh';
-                        console.log(`[ListenService] Initializing session with language: ${language}`);
                         const ok = await this.initializeSession(language);
                         if (!ok) {
                             throw new Error('Listen session initialization failed');
@@ -440,13 +425,11 @@ class ListenService {
                     break;
 
                 case 'Stop':
-                    console.log('[ListenService] changeSession to "Stop"');
                     await this.closeSession();
                     this.sendToRenderer('session-state-changed', { isActive: false });
                     break;
 
                 case 'Done':
-                    console.log('[ListenService] changeSession to "Done"');
                     // internalBridge.emit('window:requestVisibility', { name: 'listen', visible: false });
                     this.sendToRenderer('session-state-changed', { isActive: false });
                     break;
@@ -518,6 +501,27 @@ class ListenService {
         this.summaryService.addConversationTurn(speaker, normalizedText);
     }
 
+    // 软触发 AI：只启动推理流，不创建新行、不 finalize turn
+    // 由 sttService 的 Timer A（1800ms）调用，用于 VAD 延迟或网络抖动时提前给 AI 喂文本
+    triggerAiOnly(speaker, text) {
+        if (speaker !== 'Them') return;
+        if (!this.liveInsightsService) return;
+
+        const activeTurn = this.activeTurns['Them'];
+        if (!activeTurn || activeTurn.status === 'completed') return;
+
+        const normalizedText = this.normalizeTextForSpeaker('Them', text, activeTurn);
+        if (!normalizedText.trim()) return;
+
+        this.liveInsightsService.handleTranscriptUpdate({
+            id: activeTurn.id,
+            speaker: 'Them',
+            text: normalizedText,
+            timestamp: Date.now(),
+            isFinal: false,
+        }).catch(err => console.error('[ListenService] triggerAiOnly failed:', err));
+    }
+
     handlePartialTranscript(partial) {
         if (!partial || !partial.text) return;
 
@@ -530,7 +534,6 @@ class ListenService {
         
         // 情况1：收到 isFinal=true，表示需要完成当前 turn
         if (partial.isFinal) {
-            console.log('[ListenService] Received isFinal, finalizing current turn');
             const turn = this.getOrCreateActiveTurn(speaker);
             
             // 关键修复：使用 sttService 发送的 partial.text，而不是 turn.partialText
@@ -550,12 +553,10 @@ class ListenService {
         
         // 情况2：收到 isNewUtterance=true 且不是 isFinal，表示这是新 utterance 的开始
         if (partial.isNewUtterance) {
-            console.log('[ListenService] Received isNewUtterance mark, checking if need to finalize');
             const turn = this.getOrCreateActiveTurn(speaker);
-            
+
             // 如果当前 turn 有内容且未完成，先 finalize
             if (turn.partialText && turn.partialText.trim() && turn.status !== 'completed') {
-                console.log('[ListenService] Finalizing previous turn before starting new one');
                 this.finalizeTurn(speaker, turn.partialText, {
                     timestamp: timestamp - 1,
                     provider
@@ -569,12 +570,7 @@ class ListenService {
             if (provider) {
                 newTurn.provider = provider;
             }
-            
-            console.log('[ListenService] Started new turn for new utterance:', {
-                turnId: newTurn.id,
-                text: partial.text.slice(0, 50)
-            });
-            
+
             this.emitTurnUpdate(newTurn, {
                 text: partial.text,
                 timestamp,
@@ -652,7 +648,6 @@ class ListenService {
             this.summaryService.resetConversationHistory();
             this.resetTurnState();
 
-            console.log('New conversation session started:', this.currentSessionId);
             return true;
         } catch (error) {
             console.error('Failed to initialize new session in DB:', error);
@@ -663,13 +658,12 @@ class ListenService {
 
     async initializeSession(language = 'zh') {
         if (this.isInitializingSession) {
-            console.log('Session initialization already in progress.');
             return false;
         }
 
         // Prevent multiple sessions
-        if (this.currentSessionId) {
-            console.log('A session is already active.');
+        if (this.currentSessionId || this.isActiveSession) {
+            console.warn('[ListenService] Session already active, skipping initialization');
             return false;
         }
 
@@ -711,6 +705,7 @@ class ListenService {
             this.sendToRenderer('update-status', 'Connected. Ready to listen.');
 
             initSucceeded = true;
+            this.isActiveSession = true; // 标记 session 为活跃状态
             this.sendToRenderer('change-listen-capture-state', { status: "start" });
 
             return true;
@@ -728,6 +723,12 @@ class ListenService {
     }
 
     async sendMicAudioContent(data, mimeType) {
+        // 检查 session 是否仍然活跃，防止在关闭后继续发送音频
+        if (!this.isActiveSession) {
+            console.warn('[ListenService] Attempted to send audio content but session is not active');
+            return { success: false, error: 'Session not active' };
+        }
+
         return await this.sttService.sendMicAudioContent(data, mimeType);
     }
 
@@ -748,6 +749,9 @@ class ListenService {
 
     async closeSession() {
         try {
+            // 首先标记 session 为非活跃状态，防止继续发送音频
+            this.isActiveSession = false;
+
             this.sendToRenderer('change-listen-capture-state', { status: "stop" });
             // Close STT sessions
             await this.sttService.closeSessions();
@@ -765,7 +769,6 @@ class ListenService {
             this.summaryService.resetConversationHistory();
             this.resetTurnState();
 
-            console.log('Listen service session closed.');
             return { success: true };
         } catch (error) {
             console.error('Error closing listen service session:', error);
@@ -832,7 +835,6 @@ class ListenService {
 
     handleUpdateGoogleSearchSetting = this._createHandler(
         async (enabled) => {
-            console.log('Google Search setting updated to:', enabled);
         },
         null,
         'Error updating Google Search setting:'

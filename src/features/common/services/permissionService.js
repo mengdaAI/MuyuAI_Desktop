@@ -26,7 +26,6 @@ class PermissionService {
         permissions.needsSetup = false;
       }
 
-      console.log('[Permissions] System permissions status:', permissions);
       return permissions;
     } catch (error) {
       console.error('[Permissions] Error checking permissions:', error);
@@ -46,7 +45,6 @@ class PermissionService {
 
     try {
       const status = systemPreferences.getMediaAccessStatus('microphone');
-      console.log('[Permissions] Microphone status:', status);
       if (status === 'granted') {
         return { success: true, status: 'granted' };
       }
@@ -73,19 +71,16 @@ class PermissionService {
     try {
       if (section === 'screen-recording') {
         try {
-          console.log('[Permissions] Triggering screen capture request to register app...');
           await desktopCapturer.getSources({
             types: ['screen'],
             thumbnailSize: { width: 1, height: 1 }
           });
-          console.log('[Permissions] App registered for screen recording');
         } catch (captureError) {
-          console.log('[Permissions] Screen capture request triggered (expected to fail):', captureError.message);
+          // expected to fail
         }
         
         // await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture');
       } else if (section === 'microphone') {
-        console.log('[Permissions] Opening system preferences for microphone...');
         // 打开系统设置的麦克风权限页面
         await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone');
       }

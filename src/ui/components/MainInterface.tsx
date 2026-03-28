@@ -203,7 +203,6 @@ export function MainInterface({
 
     const handleMouseUp = (e: MouseEvent) => {
       if (resizeStateRef.current?.isResizing) {
-        console.log('[MainInterface] Resize ended');
         resizeStateRef.current.isResizing = false;
         resizeStateRef.current.edge = null;
         // 清理主进程的 resize 状态
@@ -239,7 +238,6 @@ export function MainInterface({
       startHeight: windowSize.height,
     };
 
-    console.log('[MainInterface] Resize started:', { edge, startX: e.screenX, startY: e.screenY, startWidth: windowSize.width, startHeight: windowSize.height });
   };
 
   return (

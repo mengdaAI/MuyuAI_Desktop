@@ -16,7 +16,6 @@ export function useSessionState() {
   }, []);
 
   const handleSessionResult = useCallback((event: any, { success }: { success: boolean }) => {
-    console.log('[useSessionState] Session state update received:', { success, currentStatus: listenSessionStatus });
     // 状态在 toggleSession 里已做 optimistic update。
     // 这里 success 时不再“推进一次”，避免出现状态错位；失败时回滚。
     if (!success) {
@@ -33,7 +32,6 @@ export function useSessionState() {
   );
 
   const handleForceEnded = useCallback((event: any, data: any) => {
-    console.log('[useSessionState] Session force ended:', data);
     setListenSessionStatus('beforeSession');
     new Notification('面试结束', { body: data?.message || '面试时长已耗尽，本次面试已自动结束。' });
     
@@ -66,7 +64,6 @@ export function useSessionState() {
       const nextStatus: ListenSessionStatus = isStoppingRecording ? 'afterSession' : 'inSession';
 
       setListenSessionStatus(nextStatus);
-      console.log('[useSessionState] Optimistic status update:', listenSessionStatus, '→', nextStatus);
 
       if (window.api) {
         const result = await window.api.mainHeader.sendListenButtonClick(listenButtonText);
@@ -78,13 +75,11 @@ export function useSessionState() {
 
         // 开始收音时启动心跳上报
         if (isStartingRecording) {
-          console.log('[useSessionState] Starting recording heartbeat...');
           (window as any).api?.passcode?.startRecordingHeartbeat?.();
         }
 
         // 停止收音时停止心跳上报
         if (isStoppingRecording) {
-          console.log('[useSessionState] Stopping recording heartbeat...');
           (window as any).api?.passcode?.stopRecordingHeartbeat?.();
         }
       }

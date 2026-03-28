@@ -29,7 +29,6 @@ export function useConnectionState(initialState: ConnectionState = 'idle') {
   const updateConnectionState = useCallback((newState: ConnectionState, reason = '') => {
     setConnectionState(prev => {
       if (prev !== newState) {
-        console.log(`[ConnectionState] ${prev} -> ${newState} (${reason})`);
         setLastStateChange(Date.now());
         return newState;
       }
@@ -68,7 +67,6 @@ export function useConnectionState(initialState: ConnectionState = 'idle') {
     };
 
     healthIntervalRef.current = setInterval(performHealthCheck, healthCheckRef.current.intervalMs);
-    console.log(`[ConnectionState] Health monitoring started (interval: ${healthCheckRef.current.intervalMs}ms)`);
   }, [connectionState, updateConnectionState]);
 
   const stopHealthMonitoring = useCallback(() => {
@@ -79,8 +77,6 @@ export function useConnectionState(initialState: ConnectionState = 'idle') {
       clearInterval(healthIntervalRef.current);
       healthIntervalRef.current = null;
     }
-
-    console.log('[ConnectionState] Health monitoring stopped');
   }, []);
 
   const retryConnection = useCallback(async (connectFn: () => Promise<void>) => {
@@ -90,7 +86,6 @@ export function useConnectionState(initialState: ConnectionState = 'idle') {
     }
 
     const delay = baseRetryDelay * Math.pow(2, retryCount);
-    console.log(`[ConnectionState] Retrying connection in ${delay}ms (attempt ${retryCount + 1}/${maxRetries})`);
 
     setRetryCount(prev => prev + 1);
 

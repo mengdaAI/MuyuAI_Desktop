@@ -8,10 +8,8 @@ import { App } from './App';
 
 // 等待 DOM 加载完成
 window.addEventListener('DOMContentLoaded', () => {
-  console.log('[ContentApp] Initializing React App...');
-  
   const container = document.getElementById('app');
-  
+
   if (!container) {
     console.error('[ContentApp] App container not found!');
     return;
@@ -26,7 +24,5 @@ window.addEventListener('DOMContentLoaded', () => {
   // 创建 React root 并渲染应用
   const root = createRoot(container);
   root.render(React.createElement(App));
-  
-  console.log('[ContentApp] React App initialized successfully');
 });
 
