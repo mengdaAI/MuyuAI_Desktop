@@ -522,6 +522,7 @@ async function startCapture(screenshotIntervalSeconds = 5, imageQuality = 'mediu
                 audioProcessor = processor;
             } catch (micErr) {
                 console.warn('Failed to get microphone on macOS:', micErr);
+                throw new Error(`麦克风访问失败: ${micErr.message}。请确保：1) 麦克风已连接；2) 应用有麦克风权限；3) 麦克风没有被其他应用占用。`);
             }
             ////////// for index & subjects //////////
 
@@ -560,7 +561,7 @@ async function startCapture(screenshotIntervalSeconds = 5, imageQuality = 'mediu
                 setupLinuxMicProcessing(micMediaStream);
             } catch (micError) {
                 console.warn('Failed to get microphone access on Linux:', micError);
-                // Continue without microphone if permission denied
+                throw new Error(`麦克风访问失败: ${micError.message}。请确保：1) 麦克风已连接；2) 应用有麦克风权限；3) 麦克风没有被其他应用占用。`);
             }
 
         } else {
@@ -588,7 +589,8 @@ async function startCapture(screenshotIntervalSeconds = 5, imageQuality = 'mediu
                 audioContext = context;
                 audioProcessor = processor;
             } catch (micErr) {
-                console.warn('Could not get microphone access on Windows:', micErr);
+                console.error('Could not get microphone access on Windows:', micErr);
+                throw new Error(`麦克风访问失败: ${micErr.message}。请确保：1) 麦克风已连接；2) 应用有麦克风权限；3) 麦克风没有被其他应用占用。`);
             }
 
             // 2. Get system audio using native Electron loopback
@@ -597,19 +599,19 @@ async function startCapture(screenshotIntervalSeconds = 5, imageQuality = 'mediu
                     video: true,
                     audio: true // This will now use native loopback from our handler
                 });
-                
+
                 // Verify we got audio tracks
                 const audioTracks = mediaStream.getAudioTracks();
                 if (audioTracks.length === 0) {
                     throw new Error('No audio track in native loopback stream');
                 }
-                
+
                 const { context, processor } = setupSystemAudioProcessing(mediaStream);
                 systemAudioContext = context;
                 systemAudioProcessor = processor;
             } catch (sysAudioErr) {
                 console.error('Failed to start Windows native loopback audio:', sysAudioErr);
-                // Continue without system audio
+                throw new Error(`系统音频访问失败: ${sysAudioErr.message}。请确保：1) 点击"允许"授予屏幕和音频权限；2) 选择要共享的屏幕或窗口；3) 在弹出的权限对话框中勾选"分享音频"选项。`);
             }
         }
     } catch (err) {

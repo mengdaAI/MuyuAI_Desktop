@@ -110,20 +110,20 @@ if (!gotTheLock) {
 // setup protocol after single instance lock
 // setupProtocolHandling(); // Removed
 
-console.log('>>> [DEBUG] Waiting for app.whenReady()');
 app.whenReady().then(async () => {
-    console.log('>>> [DEBUG] app.whenReady() fired');
-
-    // Setup native loopback audio capture for Windows
-    session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
-        desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
-            // Grant access to the first screen found with loopback audio
-            callback({ video: sources[0], audio: 'loopback' });
-        }).catch((error) => {
-            console.error('Failed to get desktop capturer sources:', error);
-            callback({});
+    // Windows：拦截 getDisplayMedia 请求，注入 WASAPI Loopback 系统音频，
+    // 用户无需手动勾选"分享音频"即可自动采集电脑内部声音。
+    // 仅在 Windows 上生效；macOS 使用 SystemAudioDump 进程独立采集系统音频。
+    if (process.platform === 'win32') {
+        session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+            desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
+                callback({ video: sources[0], audio: 'loopback' });
+            }).catch((error) => {
+                console.error('Failed to get desktop capturer sources:', error);
+                callback({});
+            });
         });
-    });
+    }
 
     // Initialize core services
 

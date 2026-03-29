@@ -3,6 +3,29 @@ const path = require('path');
 const { execSync } = require('child_process');
 const fs = require('fs');
 
+// 根据 NODE_ENV 自动加载对应的 .env 文件，确保 esbuild define 能拿到正确的变量值
+// 生产打包：.env.production；开发模式：.env
+const envFile = process.env.NODE_ENV === 'production' ? '.env.production' : '.env';
+try {
+    const envPath = path.join(__dirname, envFile);
+    if (fs.existsSync(envPath)) {
+        const lines = fs.readFileSync(envPath, 'utf8').split('\n');
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith('#')) continue;
+            const eqIdx = trimmed.indexOf('=');
+            if (eqIdx === -1) continue;
+            const key = trimmed.slice(0, eqIdx).trim();
+            // 去掉行尾注释（# 后的内容）
+            const raw = trimmed.slice(eqIdx + 1).trim();
+            const value = raw.split(/\s+#/)[0].trim();
+            if (key && !(key in process.env)) {
+                process.env[key] = value;
+            }
+        }
+    }
+} catch (_) {}
+
 const baseConfig = {
     bundle: true,
     platform: 'browser',

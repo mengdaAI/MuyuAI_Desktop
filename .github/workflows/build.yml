@@ -306,24 +306,22 @@ jobs:
                     fi
                   fi
 
-                  echo "📤 第3步：上传新版本 manifest 文件（原子性更新）..."
-                  # 上传新版本的 manifest 文件（最后一步，原子性操作）
-                  echo "正在上传新版本 manifest 文件..."
-                  aws s3 cp "artifacts/latest.yml" "s3://desktop-release/latest.yml" \
+                  echo "📤 第3步：将 manifest 文件暂存到 pending/ 路径（不触发用户自动更新）..."
+                  # 暂存到 pending/{version}/ 目录，待人工确认测试通过后由 publish.yml 正式发布
+                  aws s3 cp "artifacts/latest.yml" "s3://desktop-release/pending/${VERSION}/latest.yml" \
                     --endpoint-url "$TOS_ENDPOINT" \
                     --region cn-beijing \
-                    || { echo "❌ 上传 latest.yml 失败"; exit 1; }
-                  
-                  aws s3 cp "artifacts/latest-mac.yml" "s3://desktop-release/latest-mac.yml" \
+                    || { echo "❌ 上传 pending latest.yml 失败"; exit 1; }
+
+                  aws s3 cp "artifacts/latest-mac.yml" "s3://desktop-release/pending/${VERSION}/latest-mac.yml" \
                     --endpoint-url "$TOS_ENDPOINT" \
                     --region cn-beijing \
-                    || { echo "❌ 上传 latest-mac.yml 失败"; exit 1; }
+                    || { echo "❌ 上传 pending latest-mac.yml 失败"; exit 1; }
 
-                  echo "✅ Manifest 文件上传完成"
-
-                  echo "🎉 发布完成！"
-                  echo "✅ 新版本已发布：v${VERSION_NUM}"
-                  echo "📍 下载地址: https://desktop-release.tos-cn-beijing.volces.com/"
+                  echo "✅ Manifest 已暂存至 pending/${VERSION}/"
+                  echo ""
+                  echo "⏳ 构建完成，等待测试。测试通过后请手动触发 publish.yml 正式发布。"
+                  echo "   GitHub Actions → publish.yml → Run workflow → version: ${VERSION}"
 
             - name: �📤 Create GitHub Release
               uses: softprops/action-gh-release@v2
@@ -345,7 +343,7 @@ jobs:
                   files: |
                       artifacts/**/*
                   draft: false
-                  prerelease: false
+                  prerelease: true
                   fail_on_unmatched_files: false
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

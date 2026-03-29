@@ -1,0 +1,115 @@
+name: Publish Release
+
+on:
+    workflow_dispatch:
+        inputs:
+            version:
+                description: '版本号（例如 v1.0.40）'
+                required: true
+                type: string
+
+permissions:
+    contents: write
+
+jobs:
+    publish:
+        runs-on: ubuntu-latest
+        steps:
+            - name: ✅ Validate version format
+              run: |
+                  VERSION="${{ github.event.inputs.version }}"
+                  if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                    echo "❌ 版本号格式不正确，应为 v1.2.3，当前输入: $VERSION"
+                    exit 1
+                  fi
+                  echo "✅ 版本号格式正确: $VERSION"
+
+            - name: ☁️ Publish manifests from pending to root (TOS)
+              env:
+                  AWS_ACCESS_KEY_ID: ${{ secrets.VOLCENGINE_ACCESS_KEY_ID }}
+                  AWS_SECRET_ACCESS_KEY: ${{ secrets.VOLCENGINE_SECRET_ACCESS_KEY }}
+              run: |
+                  set -e
+                  VERSION="${{ github.event.inputs.version }}"
+                  TOS_ENDPOINT="https://tos-s3-cn-beijing.volces.com"
+
+                  # Configure AWS CLI for Volcengine TOS
+                  aws configure set default.s3.signature_version s3v4
+                  aws configure set default.s3.addressing_style virtual
+                  aws configure set default.retry_mode standard
+                  aws configure set default.max_attempts 10
+
+                  echo "🔍 检查 pending 目录中是否存在 manifest 文件..."
+                  aws s3 ls "s3://desktop-release/pending/${VERSION}/" \
+                    --endpoint-url "$TOS_ENDPOINT" \
+                    --region cn-beijing \
+                    || { echo "❌ pending/${VERSION}/ 目录不存在，请先确认 build.yml 已成功运行"; exit 1; }
+
+                  echo "📋 pending/${VERSION}/ 中的文件:"
+                  aws s3 ls "s3://desktop-release/pending/${VERSION}/" \
+                    --endpoint-url "$TOS_ENDPOINT" \
+                    --region cn-beijing
+
+                  echo ""
+                  echo "🚀 将 latest.yml 从 pending 复制到根目录..."
+                  aws s3 cp "s3://desktop-release/pending/${VERSION}/latest.yml" \
+                    "s3://desktop-release/latest.yml" \
+                    --endpoint-url "$TOS_ENDPOINT" \
+                    --region cn-beijing \
+                    || { echo "❌ 复制 latest.yml 失败"; exit 1; }
+                  echo "✅ latest.yml 已发布"
+
+                  echo "🚀 将 latest-mac.yml 从 pending 复制到根目录..."
+                  aws s3 cp "s3://desktop-release/pending/${VERSION}/latest-mac.yml" \
+                    "s3://desktop-release/latest-mac.yml" \
+                    --endpoint-url "$TOS_ENDPOINT" \
+                    --region cn-beijing \
+                    || { echo "❌ 复制 latest-mac.yml 失败"; exit 1; }
+                  echo "✅ latest-mac.yml 已发布"
+
+                  echo ""
+                  echo "🔍 验证根目录 manifest 文件内容:"
+                  echo "--- latest.yml ---"
+                  aws s3 cp "s3://desktop-release/latest.yml" - \
+                    --endpoint-url "$TOS_ENDPOINT" \
+                    --region cn-beijing
+                  echo ""
+                  echo "--- latest-mac.yml ---"
+                  aws s3 cp "s3://desktop-release/latest-mac.yml" - \
+                    --endpoint-url "$TOS_ENDPOINT" \
+                    --region cn-beijing
+
+            - name: 🏷️ Mark GitHub Release as stable (remove prerelease flag)
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  VERSION="${{ github.event.inputs.version }}"
+
+                  echo "🔍 查找 GitHub Release: $VERSION"
+                  RELEASE_ID=$(gh api "repos/${{ github.repository }}/releases/tags/${VERSION}" \
+                    --jq '.id' 2>/dev/null || echo "")
+
+                  if [ -z "$RELEASE_ID" ]; then
+                    echo "⚠️ 未找到对应的 GitHub Release (tag: ${VERSION})，跳过此步骤"
+                    exit 0
+                  fi
+
+                  echo "✅ 找到 Release ID: $RELEASE_ID，正在设置为正式版本..."
+                  gh api --method PATCH "repos/${{ github.repository }}/releases/${RELEASE_ID}" \
+                    -f prerelease=false \
+                    -f make_latest=true \
+                    --jq '.html_url' \
+                    | xargs -I{} echo "✅ GitHub Release 已标记为正式版本: {}"
+
+            - name: 🎉 Done
+              run: |
+                  VERSION="${{ github.event.inputs.version }}"
+                  echo ""
+                  echo "========================================"
+                  echo "  ✅ ${VERSION} 正式发布完成！"
+                  echo "========================================"
+                  echo ""
+                  echo "  用户现在会收到自动更新通知。"
+                  echo "  TOS 根目录 latest.yml / latest-mac.yml 已更新。"
+                  echo "  GitHub Release 已标记为正式版本。"
+                  echo ""
