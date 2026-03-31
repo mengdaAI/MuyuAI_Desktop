@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useWindowDrag, useSessionState, useIpcListener } from '../hooks';
+import { useMainWindowDrag, useSessionState, useIpcListener } from '../hooks';
 import { MainInterface } from './MainInterface';
 import type { Shortcuts, Turn } from '../types';
 
 export function MainInterfaceContainer() {
   // Core hooks
-  const { handleMouseDown, wasJustDragged } = useWindowDrag();
+  const { handleMouseDown, isDragging, wasJustDragged } = useMainWindowDrag();
   const { listenSessionStatus, isTogglingSession, toggleSession } = useSessionState();
 
   // UI State adapted for MainInterface
@@ -57,6 +57,7 @@ export function MainInterfaceContainer() {
 
   const handleTurnUpdate = useCallback((event: any, payload: any) => {
     if (!payload) return;
+    console.log('[MainInterfaceContainer] Received turn update:', payload);
 
     // 构造带前缀的唯一 ID，防止不同 Session 间的 ID 冲突
     const uniqueId = `${payload.id}_${turnIdPrefixRef.current}`;
@@ -76,6 +77,7 @@ export function MainInterfaceContainer() {
     }
     if (payload.text) {
       existing.question = payload.text.trim();
+      console.log('[MainInterfaceContainer] Updated turn text:', existing.question);
     }
     if (payload.event === 'finalized' || payload.status === 'completed') {
       existing.status = 'completed';
@@ -571,8 +573,7 @@ export function MainInterfaceContainer() {
       screenshotAnswer={screenshotAnswer}
       isScreenshotLoading={isScreenshotLoading}
       isRecording={listenSessionStatus === 'inSession'}
-      position={{ x: 0, y: 0 }}
-      isDragging={false}
+      isDragging={isDragging}
       windowSize={windowSize}
       onMouseDown={handleMouseDown}
       onMouseMove={() => { }}

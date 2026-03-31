@@ -388,14 +388,23 @@ class ListenService {
         const mainWindow = windowPool?.get('main');
         const transcriptWindow = windowPool?.get('transcript');
 
+        let sent = false;
         if (listenWindow && !listenWindow.isDestroyed()) {
             listenWindow.webContents.send(channel, data);
+            sent = true;
         }
         if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send(channel, data);
+            sent = true;
         }
         if (transcriptWindow && !transcriptWindow.isDestroyed()) {
             transcriptWindow.webContents.send(channel, data);
+            sent = true;
+        }
+
+        // Debug logging for turn-update events
+        if (channel === 'listen:turn-update' && !sent) {
+            console.log('[ListenService] sendToRenderer: No windows available to receive turn-update event');
         }
     }
 

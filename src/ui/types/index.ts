@@ -71,6 +71,7 @@ export interface WindowAPI {
   mainHeader: {
     getHeaderPosition: () => Promise<HeaderPosition>;
     moveHeaderTo: (x: number, y: number) => void;
+    moveMainWindowTo: (x: number, y: number) => void;
     sendHeaderAnimationFinished: (state: string) => void;
     showSettingsWindow: () => void;
     hideSettingsWindow: () => void;

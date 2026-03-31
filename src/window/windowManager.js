@@ -98,8 +98,21 @@ const getHeaderPosition = () => {
     });
 };
 
+const getMainWindowPosition = () => {
+    const mainWindow = windowPool.get('main');
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        const [x, y] = mainWindow.getPosition();
+        return { x, y };
+    }
+    return { x: 0, y: 0 };
+};
+
 const moveHeaderTo = (newX, newY) => {
     internalBridge.emit('window:moveHeaderTo', { newX, newY });
+};
+
+const moveMainWindowTo = (newX, newY) => {
+    internalBridge.emit('window:moveMainWindowTo', { newX, newY });
 };
 
 const adjustWindowHeight = (winName, targetHeight) => {
@@ -249,6 +262,32 @@ function setupWindowController(windowPool, layoutManager, movementManager) {
         if (header) {
             const newPosition = layoutManager.calculateClampedPosition(header, { x: newX, y: newY });
             header.setPosition(newPosition.x, newPosition.y);
+        }
+    });
+    internalBridge.on('window:moveMainWindowTo', ({ newX, newY }) => {
+        const mainWindow = windowPool.get('main');
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            // 计算限制位置,但要确保使用mainWindow的尺寸而不是header的
+            const windowBounds = mainWindow.getBounds();
+            const targetDisplay = require('electron').screen.getDisplayNearestPoint({ x: newX, y: newY });
+            const { x: workAreaX, y: workAreaY, width: workAreaWidth, height: workAreaHeight } = targetDisplay.workArea;
+
+            // 限制在工作区内,添加额外的padding确保窗口不会部分不可见
+            const MIN_VISIBLE = 50; // 至少保证50px可见
+            const clampedX = Math.max(workAreaX - windowBounds.width + MIN_VISIBLE, Math.min(newX, workAreaX + workAreaWidth - MIN_VISIBLE));
+            const clampedY = Math.max(workAreaY - windowBounds.height + MIN_VISIBLE, Math.min(newY, workAreaY + workAreaHeight - MIN_VISIBLE));
+
+            console.log(`[WindowManager] Moving main window to: ${clampedX}, ${clampedY}`);
+            mainWindow.setPosition(clampedX, clampedY);
+
+            // 确保窗口始终可见
+            if (!mainWindow.isVisible()) {
+                console.warn('[WindowManager] Main window became invisible, showing it again');
+                mainWindow.show();
+                mainWindow.focus();
+            }
+        } else {
+            console.warn('[WindowManager] Cannot move main window: window not found or destroyed');
         }
     });
     internalBridge.on('window:adjustWindowHeight', ({ winName, targetHeight }) => {
@@ -540,6 +579,11 @@ function createFeatureWindows(header, namesToCreate) {
             nodeIntegration: false,
             contextIsolation: true,
             preload: path.join(__dirname, '../preload.js'),
+            backgroundThrottling: true, // 改为 true 以提升性能
+            webSecurity: true, // 改为 true 以消除安全警告
+            enableRemoteModule: false,
+            // Ensure proper rendering and prevent pixelation
+            experimentalFeatures: false,
         },
     };
 
@@ -550,12 +594,14 @@ function createFeatureWindows(header, namesToCreate) {
             case 'main': {
                 const mainWin = new BrowserWindow({
                     ...commonChildOptions,
+                    parent: undefined, // Main窗口不应该有parent，避免header隐藏时影响main窗口
                     width: 524,
                     height: 393,
                     maxHeight: 900,
                     resizable: true,
                     minWidth: 524,
                     minHeight: 393,
+                    alwaysOnTop: isAlwaysOnTopOn, // 确保 main 窗口也始终置顶
                 });
                 mainWin.setContentProtection(isContentProtectionOn);
                 mainWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
@@ -857,8 +903,8 @@ function createWindows() {
             nodeIntegration: false,
             contextIsolation: true,
             preload: path.join(__dirname, '../preload.js'),
-            backgroundThrottling: false,
-            webSecurity: false,
+            backgroundThrottling: true, // 改为 true 以提升性能
+            webSecurity: true, // 改为 true 以消除安全警告
             enableRemoteModule: false,
             // Ensure proper rendering and prevent pixelation
             experimentalFeatures: false,
@@ -917,9 +963,10 @@ function createWindows() {
     header.show();
     console.log('[WindowManager] Header window created and shown');
 
-    // DevTools in development - redirect console to main process
+    // 转发渲染进程的 console 到主进程
     if (!app.isPackaged) {
-        header.webContents.openDevTools({ mode: 'detach' });
+        // DevTools 已关闭以避免 React DevTools 警告导致屏幕闪烁
+        // header.webContents.openDevTools({ mode: 'detach' });
 
         // 转发渲染进程的 console 到主进程
         header.webContents.on('console-message', (event, level, message, line, sourceId) => {
@@ -966,6 +1013,11 @@ function createMainOnlyWindow() {
             nodeIntegration: false,
             contextIsolation: true,
             preload: path.join(__dirname, '../preload.js'),
+            backgroundThrottling: true, // 改为 true 以提升性能
+            webSecurity: true, // 改为 true 以消除安全警告
+            enableRemoteModule: false,
+            // Ensure proper rendering and prevent pixelation
+            experimentalFeatures: false,
         },
     };
 
@@ -978,6 +1030,7 @@ function createMainOnlyWindow() {
         maxHeight: 900,
         resizable: true,
         parent: undefined,
+        alwaysOnTop: isAlwaysOnTopOn, // 确保 main 窗口也始终置顶
     });
     mainWin.setContentProtection(isContentProtectionOn);
     mainWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
@@ -1040,12 +1093,27 @@ function setupIpcHandlers(windowPool, layoutManager) {
 
 
 const handleHeaderStateChanged = (state) => {
-    console.log(`[WindowManager] Header state changed to: ${state} `);
+    console.log(`[WindowManager] Header state changed to: ${state} (current: ${currentHeaderState})`);
+
+    // 防止重复切换到相同状态
+    if (state === currentHeaderState) {
+        console.log(`[WindowManager] State unchanged, ignoring`);
+        return;
+    }
+
     currentHeaderState = state;
     const header = windowPool.get('header');
 
     if (state === 'main') {
         console.log('[WindowManager] Transitioning to main state - creating feature windows');
+
+        // 先检查并销毁可能已存在的 main 窗口
+        const existingMainWin = windowPool.get('main');
+        if (existingMainWin && !existingMainWin.isDestroyed()) {
+            console.log('[WindowManager] Destroying existing main window before creating new one');
+            existingMainWin.destroy();
+            windowPool.delete('main');
+        }
 
         // 先创建功能窗口（包括 main 窗口）
         createFeatureWindows(header, ['main', 'listen', 'ask', 'screenshot', 'transcript', 'settings', 'shortcut-settings']);
@@ -1055,14 +1123,26 @@ const handleHeaderStateChanged = (state) => {
         if (mainWin && !mainWin.isDestroyed()) {
             mainWin.show();
             mainWin.focus();
+            mainWin.setAlwaysOnTop(isAlwaysOnTopOn); // 确保 main 窗口始终置顶
             console.log('[WindowManager] Main window shown and focused');
+        } else {
+            console.error('[WindowManager] Main window not available after creation!');
         }
 
         // 然后隐藏 Header 窗口（设置为透明并点击穿透）
         if (header && !header.isDestroyed()) {
-            header.setOpacity(0);
-            header.setIgnoreMouseEvents(true, { forward: true });
-            console.log('[WindowManager] Header window hidden (transparent + click-through)');
+            // Windows 特殊处理: 在隐藏header之前先确保main窗口已经在顶层
+            if (process.platform === 'win32') {
+                setTimeout(() => {
+                    header.setOpacity(0);
+                    header.setIgnoreMouseEvents(true, { forward: true });
+                    console.log('[WindowManager] Header window hidden (transparent + click-through)');
+                }, 100); // 延迟100ms,确保main窗口已经在前台
+            } else {
+                header.setOpacity(0);
+                header.setIgnoreMouseEvents(true, { forward: true });
+                console.log('[WindowManager] Header window hidden (transparent + click-through)');
+            }
         }
     } else {         // 'apikey' | 'permission' | 'welcome'
         console.log(`[WindowManager] Transitioning to ${state} state - showing header, destroying feature windows`);
@@ -1214,7 +1294,9 @@ module.exports = {
     handleHeaderStateChanged,
     handleHeaderAnimationFinished,
     getHeaderPosition,
+    getMainWindowPosition,
     moveHeaderTo,
+    moveMainWindowTo,
     adjustWindowHeight,
     resizeMainWindow,
     clearWindowResizeState,

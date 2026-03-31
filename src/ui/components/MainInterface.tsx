@@ -27,7 +27,6 @@ interface MainInterfaceProps {
   screenshotAnswer?: string;
   isScreenshotLoading?: boolean;
   isRecording: boolean;
-  position: { x: number; y: number };
   isDragging: boolean;
   windowSize?: { width: number; height: number };
   onMouseDown: (e: React.MouseEvent) => void;
@@ -57,7 +56,6 @@ export function MainInterface({
   screenshotAnswer,
   isScreenshotLoading,
   isRecording,
-  position,
   isDragging,
   windowSize = { width: 524, height: 393 },
   onMouseDown,
@@ -246,7 +244,6 @@ export function MainInterface({
       style={{
         width: 'fit-content',
         height: 'fit-content',
-        transform: `translate(${position.x}px, ${position.y}px)`,
         cursor: isDragging ? 'grabbing' : 'grab',
         userSelect: 'none'
       }}
@@ -256,9 +253,9 @@ export function MainInterface({
       onMouseLeave={onMouseUp}
     >
       {/* 窗口边沿拖拽区域 - 用于调整窗口大小 */}
-      {/* 上边沿 */}
+      {/* 上边沿 - 添加 pointer-events: none，除了鼠标悬停时 */}
       <div
-        className="absolute top-0 left-0 right-0 z-[9999]"
+        className="absolute top-0 left-0 right-0 z-[9999] pointer-events-none hover:pointer-events-auto"
         style={{
           height: `${RESIZE_HANDLE_SIZE}px`,
           cursor: 'ns-resize',
@@ -268,7 +265,7 @@ export function MainInterface({
       />
       {/* 下边沿 */}
       <div
-        className="absolute bottom-0 left-0 right-0 z-[9999]"
+        className="absolute bottom-0 left-0 right-0 z-[9999] pointer-events-none hover:pointer-events-auto"
         style={{
           height: `${RESIZE_HANDLE_SIZE}px`,
           cursor: 'ns-resize',
@@ -278,7 +275,7 @@ export function MainInterface({
       />
       {/* 左边沿 */}
       <div
-        className="absolute top-0 bottom-0 left-0 z-[9999]"
+        className="absolute top-0 bottom-0 left-0 z-[9999] pointer-events-none hover:pointer-events-auto"
         style={{
           width: `${RESIZE_HANDLE_SIZE}px`,
           cursor: 'ew-resize',
@@ -288,7 +285,7 @@ export function MainInterface({
       />
       {/* 右边沿 */}
       <div
-        className="absolute top-0 bottom-0 right-0 z-[9999]"
+        className="absolute top-0 bottom-0 right-0 z-[9999] pointer-events-none hover:pointer-events-auto"
         style={{
           width: `${RESIZE_HANDLE_SIZE}px`,
           cursor: 'ew-resize',

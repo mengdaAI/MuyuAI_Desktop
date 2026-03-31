@@ -142,7 +142,9 @@ contextBridge.exposeInMainWorld('api', {
   mainHeader: {
     // Window Management
     getHeaderPosition: () => ipcRenderer.invoke('get-header-position'),
+    getMainWindowPosition: () => ipcRenderer.sendSync('get-main-window-position'),
     moveHeaderTo: (x, y) => ipcRenderer.invoke('move-header-to', x, y),
+    moveMainWindowTo: (x, y) => ipcRenderer.invoke('move-main-window-to', x, y),
     sendHeaderAnimationFinished: (state) => ipcRenderer.send('header-animation-finished', state),
 
     // Settings Window Management

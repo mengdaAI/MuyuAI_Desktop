@@ -1,10 +1,11 @@
 try {
-    if (process.env.ENABLE_ELECTRON_RELOAD !== 'false') {
-        const reloader = require('electron-reloader');
-        reloader(module, {
-            watchRenderer: true,
-        });
-    }
+    // 禁用 reloader 以避免渲染进程反复重新加载导致屏幕闪烁
+    // if (process.env.ENABLE_ELECTRON_RELOAD !== 'false') {
+    //     const reloader = require('electron-reloader');
+    //     reloader(module, {
+    //         watchRenderer: true,
+    //     });
+    // }
 } catch (err) {
 }
 
@@ -111,6 +112,10 @@ if (!gotTheLock) {
 // setupProtocolHandling(); // Removed
 
 app.whenReady().then(async () => {
+    // 禁用Electron的安全警告，避免开发环境中CSP警告导致屏幕闪烁
+    // webSecurity和contextIsolation已设置为true，安全性已足够
+    process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
+
     // Windows：拦截 getDisplayMedia 请求，注入 WASAPI Loopback 系统音频，
     // 用户无需手动勾选"分享音频"即可自动采集电脑内部声音。
     // 仅在 Windows 上生效；macOS 使用 SystemAudioDump 进程独立采集系统音频。

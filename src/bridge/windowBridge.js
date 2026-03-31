@@ -22,7 +22,12 @@ module.exports = {
     ipcMain.on('header-state-changed', (event, state) => windowManager.handleHeaderStateChanged(state));
     ipcMain.on('header-animation-finished', (event, state) => windowManager.handleHeaderAnimationFinished(state));
     ipcMain.handle('get-header-position', () => windowManager.getHeaderPosition());
+    ipcMain.on('get-main-window-position', (event) => {
+      const position = windowManager.getMainWindowPosition();
+      event.returnValue = position; // 同步返回
+    });
     ipcMain.handle('move-header-to', (event, newX, newY) => windowManager.moveHeaderTo(newX, newY));
+    ipcMain.handle('move-main-window-to', (event, newX, newY) => windowManager.moveMainWindowTo(newX, newY));
     ipcMain.handle('adjust-window-height', (event, { winName, height }) => windowManager.adjustWindowHeight(winName, height));
     ipcMain.on('resize-main-window', (event, params) => windowManager.resizeMainWindow(event.sender, params));
     ipcMain.on('clear-window-resize-state', (event) => windowManager.clearWindowResizeState());
