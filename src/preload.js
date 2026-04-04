@@ -44,6 +44,9 @@ contextBridge.exposeInMainWorld('api', {
     // Window size change listener（用于同步窗口大小变化）
     onWindowSizeChanged: (callback) => ipcRenderer.on('window:size-changed', callback),
     removeOnWindowSizeChanged: (callback) => ipcRenderer.removeListener('window:size-changed', callback),
+    
+    // Generic IPC event sender for custom events
+    sendIpcEvent: (channel, ...args) => ipcRenderer.send(channel, ...args),
   },
 
   // Interview passcode gate

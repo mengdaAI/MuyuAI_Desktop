@@ -38,6 +38,11 @@ export function useMainWindowDrag() {
     window.removeEventListener('mousemove', handleMouseMove, { capture: true } as any);
     dragStateRef.current = null;
     setIsDragging(false);
+    
+    // 通知主进程拖动结束
+    if (window.api?.common?.sendIpcEvent) {
+      window.api.common.sendIpcEvent('window:drag-end');
+    }
 
     if (wasDragged) {
       setWasJustDragged(true);
@@ -70,6 +75,11 @@ export function useMainWindowDrag() {
     };
 
     setIsDragging(true);
+    
+    // 通知主进程拖动开始
+    if (window.api?.common?.sendIpcEvent) {
+      window.api.common.sendIpcEvent('window:drag-start');
+    }
 
     window.addEventListener('mousemove', handleMouseMove, { capture: true } as any);
     window.addEventListener('mouseup', handleMouseUp, { once: true, capture: true } as any);

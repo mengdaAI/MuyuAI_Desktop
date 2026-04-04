@@ -31,6 +31,16 @@ module.exports = {
     ipcMain.handle('adjust-window-height', (event, { winName, height }) => windowManager.adjustWindowHeight(winName, height));
     ipcMain.on('resize-main-window', (event, params) => windowManager.resizeMainWindow(event.sender, params));
     ipcMain.on('clear-window-resize-state', (event) => windowManager.clearWindowResizeState());
+    
+    // 拖动状态管理
+    ipcMain.on('window:drag-start', () => {
+      isManualDragging = true;
+    });
+    ipcMain.on('window:drag-end', () => {
+      isManualDragging = false;
+      // 拖动结束后更新子窗口布局，确保子窗口位置正确
+      updateChildWindowLayouts(false);
+    });
   },
 
   notifyFocusChange(win, isFocused) {

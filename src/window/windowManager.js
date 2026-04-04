@@ -45,6 +45,7 @@ let settingsHideTimer = null;
 
 let layoutManager = null;
 let movementManager = null;
+let isManualDragging = false;
 
 
 function updateChildWindowLayouts(animated = true) {
@@ -277,7 +278,6 @@ function setupWindowController(windowPool, layoutManager, movementManager) {
             const clampedX = Math.max(workAreaX - windowBounds.width + MIN_VISIBLE, Math.min(newX, workAreaX + workAreaWidth - MIN_VISIBLE));
             const clampedY = Math.max(workAreaY - windowBounds.height + MIN_VISIBLE, Math.min(newY, workAreaY + workAreaHeight - MIN_VISIBLE));
 
-            console.log(`[WindowManager] Moving main window to: ${clampedX}, ${clampedY}`);
             mainWindow.setPosition(clampedX, clampedY);
 
             // 确保窗口始终可见
@@ -938,9 +938,9 @@ function createWindows() {
 
 
     header.on('moved', () => {
-        if (movementManager.isAnimating) {
-            return;
-        }
+        // 如果正在手动拖动，完全不做任何处理，避免拖动过程中调用setBounds
+        if (isManualDragging) return;
+        
         updateChildWindowLayouts(false);
     });
 

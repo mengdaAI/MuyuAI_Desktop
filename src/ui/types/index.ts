@@ -65,6 +65,9 @@ export interface WindowAPI {
     onUserStateChanged: (callback: (event: any, userState: UserState) => void) => void;
     removeOnUserStateChanged: (callback: (event: any, userState: UserState) => void) => void;
     quitApplication: () => Promise<void>;
+    sendIpcEvent: (channel: string, ...args: any[]) => void;
+    onWindowSizeChanged?: (callback: (event: any, size: { width: number; height: number }) => void) => void;
+    removeOnWindowSizeChanged?: (callback: (event: any, size: { width: number; height: number }) => void) => void;
   };
 
   // Main Header APIs
