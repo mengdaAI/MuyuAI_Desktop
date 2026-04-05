@@ -122,6 +122,17 @@ const adjustWindowHeight = (winName, targetHeight) => {
 
 
 function setupWindowController(windowPool, layoutManager, movementManager) {
+    // 拖动状态管理
+    internalBridge.on('window:drag-start', () => {
+        isManualDragging = true;
+    });
+    
+    internalBridge.on('window:drag-end', () => {
+        isManualDragging = false;
+        // 拖动结束后更新子窗口布局，确保子窗口位置正确
+        updateChildWindowLayouts(false);
+    });
+    
     internalBridge.on('window:requestVisibility', ({ name, visible }) => {
         handleWindowVisibilityRequest(windowPool, layoutManager, movementManager, name, visible);
     });
