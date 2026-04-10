@@ -104,9 +104,15 @@ function focusMainWindow() {
 
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
+    console.log('[App] 已有实例在运行，本进程退出（单例锁）。');
     app.quit();
     process.exit(0);
 }
+
+// 再次启动时由主实例聚焦窗口（开发/生产均如此）
+app.on('second-instance', () => {
+    focusMainWindow();
+});
 
 // setup protocol after single instance lock
 // setupProtocolHandling(); // Removed
