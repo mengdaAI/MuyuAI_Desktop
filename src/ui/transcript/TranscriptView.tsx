@@ -52,19 +52,14 @@ export function TranscriptView() {
 
   // Load initial state
   useEffect(() => {
-    console.log('[TranscriptView] Requesting initial state...');
     if (!window.api || !window.api.liveInsights) return;
 
     window.api.liveInsights.getTurnState().then((state: TurnState) => {
-      console.log('[TranscriptView] Received initial state:', state);
-      
       if (state && state.turnHistory) {
-        console.log('[TranscriptView] Rendering history:', state.turnHistory.length, 'items');
         state.turnHistory.forEach(turn => handleTurnUpdate(turn));
       }
-      
+
       if (state && state.activeTurns) {
-        console.log('[TranscriptView] Rendering active turns:', state.activeTurns.length, 'items');
         state.activeTurns.forEach(turn => handleTurnUpdate(turn));
       }
     }).catch(err => {

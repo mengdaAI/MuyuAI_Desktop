@@ -54,7 +54,6 @@ async function createSTT({ apiKey, language = "en", callbacks = {}, ...config })
       console.warn("[Anthropic] STT sendRealtimeInput called but not implemented")
     },
     close: async () => {
-      console.log("[Anthropic] STT session closed")
     },
   }
 }

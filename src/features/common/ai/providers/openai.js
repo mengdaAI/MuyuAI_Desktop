@@ -64,8 +64,6 @@ async function createSTT({ apiKey, language = 'en', callbacks = {}, usePortkey =
 
   return new Promise((resolve, reject) => {
     ws.onopen = () => {
-      console.log("WebSocket session opened.");
-
       const sessionConfig = {
         type: 'transcription_session.update',
         session: {
@@ -146,7 +144,6 @@ ws.onmessage = ws.onerror = () => {};  // Remove handlers
     };
 
     ws.onclose = (event) => {
-      console.log(`WebSocket closed: ${event.code} ${event.reason}`);
       if (callbacks && callbacks.onclose) {
         callbacks.onclose(event);
       }

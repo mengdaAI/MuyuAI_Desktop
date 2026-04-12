@@ -19,7 +19,6 @@ export function HistoryPanel({ turns = [] }: HistoryPanelProps) {
       // 判断是否接近底部 (20px 容差)
       const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 20;
       isUserScrollingRef.current = !isNearBottom;
-      console.log('[HistoryPanel] Scroll event - isNearBottom:', isNearBottom, 'scrollTop:', el.scrollTop, 'scrollHeight:', el.scrollHeight);
     };
 
     el.addEventListener('scroll', handleScroll);
@@ -27,20 +26,14 @@ export function HistoryPanel({ turns = [] }: HistoryPanelProps) {
   }, []);
 
   useEffect(() => {
-    console.log('[HistoryPanel] Turns updated - length:', turns.length, 'prev:', prevTurnsLengthRef.current);
-    console.log('[HistoryPanel] Turns data:', turns.map(t => ({ id: t.id, speaker: t.speaker, q: t.question?.slice(0, 30), a: t.answer?.slice(0, 30) })));
-    
     // 只有在以下情况才自动滚动到底部：
     // 1. 新增了一个 turn（length 增加）
     // 2. 用户当前已经在底部（不是在主动浏览历史）
     const isNewTurnAdded = turns.length > prevTurnsLengthRef.current;
     prevTurnsLengthRef.current = turns.length;
-    
+
     if (scrollRef.current && (isNewTurnAdded || !isUserScrollingRef.current)) {
-      console.log('[HistoryPanel] Auto scrolling to bottom - isNewTurnAdded:', isNewTurnAdded);
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    } else {
-      console.log('[HistoryPanel] Skipping auto scroll - isUserScrolling:', isUserScrollingRef.current);
     }
   }, [turns]);
 

@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useState } from 'react';
 import type { HeaderPosition } from '../types';
 
 interface DragState {
@@ -9,9 +9,10 @@ interface DragState {
   moved: boolean;
 }
 
-export function useWindowDrag() {
+export function useMainWindowDrag() {
   const dragStateRef = useRef<DragState | null>(null);
-  const wasJustDraggedRef = useRef(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [wasJustDragged, setWasJustDragged] = useState(false);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!dragStateRef.current) return;
@@ -26,7 +27,7 @@ export function useWindowDrag() {
     const newWindowX = dragStateRef.current.initialWindowX + (e.screenX - dragStateRef.current.initialMouseX);
     const newWindowY = dragStateRef.current.initialWindowY + (e.screenY - dragStateRef.current.initialMouseY);
 
-    window.api.mainHeader.moveHeaderTo(newWindowX, newWindowY);
+    window.api.mainHeader.moveMainWindowTo(newWindowX, newWindowY);
   }, []);
 
   const handleMouseUp = useCallback((e: MouseEvent) => {
@@ -36,6 +37,7 @@ export function useWindowDrag() {
 
     window.removeEventListener('mousemove', handleMouseMove, { capture: true } as any);
     dragStateRef.current = null;
+    setIsDragging(false);
     
     // 通知主进程拖动结束
     if (window.api?.common?.sendIpcEvent) {
@@ -43,10 +45,9 @@ export function useWindowDrag() {
     }
 
     if (wasDragged) {
-      wasJustDraggedRef.current = true;
-      setTimeout(() => {
-        wasJustDraggedRef.current = false;
-      }, 0);
+      setWasJustDragged(true);
+      // 500ms 后重置 wasJustDragged 状态
+      setTimeout(() => setWasJustDragged(false), 500);
     }
   }, [handleMouseMove]);
 
@@ -54,14 +55,16 @@ export function useWindowDrag() {
     // Ignore mousedown originating from interactive controls
     const target = e.target as HTMLElement;
     const interactiveSelector = '.icon-btn, .rail-button, button, input, select, a, svg';
-    
+
     if (target.closest(interactiveSelector) || ['BUTTON', 'INPUT', 'SELECT', 'A', 'SVG'].includes(target.tagName)) {
       return;
     }
 
     e.preventDefault();
+    setWasJustDragged(false);
 
-    const initialPosition: HeaderPosition = await window.api.mainHeader.getHeaderPosition();
+    // 获取main窗口的初始位置（因为我们只在main状态下使用这个hook）
+    const initialPosition = window.api.mainHeader.getMainWindowPosition();
 
     dragStateRef.current = {
       initialMouseX: e.screenX,
@@ -70,6 +73,8 @@ export function useWindowDrag() {
       initialWindowY: initialPosition.y,
       moved: false,
     };
+
+    setIsDragging(true);
     
     // 通知主进程拖动开始
     if (window.api?.common?.sendIpcEvent) {
@@ -82,7 +87,7 @@ export function useWindowDrag() {
 
   return {
     handleMouseDown,
-    wasJustDragged: wasJustDraggedRef.current,
+    wasJustDragged,
+    isDragging,
   };
 }
-

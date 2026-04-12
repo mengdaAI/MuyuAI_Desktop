@@ -76,7 +76,6 @@ export function useMarkdownLibraries() {
             isLoaded: true,
           });
 
-          console.log('Markdown libraries loaded successfully in AskView');
         }
       } catch (error) {
         console.error('Failed to load libraries in AskView:', error);

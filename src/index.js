@@ -1,10 +1,11 @@
 try {
-    if (process.env.ENABLE_ELECTRON_RELOAD !== 'false') {
-        const reloader = require('electron-reloader');
-        reloader(module, {
-            watchRenderer: true,
-        });
-    }
+    // 禁用 reloader 以避免渲染进程反复重新加载导致屏幕闪烁
+    // if (process.env.ENABLE_ELECTRON_RELOAD !== 'false') {
+    //     const reloader = require('electron-reloader');
+    //     reloader(module, {
+    //         watchRenderer: true,
+    //     });
+    // }
 } catch (err) {
 }
 
@@ -16,9 +17,12 @@ if (require('electron-squirrel-startup')) {
 }
 
 const electron = require('electron');
-console.log('>>> [DEBUG] electron module:', Object.keys(electron));
 const { app, BrowserWindow, shell, ipcMain, dialog, desktopCapturer, session } = electron;
-console.log('>>> [DEBUG] app after destructuring:', typeof app, app ? 'app exists' : 'app is null/undefined');
+
+// ── 日志文件初始化（必须在所有其他 console 调用之前）────────────────────────
+const appLogger = require('./utils/appLogger');
+appLogger.init(app);
+// ────────────────────────────────────────────────────────────────────────────
 
 const { loadEnvironment } = require('./features/common/config/constants');
 
@@ -100,27 +104,37 @@ function focusMainWindow() {
 
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
+    console.log('[App] 已有实例在运行，本进程退出（单例锁）。');
     app.quit();
     process.exit(0);
 }
 
+// 再次启动时由主实例聚焦窗口（开发/生产均如此）
+app.on('second-instance', () => {
+    focusMainWindow();
+});
+
 // setup protocol after single instance lock
 // setupProtocolHandling(); // Removed
 
-console.log('>>> [DEBUG] Waiting for app.whenReady()');
 app.whenReady().then(async () => {
-    console.log('>>> [DEBUG] app.whenReady() fired');
+    // 禁用Electron的安全警告，避免开发环境中CSP警告导致屏幕闪烁
+    // webSecurity和contextIsolation已设置为true，安全性已足够
+    process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
 
-    // Setup native loopback audio capture for Windows
-    session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
-        desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
-            // Grant access to the first screen found with loopback audio
-            callback({ video: sources[0], audio: 'loopback' });
-        }).catch((error) => {
-            console.error('Failed to get desktop capturer sources:', error);
-            callback({});
+    // Windows：拦截 getDisplayMedia 请求，注入 WASAPI Loopback 系统音频，
+    // 用户无需手动勾选"分享音频"即可自动采集电脑内部声音。
+    // 仅在 Windows 上生效；macOS 使用 SystemAudioDump 进程独立采集系统音频。
+    if (process.platform === 'win32') {
+        session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+            desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
+                callback({ video: sources[0], audio: 'loopback' });
+            }).catch((error) => {
+                console.error('Failed to get desktop capturer sources:', error);
+                callback({});
+            });
         });
-    });
+    }
 
     // Initialize core services
 
@@ -244,6 +258,7 @@ app.on('before-quit', async (event) => {
     } finally {
         // Actually quit the app now
         console.log('[Shutdown] Exiting application...');
+        appLogger.close(); // 关闭日志文件写入流
         app.exit(0); // Use app.exit() instead of app.quit() to force quit
     }
 });
@@ -252,6 +267,14 @@ app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
         createMainOnlyWindow();
     }
+});
+
+// 自动将所有 BrowserWindow 的 Renderer console 输出写入 app.log
+// 使用窗口标题作为名称标签（创建后 title 可能尚未设置，监听 page-title-updated 补充）
+app.on('browser-window-created', (_event, win) => {
+    // 先用创建时序编号注册，等 title 确定后更新已无必要（标签用于区分来源即可）
+    const id = win.id;
+    appLogger.attachRenderer(win, `win${id}`);
 });
 
 function setupWebDataHandlers() {

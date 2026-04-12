@@ -11,7 +11,6 @@ export function StartupFlow() {
     // Resize Helpers
     const resizeWindow = useCallback((width: number, height: number) => {
         if (!(window as any).api?.headerController?.resizeHeaderWindow) return;
-        console.log(`[StartupFlow] Resizing to ${width}x${height}`);
         return (window as any).api.headerController.resizeHeaderWindow({ width, height }).catch(console.error);
     }, []);
 
@@ -67,13 +66,11 @@ export function StartupFlow() {
     // Core Logic: Check Passcode & User State
     const checkInitialState = useCallback(async () => {
         if (!(window as any).api) {
-            console.log('[StartupFlow] No API, showing startup');
             showStartup();
             return;
         }
 
         try {
-            console.log('[StartupFlow] Checking initial state...');
             // 1. Check Passcode
             let isPasscodeLocked = false;
             if ((window as any).api.passcode) {
@@ -86,12 +83,10 @@ export function StartupFlow() {
             
             if (!isPasscodeLocked && userState) {
                 // Already ready, check permissions
-                console.log('[StartupFlow] Already unlocked and logged in.');
                 setPasscodeVerified(true);
                 await checkPermissionsAndProceed();
             } else {
                 // Need login or passcode
-                console.log('[StartupFlow] Locked or not logged in, showing startup screen.');
                 showStartup();
             }
         } catch (e) {

@@ -44,6 +44,9 @@ contextBridge.exposeInMainWorld('api', {
     // Window size change listener（用于同步窗口大小变化）
     onWindowSizeChanged: (callback) => ipcRenderer.on('window:size-changed', callback),
     removeOnWindowSizeChanged: (callback) => ipcRenderer.removeListener('window:size-changed', callback),
+    
+    // Generic IPC event sender for custom events
+    sendIpcEvent: (channel, ...args) => ipcRenderer.send(channel, ...args),
   },
 
   // Interview passcode gate
@@ -142,7 +145,9 @@ contextBridge.exposeInMainWorld('api', {
   mainHeader: {
     // Window Management
     getHeaderPosition: () => ipcRenderer.invoke('get-header-position'),
+    getMainWindowPosition: () => ipcRenderer.sendSync('get-main-window-position'),
     moveHeaderTo: (x, y) => ipcRenderer.invoke('move-header-to', x, y),
+    moveMainWindowTo: (x, y) => ipcRenderer.invoke('move-main-window-to', x, y),
     sendHeaderAnimationFinished: (state) => ipcRenderer.send('header-animation-finished', state),
 
     // Settings Window Management
@@ -388,6 +393,10 @@ contextBridge.exposeInMainWorld('api', {
   renderer: {
     // Listeners
     onChangeListenCaptureState: (callback) => ipcRenderer.on('change-listen-capture-state', callback),
-    removeOnChangeListenCaptureState: (callback) => ipcRenderer.removeListener('change-listen-capture-state', callback)
+    removeOnChangeListenCaptureState: (callback) => ipcRenderer.removeListener('change-listen-capture-state', callback),
+    onSessionForceEnded: (callback) => ipcRenderer.on('session-force-ended', callback),
+    removeOnSessionForceEnded: (callback) => ipcRenderer.removeListener('session-force-ended', callback),
+    onSessionStateChanged: (callback) => ipcRenderer.on('session-state-changed', callback),
+    removeOnSessionStateChanged: (callback) => ipcRenderer.removeListener('session-state-changed', callback)
   }
 });

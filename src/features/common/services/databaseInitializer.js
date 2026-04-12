@@ -57,7 +57,6 @@ class DatabaseInitializer {
 
     async initialize() {
         if (this.isInitialized) {
-            console.log('[DB] Already initialized.');
             return true;
         }
 
@@ -87,9 +86,6 @@ sqliteClient.connect(this.dbPath); // Pass DB path as argument
         try {
             if (!fs.existsSync(this.dataDir)) {
                 fs.mkdirSync(this.dataDir, { recursive: true });
-                console.log('[DatabaseInitializer] Data directory created:', this.dataDir);
-            } else {
-                console.log('[DatabaseInitializer] Data directory exists:', this.dataDir);
             }
         } catch (error) {
             console.error('[DatabaseInitializer] Failed to create data directory:', error);
@@ -101,7 +97,6 @@ sqliteClient.connect(this.dbPath); // Pass DB path as argument
         this._ensurePaths();
         try {
             const exists = fs.existsSync(this.dbPath);
-            console.log('[DatabaseInitializer] Database file check:', { path: this.dbPath, exists });
             return exists;
         } catch (error) {
             console.error('[DatabaseInitializer] Error checking database file:', error);
@@ -110,7 +105,6 @@ sqliteClient.connect(this.dbPath); // Pass DB path as argument
     }
 
     async createNewDatabase() {
-        console.log('[DatabaseInitializer] Creating new database...');
         try {
             await sqliteClient.connect(); // Connect and initialize tables/default data
             
@@ -129,7 +123,6 @@ sqliteClient.connect(this.dbPath); // Pass DB path as argument
     }
 
     async connectToExistingDatabase() {
-        console.log('[DatabaseInitializer] Connecting to existing database...');
         try {
             await sqliteClient.connect();
             
@@ -149,9 +142,7 @@ sqliteClient.connect(this.dbPath); // Pass DB path as argument
     }
 
     async validateAndRecoverData() {
-        console.log('[DatabaseInitializer] Validating database integrity...');
         try {
-            console.log('[DatabaseInitializer] Validating database integrity...');
 
             // The synchronizeSchema function handles table and column creation now.
             // We just need to ensure default data is present.
@@ -169,14 +160,12 @@ sqliteClient.connect(this.dbPath); // Pass DB path as argument
                 await sqliteClient.initDefaultData();
             }
 
-            console.log('[DatabaseInitializer] Database validation completed');
             return { success: true };
 
         } catch (error) {
             console.error('[DatabaseInitializer] Database validation failed:', error);
             try {
                 await sqliteClient.initDefaultData();
-                console.log('[DatabaseInitializer] Default data recovered');
                 return { success: true };
             } catch (error) {
                 console.error('[DatabaseInitializer] Database validation failed:', error);
@@ -199,19 +188,15 @@ sqliteClient.connect(this.dbPath); // Pass DB path as argument
     async reset() {
         this._ensurePaths();
         try {
-            console.log('[DatabaseInitializer] Resetting database...');
-            
             sqliteClient.close();
-            
+
             if (fs.existsSync(this.dbPath)) {
                 fs.unlinkSync(this.dbPath);
-                console.log('[DatabaseInitializer] Database file deleted');
             }
 
             this.isInitialized = false;
             await this.initialize();
 
-            console.log('[DatabaseInitializer] Database reset completed');
             return true;
 
         } catch (error) {
@@ -225,7 +210,6 @@ sqliteClient.connect(this.dbPath); // Pass DB path as argument
             sqliteClient.close();
         }
         this.isInitialized = false;
-        console.log('[DatabaseInitializer] Database connection closed');
     }
 
     getDatabasePath() {

@@ -100,13 +100,7 @@ module.exports = {
 
     // Listen
     ipcMain.handle('listen:sendMicAudio', async (event, { data, mimeType }) => await listenService.handleSendMicAudioContent(data, mimeType));
-    ipcMain.handle('listen:sendSystemAudio', async (event, { data, mimeType }) => {
-      const result = await listenService.sttService.sendSystemAudioContent(data, mimeType);
-      if (result.success) {
-        listenService.sendToRenderer('system-audio-data', { data });
-      }
-      return result;
-    });
+    ipcMain.handle('listen:sendSystemAudio', async (event, { data, mimeType }) => await listenService.sttService.handleSendSystemAudioContent(data, mimeType));
     ipcMain.handle('listen:sendManualInput', async (event, { text, speaker }) => {
       try {
         return await listenService.handleManualInput(text, speaker);

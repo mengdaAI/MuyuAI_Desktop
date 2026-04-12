@@ -38,8 +38,10 @@ class SummaryService {
     addConversationTurn(speaker, text) {
         const conversationText = `${speaker.toLowerCase()}: ${text.trim()}`;
         this.conversationHistory.push(conversationText);
-        console.log(`💬 Added conversation text: ${conversationText}`);
-        console.log(`📈 Total conversation history: ${this.conversationHistory.length} texts`);
+        // 保留最近 200 条，避免长时间会话无限堆积（实际使用时只取最后 8 条）
+        if (this.conversationHistory.length > 200) {
+            this.conversationHistory = this.conversationHistory.slice(-200);
+        }
     }
 
     getConversationHistory() {
@@ -50,7 +52,6 @@ class SummaryService {
         this.conversationHistory = [];
         this.previousAnalysisResult = null;
         this.analysisHistory = [];
-        console.log('🔄 Conversation history and analysis state reset');
     }
 
     /**
@@ -65,10 +66,8 @@ class SummaryService {
     }
 
     async makeOutlineAndRequests(conversationTexts, maxTurns = 30) {
-        console.log(`🔍 makeOutlineAndRequests called - conversationTexts: ${conversationTexts.length}`);
-
         if (conversationTexts.length === 0) {
-            console.log('⚠️ No conversation texts available for analysis');
+            console.warn('⚠️ No conversation texts available for analysis');
             return null;
         }
 
@@ -99,8 +98,6 @@ Please build upon this context while analyzing the new conversation segments.
             if (!modelInfo || !modelInfo.apiKey) {
                 throw new Error('AI model or API key is not configured.');
             }
-            console.log(`🤖 Sending analysis request to ${modelInfo.provider} using model ${modelInfo.model}`);
-            
             const messages = [
                 {
                     role: 'system',
@@ -132,8 +129,6 @@ Keep all points concise and build upon previous analysis if provided.`,
                 },
             ];
 
-            console.log('🤖 Sending analysis request to AI...');
-
             const isVirtualProvider = isVirtualOpenAIProvider(modelInfo.provider);
             const llm = createLLM(modelInfo.provider, {
                 apiKey: modelInfo.apiKey,
@@ -147,7 +142,6 @@ Keep all points concise and build upon previous analysis if provided.`,
             const completion = await llm.chat(messages);
 
             const responseText = completion.content;
-            console.log(`✅ Analysis response received: ${responseText}`);
             const structuredData = this.parseResponseText(responseText, this.previousAnalysisResult);
 
             if (this.currentSessionId) {
@@ -293,7 +287,6 @@ return this.previousAnalysisResult; // On error, return previous result
             );
         }
 
-        console.log('📊 Final structured data:', JSON.stringify(structuredData, null, 2));
         return structuredData;
     }
 

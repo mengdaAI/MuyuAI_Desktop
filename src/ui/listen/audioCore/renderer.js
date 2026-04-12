@@ -16,14 +16,31 @@ window.pickleGlass = {
 
 window.api.renderer.onChangeListenCaptureState((_event, { status }) => {
     if (!isListenView) {
-        console.log('[Renderer] Non-listen view: ignoring capture-state change');
         return;
     }
     if (status === "stop") {
-        console.log('[Renderer] Session ended – stopping local capture');
         listenCapture.stopCapture();
     } else {
-        console.log('[Renderer] Session initialized – starting local capture');
         listenCapture.startCapture();
+    }
+});
+
+// 监听 session 强制关闭事件（如余额耗尽）
+window.api.renderer.onSessionForceEnded((_event, data) => {
+    if (!isListenView) {
+        return;
+    }
+    console.log('[renderer] Session force ended:', data);
+    listenCapture.stopCapture();
+});
+
+// 监听 session 状态变化事件
+window.api.renderer.onSessionStateChanged((_event, { isActive }) => {
+    if (!isListenView) {
+        return;
+    }
+    if (!isActive) {
+        console.log('[renderer] Session state changed to inactive, stopping capture');
+        listenCapture.stopCapture();
     }
 });

@@ -15,6 +15,56 @@ import { HistoryPanel } from "./panels/HistoryPanel";
 import svgPathsScreenshot from "../imports/svg-h6kjo5xaf0";
 import { LeftTimeIcon } from "../assets/Svg";
 
+/** 边沿按下后，超过该距离才判定是「缩放」还是「移动窗口」，避免与 useMainWindowDrag 冲突 */
+const PENDING_RESIZE_THRESHOLD_PX = 5;
+
+/**
+ * 根据边沿与鼠标位移判断用户意图是否为调整窗口大小（而非拖动窗口）。
+ * 顶/底边：垂直位移主导 → 缩放；左/右边：水平位移主导 → 缩放。
+ * 角区：常见「拖走窗口」为斜向移动，用启发式与 min 分量区分。
+ */
+function shouldResizeIntent(edge: string, dx: number, dy: number): boolean {
+  const ax = Math.abs(dx);
+  const ay = Math.abs(dy);
+  switch (edge) {
+    case "top":
+    case "bottom":
+      return ay >= ax;
+    case "left":
+    case "right":
+      return ax >= ay;
+    case "top-left":
+      if (dx > 2 && dy > 2) return false;
+      return Math.min(ax, ay) >= 4;
+    case "top-right":
+      if (dx < -2 && dy > 2) return false;
+      return Math.min(ax, ay) >= 4;
+    case "bottom-left":
+      if (dx > 2 && dy < -2) return false;
+      return Math.min(ax, ay) >= 4;
+    case "bottom-right":
+      return Math.min(ax, ay) >= 4;
+    default:
+      return true;
+  }
+}
+
+function createSyntheticMouseDownFromPending(
+  e: MouseEvent,
+  p: { startX: number; startY: number; target: EventTarget | null }
+): React.MouseEvent {
+  return {
+    ...e,
+    screenX: p.startX,
+    screenY: p.startY,
+    target: p.target,
+    preventDefault: () => {},
+    stopPropagation: () => {},
+    button: 0,
+    buttons: 1,
+  } as unknown as React.MouseEvent;
+}
+
 interface MainInterfaceProps {
   activePanel: 'input' | 'screenshot' | 'history' | null;
   showSettings: boolean;
@@ -27,7 +77,6 @@ interface MainInterfaceProps {
   screenshotAnswer?: string;
   isScreenshotLoading?: boolean;
   isRecording: boolean;
-  position: { x: number; y: number };
   isDragging: boolean;
   windowSize?: { width: number; height: number };
   onMouseDown: (e: React.MouseEvent) => void;
@@ -57,7 +106,6 @@ export function MainInterface({
   screenshotAnswer,
   isScreenshotLoading,
   isRecording,
-  position,
   isDragging,
   windowSize = { width: 524, height: 393 },
   onMouseDown,
@@ -177,6 +225,14 @@ export function MainInterface({
 
   const RESIZE_HANDLE_SIZE = 12; // 窗口边沿拖拽区域大小（像素）- 增大以提高捕获率
   const resizeStateRef = useRef<{ isResizing: boolean; edge: string | null; startX: number; startY: number; startWidth: number; startHeight: number } | null>(null);
+  const pendingResizeRef = useRef<{
+    edge: string;
+    startX: number;
+    startY: number;
+    startWidth: number;
+    startHeight: number;
+    target: EventTarget | null;
+  } | null>(null);
 
   // 计算当前状态下的最小窗口宽度
   const minWindowWidth = useMemo(() => {
@@ -190,6 +246,30 @@ export function MainInterface({
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
+      if (pendingResizeRef.current && !resizeStateRef.current?.isResizing) {
+        const p = pendingResizeRef.current;
+        const dx = e.screenX - p.startX;
+        const dy = e.screenY - p.startY;
+        if (Math.hypot(dx, dy) < PENDING_RESIZE_THRESHOLD_PX) {
+          return;
+        }
+        if (shouldResizeIntent(p.edge, dx, dy)) {
+          resizeStateRef.current = {
+            isResizing: true,
+            edge: p.edge,
+            startX: p.startX,
+            startY: p.startY,
+            startWidth: p.startWidth,
+            startHeight: p.startHeight,
+          };
+          pendingResizeRef.current = null;
+        } else {
+          pendingResizeRef.current = null;
+          onMouseDown(createSyntheticMouseDownFromPending(e, p));
+          return;
+        }
+      }
+
       if (!resizeStateRef.current?.isResizing) return;
 
       const { edge, startX, startY, startWidth, startHeight } = resizeStateRef.current;
@@ -202,8 +282,10 @@ export function MainInterface({
     };
 
     const handleMouseUp = (e: MouseEvent) => {
+      if (pendingResizeRef.current) {
+        pendingResizeRef.current = null;
+      }
       if (resizeStateRef.current?.isResizing) {
-        console.log('[MainInterface] Resize ended');
         resizeStateRef.current.isResizing = false;
         resizeStateRef.current.edge = null;
         // 清理主进程的 resize 状态
@@ -222,24 +304,22 @@ export function MainInterface({
       window.removeEventListener('mousemove', handleMouseMove, true);
       window.removeEventListener('mouseup', handleMouseUp, true);
     };
-  }, [minWindowWidth]);
+  }, [minWindowWidth, onMouseDown]);
 
   const handleResizeStart = (edge: string, e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault(); // 阻止默认行为，避免文本选择等
 
-    // 使用 windowSize 作为起始大小，而不是从 DOM 获取
-    // 这样无论从哪个边沿开始拖拽，都能正确调整窗口大小
-    resizeStateRef.current = {
-      isResizing: true,
+    // 先进入「待定缩放」：待 mousemove 超过阈值并判定为缩放意图后，才真正 isResizing
+    // 否则转交给 onMouseDown，走移动窗口逻辑（修复边沿与拖动抢事件导致窗口被拉伸）
+    pendingResizeRef.current = {
       edge,
       startX: e.screenX,
       startY: e.screenY,
       startWidth: windowSize.width,
       startHeight: windowSize.height,
+      target: e.target,
     };
-
-    console.log('[MainInterface] Resize started:', { edge, startX: e.screenX, startY: e.screenY, startWidth: windowSize.width, startHeight: windowSize.height });
   };
 
   const renderAnswerWithHighlights = (
@@ -302,7 +382,6 @@ export function MainInterface({
       style={{
         width: 'fit-content',
         height: 'fit-content',
-        transform: `translate(${position.x}px, ${position.y}px)`,
         cursor: isDragging ? 'grabbing' : 'grab',
         userSelect: 'none'
       }}
@@ -312,9 +391,9 @@ export function MainInterface({
       onMouseLeave={onMouseUp}
     >
       {/* 窗口边沿拖拽区域 - 用于调整窗口大小 */}
-      {/* 上边沿 */}
+      {/* 上边沿 - 添加 pointer-events: none，除了鼠标悬停时 */}
       <div
-        className="absolute top-0 left-0 right-0 z-[9999]"
+        className="absolute top-0 left-0 right-0 z-[9999] pointer-events-none hover:pointer-events-auto"
         style={{
           height: `${RESIZE_HANDLE_SIZE}px`,
           cursor: 'ns-resize',
@@ -324,7 +403,7 @@ export function MainInterface({
       />
       {/* 下边沿 */}
       <div
-        className="absolute bottom-0 left-0 right-0 z-[9999]"
+        className="absolute bottom-0 left-0 right-0 z-[9999] pointer-events-none hover:pointer-events-auto"
         style={{
           height: `${RESIZE_HANDLE_SIZE}px`,
           cursor: 'ns-resize',
@@ -334,7 +413,7 @@ export function MainInterface({
       />
       {/* 左边沿 */}
       <div
-        className="absolute top-0 bottom-0 left-0 z-[9999]"
+        className="absolute top-0 bottom-0 left-0 z-[9999] pointer-events-none hover:pointer-events-auto"
         style={{
           width: `${RESIZE_HANDLE_SIZE}px`,
           cursor: 'ew-resize',
@@ -344,7 +423,7 @@ export function MainInterface({
       />
       {/* 右边沿 */}
       <div
-        className="absolute top-0 bottom-0 right-0 z-[9999]"
+        className="absolute top-0 bottom-0 right-0 z-[9999] pointer-events-none hover:pointer-events-auto"
         style={{
           width: `${RESIZE_HANDLE_SIZE}px`,
           cursor: 'ew-resize',

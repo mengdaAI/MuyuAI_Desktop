@@ -9,9 +9,8 @@ async function getAec () {
 if (aecModPromise) return aecModPromise;   // Use cached promise
 
     aecModPromise = createAecModule().then((M) => {
-        aecMod = M; 
+        aecMod = M;
 
-        console.log('WASM Module Loaded:', M); 
 // Bind C symbols to JS wrappers (exactly once)
         M.newPtr   = M.cwrap('AecNew',        'number',
                             ['number','number','number','number']);
@@ -45,6 +44,9 @@ let systemAudioProcessor = null;
 
 let systemAudioBuffer = [];
 const MAX_SYSTEM_BUFFER_SIZE = 10;
+
+// 标记 session 是否仍然活跃，用于在音频采集时检查是否应该继续发送数据
+let isSessionActive = true;
 
 // ---------------------------
 // Utility helpers (exact from renderer.js)
@@ -269,8 +271,6 @@ let tokenTracker = {
         const currentTokens = this.getTokensInLastMinute();
         const throttleThreshold = Math.floor((maxTokensPerMin * throttleAtPercent) / 100);
 
-        console.log(`Token check: ${currentTokens}/${maxTokensPerMin} (throttle at ${throttleThreshold})`);
-
         return currentTokens >= throttleThreshold;
     },
 
@@ -303,7 +303,7 @@ async function setupMicProcessing(micStream) {
     let audioBuffer = [];
     const samplesPerChunk = SAMPLE_RATE * AUDIO_CHUNK_DURATION;
 
-    micProcessor.onaudioprocess = (e) => {
+    micProcessor.onaudioprocess = async (e) => {
         const inputData = e.inputBuffer.getChannelData(0);
         audioBuffer.push(...inputData);
         // console.log('🎤 micProcessor.onaudioprocess');
@@ -318,20 +318,58 @@ let processedChunk = new Float32Array(chunk); // Default
                 const latest = systemAudioBuffer[systemAudioBuffer.length - 1];
                 const sysF32 = base64ToFloat32Array(latest.data);
 
-// Run only for voice segments
                 processedChunk = runAecSync(new Float32Array(chunk), sysF32);
-                // console.log('🔊 Applied WASM-AEC (speex)');
-            } else {
-                console.log('🔊 No system audio for AEC reference');
+
+                // 残差回声抑制：当系统音频较强（面试官在说话）且处理后的麦克风信号
+                // 能量未明显超过系统音频时（说明是回声而非用户自己在说话），额外压制。
+                // 若用户自己开口说话，声音能量会显著大于系统音频，suppressFactor → 1.0，不影响。
+                let sysRms = 0;
+                for (let i = 0; i < sysF32.length; i++) sysRms += sysF32[i] * sysF32[i];
+                sysRms = Math.sqrt(sysRms / sysF32.length);
+
+                if (sysRms > 0.015) {
+                    let micRms = 0;
+                    for (let i = 0; i < processedChunk.length; i++) micRms += processedChunk[i] * processedChunk[i];
+                    micRms = Math.sqrt(micRms / processedChunk.length);
+
+                    // 若处理后麦克风能量 < 系统音频的 2 倍，认为以回声为主，压制
+                    if (micRms < sysRms * 2.0) {
+                        const suppressFactor = Math.max(0.05, micRms / (sysRms * 3.0));
+                        for (let i = 0; i < processedChunk.length; i++) {
+                            processedChunk[i] *= suppressFactor;
+                        }
+                    }
+                }
+            }
+
+            // 检查 session 是否仍然活跃，如果非活跃则停止发送音频
+            if (!isSessionActive) {
+                return; // 停止处理音频
             }
 
             const pcm16 = convertFloat32ToInt16(processedChunk);
             const b64 = arrayBufferToBase64(pcm16.buffer);
 
-            window.api.listenCapture.sendMicAudioContent({
-                data: b64,
-                mimeType: 'audio/pcm;rate=24000',
-            });
+            try {
+                const result = await window.api.listenCapture.sendMicAudioContent({
+                    data: b64,
+                    mimeType: 'audio/pcm;rate=24000',
+                });
+
+                // 如果后端返回 session 非活跃错误，立即停止音频采集
+                if (!result.success && result.error === 'Session not active') {
+                    console.warn('[listenCapture] Session no longer active, stopping audio capture');
+                    isSessionActive = false;
+                    stopCapture();
+                }
+            } catch (error) {
+                console.error('[listenCapture] Failed to send mic audio:', error);
+                // 如果是 session 非活跃错误，停止音频采集
+                if (error.message && error.message.includes('not active')) {
+                    isSessionActive = false;
+                    stopCapture();
+                }
+            }
         }
     };
 
@@ -390,17 +428,34 @@ function setupSystemAudioProcessing(systemStream) {
         audioBuffer.push(...inputData);
 
         while (audioBuffer.length >= samplesPerChunk) {
+            // 检查 session 是否仍然活跃，如果非活跃则停止发送音频
+            if (!isSessionActive) {
+                return; // 停止处理音频
+            }
+
             const chunk = audioBuffer.splice(0, samplesPerChunk);
             const pcmData16 = convertFloat32ToInt16(chunk);
             const base64Data = arrayBufferToBase64(pcmData16.buffer);
 
             try {
-                await window.api.listenCapture.sendSystemAudioContent({
+                const result = await window.api.listenCapture.sendSystemAudioContent({
                     data: base64Data,
                     mimeType: 'audio/pcm;rate=24000',
                 });
+
+                // 如果后端返回 session 非活跃错误，立即停止音频采集
+                if (!result.success && result.error === 'Session not active') {
+                    console.warn('[listenCapture] Session no longer active, stopping system audio capture');
+                    isSessionActive = false;
+                    stopCapture();
+                }
             } catch (error) {
                 console.error('Failed to send system audio:', error);
+                // 如果是 session 非活跃错误，停止音频采集
+                if (error.message && error.message.includes('not active')) {
+                    isSessionActive = false;
+                    stopCapture();
+                }
             }
         }
     };
@@ -418,7 +473,9 @@ async function startCapture(screenshotIntervalSeconds = 5, imageQuality = 'mediu
 
     // Reset token tracker when starting new capture session
     tokenTracker.reset();
-    console.log('🎯 Token tracker reset for new capture session');
+
+    // 重置 session 活跃标志
+    isSessionActive = true;
 
     try {
         if (isMacOS) {
@@ -429,7 +486,6 @@ async function startCapture(screenshotIntervalSeconds = 5, imageQuality = 'mediu
             }
 
             // On macOS, use SystemAudioDump for audio and getDisplayMedia for screen
-            console.log('Starting macOS capture with SystemAudioDump...');
 
             // Start macOS audio capture
             const audioResult = await window.api.listenCapture.startMacosSystemAudio();
@@ -461,16 +517,15 @@ async function startCapture(screenshotIntervalSeconds = 5, imageQuality = 'mediu
                     video: false,
                 });
 
-                console.log('macOS microphone capture started');
                 const { context, processor } = await setupMicProcessing(micMediaStream);
                 audioContext = context;
                 audioProcessor = processor;
             } catch (micErr) {
                 console.warn('Failed to get microphone on macOS:', micErr);
+                throw new Error(`麦克风访问失败: ${micErr.message}。请确保：1) 麦克风已连接；2) 应用有麦克风权限；3) 麦克风没有被其他应用占用。`);
             }
             ////////// for index & subjects //////////
 
-            console.log('macOS screen capture started - audio handled by SystemAudioDump');
         } else if (isLinux) {
 
             const sessionActive = await window.api.listenCapture.isSessionActive();
@@ -502,19 +557,15 @@ async function startCapture(screenshotIntervalSeconds = 5, imageQuality = 'mediu
                     video: false,
                 });
 
-                console.log('Linux microphone capture started');
-
                 // Setup audio processing for microphone on Linux
                 setupLinuxMicProcessing(micMediaStream);
             } catch (micError) {
                 console.warn('Failed to get microphone access on Linux:', micError);
-                // Continue without microphone if permission denied
+                throw new Error(`麦克风访问失败: ${micError.message}。请确保：1) 麦克风已连接；2) 应用有麦克风权限；3) 麦克风没有被其他应用占用。`);
             }
 
-            console.log('Linux screen capture started');
         } else {
             // Windows - capture mic and system audio separately using native loopback
-            console.log('Starting Windows capture with native loopback audio...');
 
             // Ensure STT sessions are initialized before starting audio capture
             const sessionActive = await window.api.listenCapture.isSessionActive();
@@ -534,12 +585,12 @@ async function startCapture(screenshotIntervalSeconds = 5, imageQuality = 'mediu
                     },
                     video: false,
                 });
-                console.log('Windows microphone capture started');
                 const { context, processor } = await setupMicProcessing(micMediaStream);
                 audioContext = context;
                 audioProcessor = processor;
             } catch (micErr) {
-                console.warn('Could not get microphone access on Windows:', micErr);
+                console.error('Could not get microphone access on Windows:', micErr);
+                throw new Error(`麦克风访问失败: ${micErr.message}。请确保：1) 麦克风已连接；2) 应用有麦克风权限；3) 麦克风没有被其他应用占用。`);
             }
 
             // 2. Get system audio using native Electron loopback
@@ -548,20 +599,19 @@ async function startCapture(screenshotIntervalSeconds = 5, imageQuality = 'mediu
                     video: true,
                     audio: true // This will now use native loopback from our handler
                 });
-                
+
                 // Verify we got audio tracks
                 const audioTracks = mediaStream.getAudioTracks();
                 if (audioTracks.length === 0) {
                     throw new Error('No audio track in native loopback stream');
                 }
-                
-                console.log('Windows native loopback audio capture started');
+
                 const { context, processor } = setupSystemAudioProcessing(mediaStream);
                 systemAudioContext = context;
                 systemAudioProcessor = processor;
             } catch (sysAudioErr) {
                 console.error('Failed to start Windows native loopback audio:', sysAudioErr);
-                // Continue without system audio
+                throw new Error(`系统音频访问失败: ${sysAudioErr.message}。请确保：1) 点击"允许"授予屏幕和音频权限；2) 选择要共享的屏幕或窗口；3) 在弹出的权限对话框中勾选"分享音频"选项。`);
             }
         }
     } catch (err) {

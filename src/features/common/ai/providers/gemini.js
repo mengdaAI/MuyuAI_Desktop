@@ -206,8 +206,6 @@ function createStreamingLLM({ apiKey, model = "gemini-2.5-flash", temperature = 
 
   return {
     streamChat: async (messages) => {
-      console.log("[Gemini Provider] Starting streaming request")
-
       let systemInstruction = ""
       const nonSystemMessages = []
 

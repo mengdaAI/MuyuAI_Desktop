@@ -60,7 +60,6 @@ export function SettingsView(props: any) {
       const settingsApi = (window.api as any).settingsView;
       const enabled = await settingsApi.getAutoUpdate();
       setAutoUpdateEnabled(enabled);
-      console.log('Auto-update setting loaded:', enabled);
     } catch (e) {
       console.error('Error loading auto-update setting:', e);
       setAutoUpdateEnabled(true);
@@ -401,8 +400,6 @@ export function SettingsView(props: any) {
   }, [refreshModelData]);
 
   const handleOllamaShutdown = useCallback(async () => {
-    console.log('[SettingsView] Shutting down Ollama service...');
-
     if (!window.api) return;
 
     try {
@@ -412,7 +409,6 @@ export function SettingsView(props: any) {
       const result = await settingsApi.shutdownOllama(false);
 
       if (result.success) {
-        console.log('[SettingsView] Ollama shut down successfully');
         await refreshOllamaStatus();
       } else {
         console.error('[SettingsView] Failed to shutdown Ollama:', result.error);
@@ -430,27 +426,22 @@ export function SettingsView(props: any) {
   }, []);
 
   const handleMoveLeft = useCallback(() => {
-    console.log('Move Left clicked');
     const settingsApi = (window.api as any).settingsView;
     settingsApi.moveWindowStep('left');
   }, []);
 
   const handleMoveRight = useCallback(() => {
-    console.log('Move Right clicked');
     const settingsApi = (window.api as any).settingsView;
     settingsApi.moveWindowStep('right');
   }, []);
 
   const handleToggleInvisibility = useCallback(async () => {
-    console.log('Toggle Invisibility clicked');
     const settingsApi = (window.api as any).settingsView;
     const newStatus = await settingsApi.toggleContentProtection();
     setIsContentProtectionOn(newStatus);
   }, []);
 
   const handleQuit = useCallback(async () => {
-    console.log('Quit clicked');
-
     const settingsApi = (window.api as any)?.settingsView;
     const stopSessionFn = settingsApi?.stopInterviewSession;
     if (stopSessionFn) {
@@ -478,7 +469,6 @@ export function SettingsView(props: any) {
 
   const handlePresetSelect = useCallback((preset: Preset) => {
     setSelectedPreset(preset);
-    console.log('Selected preset:', preset);
   }, []);
 
   const handleMouseEnter = useCallback(() => {
@@ -497,7 +487,6 @@ export function SettingsView(props: any) {
     if (!window.api) return;
 
     const userStateListener = (event: any, userState: any) => {
-      console.log('[SettingsView] Received user-state-changed:', userState);
       if (userState && userState.isLoggedIn) {
         setFirebaseUser(userState);
       } else {
@@ -508,7 +497,6 @@ export function SettingsView(props: any) {
     };
 
     const presetsUpdatedListener = async () => {
-      console.log('[SettingsView] Received presets-updated, refreshing presets');
       try {
         const settingsApi = (window.api as any).settingsView;
         const presetsData = await settingsApi.getPresets();
@@ -524,7 +512,6 @@ export function SettingsView(props: any) {
     };
 
     const shortcutListener = (event: any, keybinds: Record<string, string>) => {
-      console.log('[SettingsView] Received updated shortcuts:', keybinds);
       setShortcuts(keybinds);
     };
 

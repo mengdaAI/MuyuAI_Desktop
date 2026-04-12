@@ -1,6 +1,10 @@
 const { TextDecoder } = require('util');
 const liveInsightsApi = require('./liveInsightsApi');
 
+// 防抖延迟：收到 partial transcript 后等待一段时间再启动 AI 流
+// 避免频繁启动/中断 AI 流导致卡顿
+const DEBOUNCE_DELAY_MS = 500;
+
 class LiveInsightsService {
     constructor({ sendToRenderer, buildStreamPayload } = {}) {
         this.sendToRenderer = sendToRenderer;
@@ -15,35 +19,72 @@ class LiveInsightsService {
         this.abortController = null;
         this.reader = null;
         this.decoder = new TextDecoder();
+
+        // 防抖定时器
+        this._debounceTimer = null;
     }
 
     async handleTranscriptUpdate(turn) {
-        console.log('[LiveInsightsService] handleTranscriptUpdate called:', { turnId: turn?.id, speaker: turn?.speaker, text: turn?.text?.slice(0, 50) });
-        if (!turn || !turn.text || !turn.text.trim()) {
-            console.log('[LiveInsightsService] Skipping: empty turn');
-            return;
-        }
-        if (turn.speaker !== 'Them') {
-            console.log('[LiveInsightsService] Skipping: speaker is not Them');
-            return;
-        }
-        if (this.currentTurnId === turn.id && this.currentQuestion === turn.text && this.isStreaming) {
-            console.log('[LiveInsightsService] Skipping: duplicate turn, already streaming');
+        if (!turn || !turn.text || !turn.text.trim()) return;
+        if (turn.speaker !== 'Them') return;
+
+        // 新 turn：立即启动，不防抖
+        if (this.currentTurnId !== turn.id) {
+            // 清除之前的防抖定时器
+            if (this._debounceTimer) {
+                clearTimeout(this._debounceTimer);
+                this._debounceTimer = null;
+            }
+
+            if (this.currentTurnId && this.currentTurnId !== turn.id) {
+                this.abortStream('new_turn');
+            }
+
+            this.currentTurnId = turn.id;
+            this.currentSpeaker = turn.speaker;
+            this.currentQuestion = turn.text;
+            await this.startStream(turn);
             return;
         }
 
-        if (this.currentTurnId && this.currentTurnId !== turn.id) {
-            this.abortStream('new_turn');
+        // 同一个 turn 的更新：使用防抖，避免频繁启动 AI 流
+        // 只有当文本长度增加超过一定阈值时才触发
+        const prevLength = (this.currentQuestion || '').length;
+        const newLength = (turn.text || '').length;
+
+        // 如果文本长度没有明显增加（小于5个字符），忽略更新
+        if (newLength - prevLength < 5 && this.isStreaming) {
+            return;
         }
 
-        this.currentTurnId = turn.id;
-        this.currentSpeaker = turn.speaker;
+        // 更新当前问题文本
         this.currentQuestion = turn.text;
 
-        await this.startStream(turn);
+        // 如果正在流式传输中，不需要重启
+        if (this.isStreaming) {
+            return;
+        }
+
+        // 防抖：延迟启动 AI 流
+        if (this._debounceTimer) {
+            clearTimeout(this._debounceTimer);
+        }
+
+        this._debounceTimer = setTimeout(async () => {
+            this._debounceTimer = null;
+            if (this.currentTurnId === turn.id) {
+                await this.startStream(turn);
+            }
+        }, DEBOUNCE_DELAY_MS);
     }
 
     reset() {
+        // 清除防抖定时器
+        if (this._debounceTimer) {
+            clearTimeout(this._debounceTimer);
+            this._debounceTimer = null;
+        }
+
         this.abortStream('reset');
         this.currentTurnId = null;
         this.currentSpeaker = null;
@@ -55,6 +96,12 @@ class LiveInsightsService {
     }
 
     abortStream(reason = 'aborted') {
+        // 清除防抖定时器
+        if (this._debounceTimer) {
+            clearTimeout(this._debounceTimer);
+            this._debounceTimer = null;
+        }
+
         if (this.abortController) {
             try {
                 this.abortController.abort(reason);
@@ -79,7 +126,6 @@ class LiveInsightsService {
     }
 
     async startStream(turn) {
-        console.log('[LiveInsightsService] startStream called:', { turnId: turn.id, text: turn.text?.slice(0, 50) });
         try {
             this.abortController = new AbortController();
             const payload = this.buildStreamPayload ? (this.buildStreamPayload(turn) || {}) : {};
@@ -119,7 +165,6 @@ class LiveInsightsService {
         });
 
         signal.addEventListener('abort', () => {
-            console.log(`[LiveInsightsService] Stream aborted for turn ${turnId}, reason: ${signal.reason}`);
             if (this.reader) {
                 this.reader.cancel(signal.reason).catch(() => {});
             }

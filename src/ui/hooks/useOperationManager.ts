@@ -90,9 +90,6 @@ export function useOperationManager(ipcTimeout = 10000) {
     const queuedOp = operationQueueRef.current.shift();
     if (!queuedOp) return;
 
-    const queueTime = Date.now() - queuedOp.queuedAt;
-    console.log(`[OperationManager] Processing queued operation ${queuedOp.type} (waited ${queueTime}ms)`);
-
     try {
       const result = await executeImmediately(
         queuedOp.id,
@@ -117,7 +114,6 @@ export function useOperationManager(ipcTimeout = 10000) {
 
     // Check if similar operation is already running
     if (activeOperationsRef.current.has(operationType)) {
-      console.log(`[OperationManager] Operation ${operationType} already in progress, cancelling previous`);
       cleanupOperation(activeOperationsRef.current.get(operationType)!.id, operationType);
     }
 
@@ -166,8 +162,6 @@ export function useOperationManager(ipcTimeout = 10000) {
         throw new Error(`Operation queue full (${maxQueueSize}), rejecting ${operationType}`);
       }
 
-      console.log(`[OperationManager] Queuing operation ${operationType} (${activeOperationsRef.current.size} active)`);
-      
       return new Promise((resolve, reject) => {
         const queuedOperation: QueuedOperation = {
           id: operationId,
@@ -192,8 +186,6 @@ export function useOperationManager(ipcTimeout = 10000) {
   }, [ipcTimeout, maxConcurrentOperations, maxQueueSize, executeImmediately]);
 
   const cancelAllOperations = useCallback(() => {
-    console.log(`[OperationManager] Cancelling ${activeOperationsRef.current.size} active operations`);
-
     // Cancel active operations
     for (const [operationType, operation] of activeOperationsRef.current) {
       cleanupOperation(operation.id, operationType);
