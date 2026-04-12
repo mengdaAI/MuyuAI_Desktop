@@ -115,7 +115,10 @@ export function MainInterfaceContainer() {
       if (['completed', 'error', 'aborted'].includes(payload.status)) {
         existing.status = payload.status;
       } else if (['streaming', 'started'].includes(payload.status)) {
-        existing.status = 'in_progress';
+        // 高亮补发仍带 streaming，勿把已完成的回合打回 in_progress
+        if (!['completed', 'error', 'aborted'].includes(existing.status)) {
+          existing.status = 'in_progress';
+        }
       }
     }
 
