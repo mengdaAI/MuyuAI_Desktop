@@ -13,6 +13,8 @@ class LiveInsightsService {
         this.currentSpeaker = null;
         this.currentQuestion = '';
         this.fullAnswer = '';
+        this.highlightVersion = 0;
+        this.highlightRanges = [];
         this.isStreaming = false;
         this.abortController = null;
         this.reader = null;
@@ -20,6 +22,10 @@ class LiveInsightsService {
 
         // 防抖定时器
         this._debounceTimer = null;
+        /** SSE 可能跨 TCP chunk 分割，需缓冲到完整 \n\n 帧再解析 */
+        this._sseBuffer = '';
+        /** 防止 [DONE] / 正常收尾重复 send completed */
+        this._liveStreamFinalized = false;
     }
 
     async handleTranscriptUpdate(turn) {
@@ -88,7 +94,11 @@ class LiveInsightsService {
         this.currentSpeaker = null;
         this.currentQuestion = '';
         this.fullAnswer = '';
+        this.highlightVersion = 0;
+        this.highlightRanges = [];
         this.isStreaming = false;
+        this._sseBuffer = '';
+        this._liveStreamFinalized = false;
     }
 
     abortStream(reason = 'aborted') {
@@ -119,6 +129,8 @@ class LiveInsightsService {
         }
         this.abortController = null;
         this.isStreaming = false;
+        this._sseBuffer = '';
+        this._liveStreamFinalized = false;
     }
 
     async startStream(turn) {
@@ -149,10 +161,17 @@ class LiveInsightsService {
     async streamLoop(reader, signal, turnId) {
         this.isStreaming = true;
         this.fullAnswer = '';
+        this.highlightVersion = 0;
+        this.highlightRanges = [];
+        this._sseBuffer = '';
+        this._liveStreamFinalized = false;
+        console.log(`[LiveInsightsService] streamLoop started for turn ${turnId}`);
         this.sendToRenderer('listen:live-answer', {
             turnId,
             status: 'started',
             answer: '',
+            highlightVersion: 0,
+            highlightRanges: [],
         });
 
         signal.addEventListener('abort', () => {
@@ -164,9 +183,19 @@ class LiveInsightsService {
         try {
             while (true) {
                 const { done, value } = await reader.read();
-                if (done) break;
-                const chunk = this.decoder.decode(value);
+                if (done) {
+                    break;
+                }
+                const chunk = this.decoder.decode(value, { stream: true });
                 this._processChunk(chunk, turnId, reader);
+            }
+            const tail = this.decoder.decode();
+            if (tail) {
+                this._processChunk(tail, turnId, reader);
+            }
+            // 末尾半包 SSE（缺 \n\n）或 TCP 粘包导致未解析的帧，补分隔符再扫一遍
+            if (this._sseBuffer.trim()) {
+                this._processChunk('\n\n', turnId, reader);
             }
             this.completeStream(turnId);
         } catch (err) {
@@ -192,10 +221,16 @@ class LiveInsightsService {
     }
 
     completeStream(turnId) {
+        if (this._liveStreamFinalized) {
+            return;
+        }
+        this._liveStreamFinalized = true;
         this.sendToRenderer('listen:live-answer', {
             turnId,
             status: 'completed',
             answer: this.fullAnswer,
+            highlightVersion: this.highlightVersion,
+            highlightRanges: this.highlightRanges,
         });
         this.isStreaming = false;
         this.reader = null;
@@ -203,62 +238,92 @@ class LiveInsightsService {
     }
 
     _processChunk(chunk, turnId, reader) {
-        const lines = chunk.split('\n');
-        let currentEvent = null;
-
-        for (const line of lines) {
-            // 解析 event: 行
-            if (line.startsWith('event: ')) {
-                currentEvent = line.slice(7).trim();
+        this._sseBuffer += chunk;
+        while (true) {
+            const frameEnd = this._sseBuffer.indexOf('\n\n');
+            if (frameEnd === -1) {
+                break;
+            }
+            const frame = this._sseBuffer.slice(0, frameEnd);
+            this._sseBuffer = this._sseBuffer.slice(frameEnd + 2);
+            const trimmed = frame.trim();
+            if (!trimmed || trimmed.startsWith(':')) {
                 continue;
             }
+            this._processSseFrame(frame, turnId, reader);
+        }
+    }
 
-            if (!line.startsWith('data: ')) {
-                // 空行重置事件类型
-                if (line.trim() === '') {
-                    currentEvent = null;
-                }
-                continue;
+    /**
+     * 解析单个 SSE 帧（含 event: 与 data:），与 Nest insights 控制器写入格式一致
+     */
+    _processSseFrame(frame, turnId, reader) {
+        let eventName = null;
+        const dataLines = [];
+        for (const rawLine of frame.split('\n')) {
+            const line = rawLine.replace(/\r$/, '');
+            if (line.startsWith('event:')) {
+                eventName = line.slice(6).trim();
+            } else if (line.startsWith('data:')) {
+                dataLines.push(line.slice(5).trim());
             }
+        }
+        const dataStr = dataLines.join('\n');
+        if (!dataStr) {
+            return;
+        }
+        if (dataStr === '[DONE]') {
+            reader.cancel().catch(() => {});
+            this.completeStream(turnId);
+            return;
+        }
 
-            const data = line.slice(6).trim();
-            if (!data) continue;
-            if (data === '[DONE]') {
-                reader.cancel().catch(() => {});
-                this.completeStream(turnId);
-                return;
-            }
+        let json;
+        try {
+            json = JSON.parse(dataStr);
+        } catch (err) {
+            console.error(`[LiveInsightsService] JSON parse error for turn ${turnId}:`, err.message);
+            return;
+        }
 
-            try {
-                const json = JSON.parse(data);
+        const evt = eventName || json.event;
 
-                // 处理 skip 事件：服务端判断问题为语气词，无需处理
-                if (currentEvent === 'skip' || json.event === 'skip') {
-                    this._handleSkipEvent(json, turnId, reader);
-                    currentEvent = null;
-                    return;
-                }
+        if (evt === 'skip' || json.event === 'skip') {
+            this._handleSkipEvent(json, turnId, reader);
+            return;
+        }
 
-                if (json.status || json.answer || json.reason || json.error) {
-                    this._handleStatusEvent(json, turnId);
-                    currentEvent = null;
-                    continue;
-                }
-                const token = json.choices?.[0]?.delta?.content || json.token || '';
-                if (token) {
-                    this.fullAnswer += token;
-                    this.sendToRenderer('listen:live-answer', {
-                        turnId,
-                        status: 'streaming',
-                        token,
-                        answer: this.fullAnswer,
-                    });
-                }
-            } catch (err) {
-                console.error(`[LiveInsightsService] Error parsing chunk for turn ${turnId}:`, err.message);
-                continue;
-            }
-            currentEvent = null;
+        if (evt === 'error') {
+            this.sendToRenderer('listen:live-answer', {
+                turnId: json.turnId || turnId,
+                status: 'error',
+                error: typeof json.message === 'string' ? json.message : String(json.code || 'Insight stream error'),
+                answer: this.fullAnswer,
+            });
+            return;
+        }
+
+        if (evt === 'highlight') {
+            this._handleHighlightEvent(json, turnId);
+            return;
+        }
+
+        if (json.status || json.answer !== undefined || json.reason || json.error) {
+            this._handleStatusEvent(json, turnId);
+            return;
+        }
+
+        const token = json.choices?.[0]?.delta?.content || json.token || '';
+        if (token) {
+            this.fullAnswer += token;
+            this.sendToRenderer('listen:live-answer', {
+                turnId,
+                status: 'streaming',
+                token,
+                answer: this.fullAnswer,
+                highlightVersion: this.highlightVersion,
+                highlightRanges: this.highlightRanges,
+            });
         }
     }
 
@@ -283,10 +348,16 @@ class LiveInsightsService {
     }
 
     _handleStatusEvent(event, turnId) {
+        if (event.status === 'completed') {
+            this._liveStreamFinalized = true;
+        }
+
         const payload = {
             turnId,
             status: event.status || 'streaming',
             answer: event.answer ?? this.fullAnswer,
+            highlightVersion: this.highlightVersion,
+            highlightRanges: this.highlightRanges,
         };
 
         if (event.reason) {
@@ -302,6 +373,23 @@ class LiveInsightsService {
         }
 
         this.sendToRenderer('listen:live-answer', payload);
+    }
+
+    _handleHighlightEvent(event, turnId) {
+        const version = Number(event?.version || 0);
+        const ranges = Array.isArray(event?.ranges) ? event.ranges : [];
+        if (version <= this.highlightVersion) {
+            return;
+        }
+        this.highlightVersion = version;
+        this.highlightRanges = ranges;
+        this.sendToRenderer('listen:live-answer', {
+            turnId,
+            status: 'streaming',
+            answer: this.fullAnswer,
+            highlightVersion: this.highlightVersion,
+            highlightRanges: this.highlightRanges,
+        });
     }
 }
 

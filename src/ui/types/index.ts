@@ -45,6 +45,14 @@ export interface Turn {
   speaker?: 'Me' | 'Them';
   question: string;
   answer: string;
+  highlightVersion?: number;
+  highlightRanges?: Array<{
+    start: number;
+    end: number;
+    keyword: string;
+    type: 'tech' | 'project' | 'metric' | 'method' | 'other';
+    score: number;
+  }>;
   status: 'in_progress' | 'completed' | 'error' | 'aborted';
   updatedAt: number;
   startedAt: number;
