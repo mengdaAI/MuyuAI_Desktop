@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Turn } from "../types";
 import { Frame1, Frame2, Frame3, Group4 } from "./icons";
 import { HideWindowButton } from "./buttons/HideWindowButton";
@@ -124,12 +124,42 @@ export function MainInterface({
   turns,
 }: MainInterfaceProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+
+  const isNearBottom = useCallback((element: HTMLDivElement) => {
+    const thresholdPx = 24;
+    return element.scrollHeight - (element.scrollTop + element.clientHeight) <= thresholdPx;
+  }, []);
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
+    const container = scrollRef.current;
+    if (!container) return;
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior,
+    });
+    setAutoScrollEnabled(true);
+    setShowScrollToBottom(false);
+  }, []);
+
+  const handleContentScroll = useCallback(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const atBottom = isNearBottom(container);
+    if (atBottom) {
+      setAutoScrollEnabled(true);
+      setShowScrollToBottom(false);
+      return;
+    }
+    setAutoScrollEnabled(false);
+    setShowScrollToBottom(true);
+  }, [isNearBottom]);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [turns]);
+    if (!autoScrollEnabled) return;
+    scrollToBottom();
+  }, [turns, autoScrollEnabled, scrollToBottom]);
 
   // 基础宽度常量
   const BASE_LEFT_WIDTH = 524;
@@ -528,6 +558,7 @@ export function MainInterface({
         ref={scrollRef}
         className="absolute left-[22px] top-[18px] overflow-y-auto overflow-x-hidden pb-4"
         style={{ scrollbarWidth: 'none', width: containerWidth - 104, height: containerHeight - 63 }}
+        onScroll={handleContentScroll}
       >
         {turns.length === 0 && (
           <p className="font-['PingFang_SC:Semibold',sans-serif] leading-[1.5] not-italic text-[rgba(255,255,255,0.7)] text-[14px] whitespace-pre-wrap">
@@ -570,6 +601,22 @@ export function MainInterface({
           );
         })}
       </div>
+      {showScrollToBottom && (
+        <button
+          type="button"
+          className="absolute z-20 rounded-full text-[12px] shadow-[0_4px_12px_rgba(0,0,0,0.35)] transition hover:bg-[rgba(3,0,16,0.96)]"
+          onClick={() => scrollToBottom('smooth')}
+          style={{
+            background: '#fff',
+            color: '#000',
+            padding: '3px 6px',
+            bottom: '12px',
+            right: '50%',
+          }}
+        >
+          回到底部 ▼
+        </button>
+      )}
 
       {/* 根据activePanel显示不同内容 - 带动画 */}
       <div
