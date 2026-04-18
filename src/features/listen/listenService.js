@@ -244,26 +244,6 @@ class ListenService {
         return start1 === start2 || start1.includes(start2) || start2.includes(start1);
     }
 
-    normalizeTextForSpeaker(speaker, rawText, turn) {
-        if (rawText === null || typeof rawText === 'undefined') return '';
-        const text = typeof rawText === 'string' ? rawText : String(rawText);
-        const normalizedSpeaker = speaker === 'Me' ? 'Me' : 'Them';
-        const prefix = (turn && turn.trimPrefix) || this.lastCompletedText[normalizedSpeaker] || '';
-
-        if (!prefix) return text;
-        if (text === prefix) return '';
-
-        if (text.startsWith(prefix)) {
-            const trimmed = text.slice(prefix.length).replace(/^[\s,，。、。！？!?.-]+/, '');
-            return trimmed;
-        }
-
-        // startsWith 失败时（如 Doubao 回溯补标点改变了前缀），用 tail-matching 兜底
-        return this._extractIncrementalText(prefix, text);
-    }
-
-
-
     emitTurnUpdate(turn, extras = {}) {
         if (!turn) return;
 
@@ -304,6 +284,25 @@ class ListenService {
             };
             this.sendToRenderer('listen:partial-transcript', transcriptPayload);
         }
+    }
+
+    normalizeTextForSpeaker(speaker, rawText, turn) {
+        if (rawText === null || typeof rawText === 'undefined') return '';
+        const text = typeof rawText === 'string' ? rawText : String(rawText);
+        const normalizedSpeaker = speaker === 'Me' ? 'Me' : 'Them';
+        const prefix = (turn && turn.trimPrefix) || this.lastCompletedText[normalizedSpeaker] || '';
+
+        if (!prefix) return text;
+        if (text === prefix) return text;  // 修复：如果文本等于前缀，返回原始文本而非空字符串
+
+        if (text.startsWith(prefix)) {
+            const trimmed = text.slice(prefix.length).replace(/^[\s,，。、。！？!?.-]+/, '');
+            return trimmed || text;  // 修复：如果修剪后为空，返回原始文本兜底
+        }
+
+        // startsWith 失败时（如 Doubao 回溯补标点改变了前缀），用 tail-matching 兜底
+        const extracted = this._extractIncrementalText(prefix, text);
+        return extracted || text;  // 修复：如果提取为空，返回原始文本兜底
     }
 
     finalizeTurn(speaker, text, meta = {}) {

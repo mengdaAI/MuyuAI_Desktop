@@ -268,7 +268,7 @@ class DoubaoSttSession extends EventEmitter {
                     enable_ddc: true,
                     show_utterances: true,
                     enable_nonstream: false,
-                    result_type: 'full', // 全量返回：服务端跨句累积历史文本，sttService 用 _extractIncrementalText 在每次收到结果时提取新增内容。
+                    result_type: 'incremental', // 增量返回：服务端只返回新增的文本片段，客户端无需计算增量
                     // VAD 判停参数：默认 force_to_speech_time=10000ms 导致前 10s 内短句无法触发 is_final
                     end_window_size: 800,       // 静音持续超过 800ms 后触发判停，发出 is_final=true
                     force_to_speech_time: 1000, // 音频累计超过 1s 后即可触发判停（默认 10s 太长，面试问题通常较短）

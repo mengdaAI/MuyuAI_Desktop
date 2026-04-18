@@ -273,6 +273,12 @@ class SttService {
             return newComplete.slice(lastReceived.length).replace(/^[\s,，。、！？!?.…—–‐-]+/, '');
         }
 
+        // 如果 newComplete 比 lastReceived 短，或包含在 lastReceived 中，
+        // 说明是回溯修改/删除，返回空字符串（没有新增内容）
+        if (newComplete.length <= lastReceived.length || lastReceived.includes(newComplete)) {
+            return '';
+        }
+
         // 模糊回退：匹配 lastReceived 末尾 N 个字符在 newComplete 中的位置。
         // Doubao 回溯补标点时通常只改中间的拼接点，而不会改"已处理文本的末尾"，
         // 因此用尾部定位比用整段前缀更稳定。
@@ -333,6 +339,16 @@ class SttService {
 
     async initializeSttSessions(language = 'zh') {
         const effectiveLanguage = process.env.OPENAI_TRANSCRIBE_LANG || language || 'zh';
+
+        // 重置所有状态变量，防止跨会话污染
+        this.myCurrentUtterance = '';
+        this.theirCurrentUtterance = '';
+        this.myCompletionBuffer = '';
+        this.theirCompletionBuffer = '';
+        this.myLastReceivedText = '';
+        this.theirLastReceivedText = '';
+        this.myLastCompletedUtterance = '';
+        this.theirLastCompletedUtterance = '';
 
         const modelInfo = await modelStateService.getCurrentModelInfo('stt');
         if (!modelInfo || !modelInfo.apiKey) {
@@ -436,14 +452,13 @@ class SttService {
                 }
 
                 if (isFinal) {
-                    this.myCurrentUtterance = '';
                     if (this.modelInfo.provider === 'doubao') {
-                        // Doubao result_type='full' 跨句累积全量文本：提取相对上次位置的新增内容
-                        const incrementalText = this._extractIncrementalText(this.myLastReceivedText, text) || text;
-                        this.myLastReceivedText = text;
-                        this.debounceMyCompletion(incrementalText);
+                        // Doubao result_type='incremental'：直接用最新完整文本替换并 flush
+                        this.myCurrentUtterance = text;
                         this.flushMyCompletion();
+                        this.myCurrentUtterance = '';
                     } else {
+                        this.myCurrentUtterance = '';
                         // For Deepgram/others that send isFinal but don't auto-flush in flushMyCompletion logic
                         this.sendToRenderer('stt-update', {
                             speaker: 'Me',
@@ -459,62 +474,11 @@ class SttService {
                         });
                     }
                 } else {
-                    // For interim results, update the UI in real-time.
-                    if (this.myCompletionTimer) clearTimeout(this.myCompletionTimer);
-
-                    // 简化策略：新 Utterance 检测（豆包滑动窗口机制）
-                    const now = Date.now();
-                    const currentUtterance = this.myCurrentUtterance || '';
-                    
-                    // 核心逻辑：
-                    // 1. 如果旧文本 > 20 字符
-                    // 2. 且新文本不以旧文本前 15 个字符开头（说明是滑动窗口重置）
-                    // 3. 且不是完全重复
-                    // → 判定为新 utterance
-                    
-                    const isSignificantlyLong = currentUtterance.length > 20;
-                    const isExtension = text.startsWith(currentUtterance.slice(0, 15));
-                    const isDuplicate = currentUtterance === text || 
-                                       (currentUtterance.length > 5 && text.length > 5 && 
-                                        currentUtterance.includes(text));
-                    
-                    // 简化判断：长文本 + 不是扩展 + 不是重复 = 新 utterance
-                    const isNewUtterance = isSignificantlyLong && !isExtension && !isDuplicate;
-                    
-                    if (isNewUtterance) {
-                        // 计算重叠长度，截断新文本的重复部分
-                        const overlapLen = this._calculateOverlapLength(currentUtterance, text);
-                        const uniquePart = overlapLen > 0 ? text.slice(overlapLen).trim() : text;
-                        
-                        // 1. 先发送 finalize 事件，完成当前 turn
-                        const finalText = (this.myCompletionBuffer + ' ' + currentUtterance).trim();
-                        this.emitPartialTranscript('Me', {
-                            text: finalText,
-                            provider: this.modelInfo?.provider,
-                            isFinal: true  // 标记为 final，触发 finalizeTurn
-                        });
-                        
-                        // 2. 清空 buffer 和 current，开始新的 utterance
-                        this.myCompletionBuffer = '';
-                        this.myCurrentUtterance = uniquePart;
-                        this.myLastReceivedText = ''; // 重置，开始新的轮次
-                        
-                        // 3. 发送新 utterance 的 partial 事件
-                        this.emitPartialTranscript('Me', {
-                            text: uniquePart,
-                            provider: this.modelInfo?.provider,
-                            isFinal: false
-                        });
-                    } else {
-                        // 使用滑动窗口合并策略
-                        // 这个函数会处理：
-                        // 1. 正常累积（新文本以旧文本开头）
-                        // 2. 滑动窗口重置（新文本和旧文本有重叠）
-                        // 3. 完全不同（应该由混合策略处理，这里会替换）
-                        this.myCurrentUtterance = this._mergeSlidingWindow(this.myCurrentUtterance, text);
-                        
+                    // 增量模式：直接用最新完整文本替换（避免累积导致的重复问题）
+                    if (this.modelInfo.provider === 'doubao') {
+                        this.myCurrentUtterance = text;
                         const continuousText = (this.myCompletionBuffer + ' ' + this.myCurrentUtterance).trim();
-
+                        
                         this.sendToRenderer('stt-update', {
                             speaker: 'Me',
                             text: continuousText,
@@ -522,17 +486,75 @@ class SttService {
                             isFinal: false,
                             timestamp: Date.now(),
                         });
-
+                        
                         this.emitPartialTranscript('Me', {
                             text: continuousText,
                             provider: this.modelInfo?.provider,
                         });
-                    }
+                        
+                        // 重置完成定时器
+                        if (this.myCompletionTimer) clearTimeout(this.myCompletionTimer);
+                        this.myCompletionTimer = setTimeout(() => {
+                            this.flushMyCompletion();
+                        }, COMPLETION_DEBOUNCE_MS);
+                    } else {
+                        // 其他 provider 保持原有逻辑
+                        if (this.myCompletionTimer) clearTimeout(this.myCompletionTimer);
+                        
+                        const now = Date.now();
+                        const currentUtterance = this.myCurrentUtterance || '';
+                        
+                        const isSignificantlyLong = currentUtterance.length > 20;
+                        const isExtension = text.startsWith(currentUtterance.slice(0, 15));
+                        const isDuplicate = currentUtterance === text || 
+                                           (currentUtterance.length > 5 && text.length > 5 && 
+                                            currentUtterance.includes(text));
+                        
+                        const isNewUtterance = isSignificantlyLong && !isExtension && !isDuplicate;
+                        
+                        if (isNewUtterance) {
+                            const overlapLen = this._calculateOverlapLength(currentUtterance, text);
+                            const uniquePart = overlapLen > 0 ? text.slice(overlapLen).trim() : text;
+                            
+                            const finalText = (this.myCompletionBuffer + ' ' + currentUtterance).trim();
+                            this.emitPartialTranscript('Me', {
+                                text: finalText,
+                                provider: this.modelInfo?.provider,
+                                isFinal: true
+                            });
+                            
+                            this.myCompletionBuffer = '';
+                            this.myCurrentUtterance = uniquePart;
+                            this.myLastReceivedText = '';
+                            
+                            this.emitPartialTranscript('Me', {
+                                text: uniquePart,
+                                provider: this.modelInfo?.provider,
+                                isFinal: false
+                            });
+                        } else {
+                            this.myCurrentUtterance = this._mergeSlidingWindow(this.myCurrentUtterance, text);
+                            
+                            const continuousText = (this.myCompletionBuffer + ' ' + this.myCurrentUtterance).trim();
 
-                    // Set completion timer to auto-complete after silence
-                    this.myCompletionTimer = setTimeout(() => {
-                        this.flushMyCompletion();
-                    }, COMPLETION_DEBOUNCE_MS);
+                            this.sendToRenderer('stt-update', {
+                                speaker: 'Me',
+                                text: continuousText,
+                                isPartial: true,
+                                isFinal: false,
+                                timestamp: Date.now(),
+                            });
+
+                            this.emitPartialTranscript('Me', {
+                                text: continuousText,
+                                provider: this.modelInfo?.provider,
+                            });
+                        }
+
+                        this.myCompletionTimer = setTimeout(() => {
+                            this.flushMyCompletion();
+                        }, COMPLETION_DEBOUNCE_MS);
+                    }
                 }
 
             } else {
@@ -673,14 +695,13 @@ class SttService {
                         clearTimeout(this.theirCompletionTimer);
                         this.theirCompletionTimer = null;
                     }
-                    this.theirCurrentUtterance = '';
                     if (this.modelInfo.provider === 'doubao') {
-                        // Doubao result_type='full' 跨句累积全量文本：提取相对上次位置的新增内容
-                        const incrementalText = this._extractIncrementalText(this.theirLastReceivedText, text) || text;
-                        this.theirLastReceivedText = text; // 记录本次全量位置，供下次提取用（不重置为 ''）
-                        this.debounceTheirCompletion(incrementalText);
+                        // Doubao result_type='incremental'：直接用最新完整文本替换并 flush
+                        this.theirCurrentUtterance = text;
                         this.flushTheirCompletion();
+                        this.theirCurrentUtterance = '';
                     } else {
+                        this.theirCurrentUtterance = '';
                         this.debounceTheirCompletion(text);
                     }
                 } else {
@@ -690,19 +711,15 @@ class SttService {
                         clearTimeout(this.theirCompletionTimer);
                     }
 
-                    let displayText;
+                    // 增量模式：直接用最新完整文本替换（避免累积导致的重复问题）
                     if (this.modelInfo.provider === 'doubao') {
-                        // Doubao result_type='full'：相对最后一次 isFinal 位置提取当前句子完整进度
-                        // theirLastReceivedText 只在 isFinal 时更新，partial 不改动，
-                        // 这样 displayText 随 partial 递增展示，而不是仅显示最新 delta
-                        displayText = this._extractIncrementalText(this.theirLastReceivedText, text) || text;
+                        this.theirCurrentUtterance = text;
                     } else {
-                        displayText = text;
+                        this.theirCurrentUtterance = text;
                     }
-                    this.theirCurrentUtterance = displayText;
 
                     // 计算当前展示文本：buffer（已完成分句）+ 当前增量内容
-                    const continuousText = (this.theirCompletionBuffer + ' ' + displayText).trim();
+                    const continuousText = (this.theirCompletionBuffer + ' ' + this.theirCurrentUtterance).trim();
 
                     // 1. 同步到 UI（显示中间结果）
                     this.sendToRenderer('stt-update', {
@@ -721,9 +738,7 @@ class SttService {
 
                     // 3. 启动两阶段定时器（Doubao 专用）
                     if (this.modelInfo.provider === 'doubao') {
-                        // Timer A（1800ms）：软触发 AI，不分行
-                        // VAD 已配置 800ms 判停，正常情况 is_final 会先于此定时器到达
-                        // 此定时器仅为 VAD 判停延迟或网络抖动时的保底
+                        // Timer A（1500ms）：软触发 AI，不分行（缩短以减少延迟感）
                         if (this.theirAiTriggerTimer) clearTimeout(this.theirAiTriggerTimer);
                         this.theirAiTriggerTimer = setTimeout(() => {
                             this.theirAiTriggerTimer = null;
@@ -731,14 +746,14 @@ class SttService {
                             if (text && this.onAiTriggerOnly) {
                                 this.onAiTriggerOnly('Them', text);
                             }
-                        }, 1800);
+                        }, 1500);
 
-                        // Timer B（3500ms）：完整 flush，创建新行 + AI 兜底（防止极端网络条件下永远不分行）
+                        // Timer B（2500ms）：完整 flush，创建新行 + AI 兜底（缩短以减少卡顿感）
                         if (this.theirCompletionTimer) clearTimeout(this.theirCompletionTimer);
                         this.theirCompletionTimer = setTimeout(() => {
                             this.theirCompletionTimer = null;
                             this.flushTheirCompletion();
-                        }, 3500);
+                        }, 2500);
                     } else {
                         if (this.theirCompletionTimer) clearTimeout(this.theirCompletionTimer);
                         this.theirCompletionTimer = setTimeout(() => {
@@ -1231,6 +1246,17 @@ class SttService {
             };
             const theirOptions = { ...sttOptions, callbacks: theirSttConfig.callbacks, sessionType: 'their' };
             this.theirSttSession = await createSTT(this.modelInfo.provider, theirOptions);
+        }
+
+        // 重置 lastReceivedText，防止重连后增量计算基准错误
+        if (isMySession) {
+            this.myLastReceivedText = '';
+            this.myCurrentUtterance = '';
+            this.myCompletionBuffer = '';
+        } else {
+            this.theirLastReceivedText = '';
+            this.theirCurrentUtterance = '';
+            this.theirCompletionBuffer = '';
         }
 
         // 更新会话活跃状态
