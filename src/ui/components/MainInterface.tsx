@@ -263,6 +263,8 @@ export function MainInterface({
     startHeight: number;
     target: EventTarget | null;
   } | null>(null);
+  /** 仅当 mousedown 来自边沿/角落 handle 时才允许进入 resize 流程 */
+  const resizeSessionAuthorizedRef = useRef(false);
 
   // 计算当前状态下的最小窗口宽度
   const minWindowWidth = useMemo(() => {
@@ -275,7 +277,23 @@ export function MainInterface({
   }, [activePanel, showSettings]);
 
   useEffect(() => {
+    const clearResizeInteraction = () => {
+      pendingResizeRef.current = null;
+      resizeStateRef.current = null;
+      resizeSessionAuthorizedRef.current = false;
+      // 清理主进程的 resize 起始状态，避免下一次会话继承旧基准导致抖动
+      if ((window.api?.headerController as any)?.clearResizeState) {
+        (window.api.headerController as any).clearResizeState();
+      }
+    };
+
     const handleMouseMove = (e: MouseEvent) => {
+      // 强门禁：只有边沿/角落触发过授权会话，才允许进入任何 resize 逻辑
+      if (!resizeSessionAuthorizedRef.current) return;
+
+      // 会话已授权但无 pending/active 时，不应触发 resize（防御性兜底）
+      if (!pendingResizeRef.current && !resizeStateRef.current?.isResizing) return;
+
       if (pendingResizeRef.current && !resizeStateRef.current?.isResizing) {
         const p = pendingResizeRef.current;
         const dx = e.screenX - p.startX;
@@ -295,6 +313,7 @@ export function MainInterface({
           pendingResizeRef.current = null;
         } else {
           pendingResizeRef.current = null;
+          resizeSessionAuthorizedRef.current = false;
           onMouseDown(createSyntheticMouseDownFromPending(e, p));
           return;
         }
@@ -311,28 +330,24 @@ export function MainInterface({
       }
     };
 
-    const handleMouseUp = (e: MouseEvent) => {
-      if (pendingResizeRef.current) {
-        pendingResizeRef.current = null;
-      }
-      if (resizeStateRef.current?.isResizing) {
-        resizeStateRef.current.isResizing = false;
-        resizeStateRef.current.edge = null;
-        // 清理主进程的 resize 状态
-        if ((window.api?.headerController as any)?.clearResizeState) {
-          (window.api.headerController as any).clearResizeState();
-        }
-      }
+    const handleMouseUp = () => {
+      clearResizeInteraction();
+    };
+
+    const handleWindowBlur = () => {
+      clearResizeInteraction();
     };
 
     // 始终监听，但只在 isResizing 为 true 时处理
     // 使用 capture 模式确保能捕获到事件
     window.addEventListener('mousemove', handleMouseMove, true);
     window.addEventListener('mouseup', handleMouseUp, true);
+    window.addEventListener('blur', handleWindowBlur);
 
     return () => {
       window.removeEventListener('mousemove', handleMouseMove, true);
       window.removeEventListener('mouseup', handleMouseUp, true);
+      window.removeEventListener('blur', handleWindowBlur);
     };
   }, [minWindowWidth, onMouseDown]);
 
@@ -342,12 +357,14 @@ export function MainInterface({
 
     // 先进入「待定缩放」：待 mousemove 超过阈值并判定为缩放意图后，才真正 isResizing
     // 否则转交给 onMouseDown，走移动窗口逻辑（修复边沿与拖动抢事件导致窗口被拉伸）
+    resizeSessionAuthorizedRef.current = true;
     pendingResizeRef.current = {
       edge,
       startX: e.screenX,
       startY: e.screenY,
-      startWidth: windowSize.width,
-      startHeight: windowSize.height,
+      // 优先使用实时窗口尺寸，避免依赖异步 state 导致顶/左缩放时基准抖动
+      startWidth: window.innerWidth || windowSize.width,
+      startHeight: window.innerHeight || windowSize.height,
       target: e.target,
     };
   };
