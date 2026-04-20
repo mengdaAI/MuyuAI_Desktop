@@ -422,7 +422,14 @@ class ListenService {
                     // internalBridge.emit('window:requestVisibility', { name: 'listen', visible: true });
                     {
                         // Get language from active session, default to 'zh' if not specified
-                        const language = passcodeService.activeSession?.language || 'zh';
+                        const rawLanguage = passcodeService.activeSession?.language || null;
+                        const language = rawLanguage || 'zh';
+                        console.warn('[ListenService][LanguageDebug] Starting listen session with language info:', {
+                            rawLanguageFromActiveSession: rawLanguage ?? null,
+                            effectiveLanguageForSTT: language,
+                            activeSessionId: passcodeService.activeSession?.sessionId || null,
+                            activeSessionLanguage: passcodeService.activeSession?.language || null,
+                        });
                         const ok = await this.initializeSession(language);
                         if (!ok) {
                             throw new Error('Listen session initialization failed');
@@ -678,6 +685,9 @@ class ListenService {
         this.isInitializingSession = true;
         this.sendToRenderer('session-initializing', true);
         this.sendToRenderer('update-status', 'Initializing sessions...');
+        console.warn('[ListenService][LanguageDebug] initializeSession called:', {
+            languageArg: language,
+        });
 
         let initSucceeded = false;
 

@@ -30,6 +30,52 @@ const MAX_RECONNECT_ATTEMPTS = 3;           // 最大重连次数
 const RECONNECT_DELAY_MS = 2000;            // 重连间隔 2 秒
 const RECONNECT_BACKOFF_MS = 3000;          // 指数退避增量
 
+function normalizeLanguageCode(input) {
+    const raw = (input || '').toString().trim().toLowerCase().replace(/_/g, '-');
+    if (!raw) return 'zh';
+
+    const aliases = {
+        jp: 'ja',
+        'ja-jp': 'ja',
+        'zh-cn': 'zh',
+        'zh-hans': 'zh',
+        'en-us': 'en',
+        'en-gb': 'en',
+        'es-es': 'es',
+        'es-mx': 'es',
+        'ru-ru': 'ru',
+    };
+
+    if (aliases[raw]) return aliases[raw];
+    if (raw.includes('-')) return raw.split('-')[0] || 'zh';
+    return raw;
+}
+
+function resolveProviderLanguage(provider, rawLanguage, openAiOverride) {
+    const normalized = normalizeLanguageCode(rawLanguage);
+    const p = provider || 'unknown';
+
+    // 历史兼容：仅对 OpenAI STT 保留该环境变量覆盖
+    if (p === 'openai' && openAiOverride) {
+        return openAiOverride;
+    }
+
+    // Gemini 需要 BCP-47 语言码
+    if (p === 'gemini') {
+        const geminiMap = {
+            zh: 'zh-CN',
+            en: 'en-US',
+            ja: 'ja-JP',
+            es: 'es-ES',
+            ru: 'ru-RU',
+        };
+        return geminiMap[normalized] || `${normalized}-US`;
+    }
+
+    // OpenAI / Deepgram / Whisper 等优先使用短码
+    return normalized || 'zh';
+}
+
 class SttService {
     constructor() {
         this.mySttSession = null;
@@ -338,8 +384,6 @@ class SttService {
     }
 
     async initializeSttSessions(language = 'zh') {
-        const effectiveLanguage = process.env.OPENAI_TRANSCRIBE_LANG || language || 'zh';
-
         // 重置所有状态变量，防止跨会话污染
         this.myCurrentUtterance = '';
         this.theirCurrentUtterance = '';
@@ -355,6 +399,18 @@ class SttService {
             throw new Error('AI model or API key is not configured.');
         }
         this.modelInfo = modelInfo;
+        const effectiveLanguage = resolveProviderLanguage(
+            this.modelInfo.provider,
+            language,
+            process.env.OPENAI_TRANSCRIBE_LANG
+        );
+        console.warn('[SttService][LanguageDebug] initializeSttSessions language resolved:', {
+            provider: this.modelInfo.provider,
+            model: this.modelInfo.model,
+            rawLanguage: language,
+            openAiOverride: process.env.OPENAI_TRANSCRIBE_LANG || null,
+            effectiveLanguage,
+        });
 
         // 保存 message handlers 供重连时使用
         this._myMessageHandler = null;
@@ -1200,7 +1256,11 @@ class SttService {
         }
 
         const language = this._language || 'zh';
-        const effectiveLanguage = process.env.OPENAI_TRANSCRIBE_LANG || language || 'zh';
+        const effectiveLanguage = resolveProviderLanguage(
+            this.modelInfo.provider,
+            language,
+            process.env.OPENAI_TRANSCRIBE_LANG
+        );
         const isVirtualProvider = isVirtualOpenAIProvider(this.modelInfo.provider);
 
         // 复用 initializeSttSessions 中的配置逻辑来创建新会话
