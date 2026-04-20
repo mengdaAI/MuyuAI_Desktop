@@ -1176,12 +1176,21 @@ const handleHeaderStateChanged = (state) => {
 
 // 存储每个窗口的 resize 起始状态
 const windowResizeState = new Map();
+const resizeDebugLogState = new Map();
 
-function resizeMainWindow(senderWebContents, { edge, deltaX, deltaY, startWidth, startHeight, minWidth }) {
+function shouldEmitResizeDebugLog(key, intervalMs = 120) {
+    const now = Date.now();
+    const last = resizeDebugLogState.get(key) || 0;
+    if (now - last < intervalMs) return false;
+    resizeDebugLogState.set(key, now);
+    return true;
+}
+
+function resizeMainWindow(senderWebContents, { edge, deltaX, deltaY, startWidth, startHeight, minWidth, debug }) {
     const win = BrowserWindow.fromWebContents(senderWebContents);
     if (!win || win.isDestroyed()) return;
 
-    console.log('[resizeMainWindow] Received minWidth:', minWidth);
+    const debugEnabled = !!(debug && debug.enabled);
 
     const currentBounds = win.getBounds();
     const display = getCurrentDisplay(win);
@@ -1245,12 +1254,15 @@ function resizeMainWindow(senderWebContents, { edge, deltaX, deltaY, startWidth,
     }
 
     // 强制执行最小尺寸限制
+    let clampedByMinWidth = false;
+    let clampedByMinHeight = false;
     if (newBounds.width < MIN_WIDTH) {
         // 如果是从左边拖拽，需要调整 x 坐标
         if (edge.includes('left')) {
             newBounds.x = startBounds.x + startBounds.width - MIN_WIDTH;
         }
         newBounds.width = MIN_WIDTH;
+        clampedByMinWidth = true;
     }
     if (newBounds.height < MIN_HEIGHT) {
         // 如果是从上边拖拽，需要调整 y 坐标
@@ -1258,6 +1270,7 @@ function resizeMainWindow(senderWebContents, { edge, deltaX, deltaY, startWidth,
             newBounds.y = startBounds.y + startBounds.height - MIN_HEIGHT;
         }
         newBounds.height = MIN_HEIGHT;
+        clampedByMinHeight = true;
     }
 
     // 限制在工作区内
@@ -1272,6 +1285,27 @@ function resizeMainWindow(senderWebContents, { edge, deltaX, deltaY, startWidth,
     newBounds.width = Math.max(MIN_WIDTH, newBounds.width);
     newBounds.height = Math.max(MIN_HEIGHT, newBounds.height);
 
+    if (debugEnabled && shouldEmitResizeDebugLog(`win:${win.id}`)) {
+        console.warn('[ResizeDiag][Main]', JSON.stringify({
+            winId: win.id,
+            sessionId: debug.sessionId || null,
+            seq: debug.seq || null,
+            edge,
+            deltaX,
+            deltaY,
+            startWidth,
+            startHeight,
+            minWidth: MIN_WIDTH,
+            minHeight: MIN_HEIGHT,
+            currentBounds,
+            startBounds,
+            nextBounds: newBounds,
+            workArea,
+            clampedByMinWidth,
+            clampedByMinHeight,
+        }));
+    }
+
     win.setBounds(newBounds);
 
     // 通知渲染进程窗口大小已变化
@@ -1285,9 +1319,11 @@ function resizeMainWindow(senderWebContents, { edge, deltaX, deltaY, startWidth,
 function clearWindowResizeState(winId) {
     if (winId) {
         windowResizeState.delete(winId);
+        resizeDebugLogState.delete(`win:${winId}`);
     } else {
         // 清理所有窗口的 resize 状态
         windowResizeState.clear();
+        resizeDebugLogState.clear();
     }
 }
 

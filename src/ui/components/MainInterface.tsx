@@ -17,6 +17,7 @@ import { LeftTimeIcon } from "../assets/Svg";
 
 /** 边沿按下后，超过该距离才判定是「缩放」还是「移动窗口」，避免与 useMainWindowDrag 冲突 */
 const PENDING_RESIZE_THRESHOLD_PX = 5;
+const RESIZE_DEBUG_STORAGE_KEY = 'muyuResizeDebug';
 
 /**
  * 根据边沿与鼠标位移判断用户意图是否为调整窗口大小（而非拖动窗口）。
@@ -263,6 +264,41 @@ export function MainInterface({
     startHeight: number;
     target: EventTarget | null;
   } | null>(null);
+  /** 仅当 mousedown 来自边沿/角落 handle 时才允许进入 resize 流程 */
+  const resizeSessionAuthorizedRef = useRef(false);
+  const resizeDebugSeqRef = useRef(0);
+  const resizeDebugSessionIdRef = useRef<string | null>(null);
+  const resizeDebugLastMoveLogAtRef = useRef(0);
+
+  const isResizeDebugEnabled = () => {
+    try {
+      const value = window.localStorage?.getItem(RESIZE_DEBUG_STORAGE_KEY);
+      return value === '1' || value === 'true';
+    } catch {
+      return false;
+    }
+  };
+
+  const logResizeDebug = (
+    stage: string,
+    data: Record<string, unknown> = {},
+    options?: { throttleMove?: boolean }
+  ) => {
+    if (!isResizeDebugEnabled()) return;
+    const now = Date.now();
+    if (options?.throttleMove && now - resizeDebugLastMoveLogAtRef.current < 120) {
+      return;
+    }
+    if (options?.throttleMove) {
+      resizeDebugLastMoveLogAtRef.current = now;
+    }
+    console.warn('[ResizeDiag][Renderer]', JSON.stringify({
+      ts: now,
+      stage,
+      sessionId: resizeDebugSessionIdRef.current,
+      ...data,
+    }));
+  };
 
   // 计算当前状态下的最小窗口宽度
   const minWindowWidth = useMemo(() => {
@@ -275,7 +311,30 @@ export function MainInterface({
   }, [activePanel, showSettings]);
 
   useEffect(() => {
+    const clearResizeInteraction = (reason: string) => {
+      logResizeDebug('clear', {
+        reason,
+        hadPending: !!pendingResizeRef.current,
+        wasResizing: !!resizeStateRef.current?.isResizing,
+      });
+      pendingResizeRef.current = null;
+      resizeStateRef.current = null;
+      resizeSessionAuthorizedRef.current = false;
+      resizeDebugSeqRef.current = 0;
+      resizeDebugSessionIdRef.current = null;
+      // 清理主进程的 resize 起始状态，避免下一次会话继承旧基准导致抖动
+      if ((window.api?.headerController as any)?.clearResizeState) {
+        (window.api.headerController as any).clearResizeState();
+      }
+    };
+
     const handleMouseMove = (e: MouseEvent) => {
+      // 强门禁：只有边沿/角落触发过授权会话，才允许进入任何 resize 逻辑
+      if (!resizeSessionAuthorizedRef.current) return;
+
+      // 会话已授权但无 pending/active 时，不应触发 resize（防御性兜底）
+      if (!pendingResizeRef.current && !resizeStateRef.current?.isResizing) return;
+
       if (pendingResizeRef.current && !resizeStateRef.current?.isResizing) {
         const p = pendingResizeRef.current;
         const dx = e.screenX - p.startX;
@@ -284,6 +343,7 @@ export function MainInterface({
           return;
         }
         if (shouldResizeIntent(p.edge, dx, dy)) {
+          logResizeDebug('intent_resize', { edge: p.edge, dx, dy });
           resizeStateRef.current = {
             isResizing: true,
             edge: p.edge,
@@ -294,7 +354,9 @@ export function MainInterface({
           };
           pendingResizeRef.current = null;
         } else {
+          logResizeDebug('intent_drag_fallback', { edge: p.edge, dx, dy });
           pendingResizeRef.current = null;
+          resizeSessionAuthorizedRef.current = false;
           onMouseDown(createSyntheticMouseDownFromPending(e, p));
           return;
         }
@@ -307,32 +369,47 @@ export function MainInterface({
       const deltaY = e.screenY - startY;
 
       if ((window.api?.headerController as any)?.resizeMainWindow) {
-        (window.api.headerController as any).resizeMainWindow({ edge, deltaX, deltaY, startWidth, startHeight, minWidth: minWindowWidth });
+        const debugEnabled = isResizeDebugEnabled();
+        const debug = debugEnabled ? {
+          enabled: true,
+          sessionId: resizeDebugSessionIdRef.current,
+          seq: ++resizeDebugSeqRef.current,
+        } : undefined;
+        logResizeDebug(
+          'resize_move',
+          { edge, deltaX, deltaY, startWidth, startHeight, minWindowWidth, seq: debug?.seq },
+          { throttleMove: true }
+        );
+        (window.api.headerController as any).resizeMainWindow({
+          edge,
+          deltaX,
+          deltaY,
+          startWidth,
+          startHeight,
+          minWidth: minWindowWidth,
+          debug,
+        });
       }
     };
 
-    const handleMouseUp = (e: MouseEvent) => {
-      if (pendingResizeRef.current) {
-        pendingResizeRef.current = null;
-      }
-      if (resizeStateRef.current?.isResizing) {
-        resizeStateRef.current.isResizing = false;
-        resizeStateRef.current.edge = null;
-        // 清理主进程的 resize 状态
-        if ((window.api?.headerController as any)?.clearResizeState) {
-          (window.api.headerController as any).clearResizeState();
-        }
-      }
+    const handleMouseUp = () => {
+      clearResizeInteraction('mouse_up');
+    };
+
+    const handleWindowBlur = () => {
+      clearResizeInteraction('window_blur');
     };
 
     // 始终监听，但只在 isResizing 为 true 时处理
     // 使用 capture 模式确保能捕获到事件
     window.addEventListener('mousemove', handleMouseMove, true);
     window.addEventListener('mouseup', handleMouseUp, true);
+    window.addEventListener('blur', handleWindowBlur);
 
     return () => {
       window.removeEventListener('mousemove', handleMouseMove, true);
       window.removeEventListener('mouseup', handleMouseUp, true);
+      window.removeEventListener('blur', handleWindowBlur);
     };
   }, [minWindowWidth, onMouseDown]);
 
@@ -342,14 +419,26 @@ export function MainInterface({
 
     // 先进入「待定缩放」：待 mousemove 超过阈值并判定为缩放意图后，才真正 isResizing
     // 否则转交给 onMouseDown，走移动窗口逻辑（修复边沿与拖动抢事件导致窗口被拉伸）
+    resizeSessionAuthorizedRef.current = true;
+    resizeDebugSessionIdRef.current = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    resizeDebugSeqRef.current = 0;
     pendingResizeRef.current = {
       edge,
       startX: e.screenX,
       startY: e.screenY,
-      startWidth: windowSize.width,
-      startHeight: windowSize.height,
+      // 优先使用实时窗口尺寸，避免依赖异步 state 导致顶/左缩放时基准抖动
+      startWidth: window.innerWidth || windowSize.width,
+      startHeight: window.innerHeight || windowSize.height,
       target: e.target,
     };
+    logResizeDebug('resize_start', {
+      edge,
+      startX: e.screenX,
+      startY: e.screenY,
+      startWidth: window.innerWidth || windowSize.width,
+      startHeight: window.innerHeight || windowSize.height,
+      targetTag: (e.target as HTMLElement | null)?.tagName || null,
+    });
   };
 
   const renderAnswerWithHighlights = (
