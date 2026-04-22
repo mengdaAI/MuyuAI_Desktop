@@ -39,6 +39,68 @@ const CompressionType = {
     GZIP: 0b0001
 };
 
+const DOUBAO_LANGUAGE_MAP = {
+    'zh-cn': 'zh-CN',
+    'zh': 'zh-CN',
+    '中文': 'zh-CN',
+    '普通话': 'zh-CN',
+    'en': 'en-US',
+    'en-us': 'en-US',
+    'english': 'en-US',
+    '英语': 'en-US',
+    'ja': 'ja-JP',
+    'ja-jp': 'ja-JP',
+    'jp': 'ja-JP',
+    'japanese': 'ja-JP',
+    '日语': 'ja-JP',
+    '日文': 'ja-JP',
+    '日本语': 'ja-JP',
+    'id': 'id-ID',
+    'id-id': 'id-ID',
+    'es': 'es-MX',
+    'es-mx': 'es-MX',
+    'pt': 'pt-BR',
+    'pt-br': 'pt-BR',
+    'de': 'de-DE',
+    'de-de': 'de-DE',
+    'fr': 'fr-FR',
+    'fr-fr': 'fr-FR',
+    'ko': 'ko-KR',
+    'ko-kr': 'ko-KR',
+    'fil': 'fil-PH',
+    'fil-ph': 'fil-PH',
+    'ms': 'ms-MY',
+    'ms-my': 'ms-MY',
+    'th': 'th-TH',
+    'th-th': 'th-TH',
+    'ar': 'ar-SA',
+    'ar-sa': 'ar-SA',
+    'it': 'it-IT',
+    'it-it': 'it-IT',
+    'bn': 'bn-BD',
+    'bn-bd': 'bn-BD',
+    'el': 'el-GR',
+    'el-gr': 'el-GR',
+    'nl': 'nl-NL',
+    'nl-nl': 'nl-NL',
+    'ru': 'ru-RU',
+    'ru-ru': 'ru-RU',
+    'tr': 'tr-TR',
+    'tr-tr': 'tr-TR',
+    'vi': 'vi-VN',
+    'vi-vn': 'vi-VN',
+    'pl': 'pl-PL',
+    'pl-pl': 'pl-PL',
+    'ro': 'ro-RO',
+    'ro-ro': 'ro-RO',
+    'ne': 'ne-NP',
+    'ne-np': 'ne-NP',
+    'uk': 'uk-UA',
+    'uk-ua': 'uk-UA',
+    'yue': 'yue-CN',
+    'yue-cn': 'yue-CN'
+};
+
 function gzipCompress(buffer) {
     return zlib.gzipSync(buffer);
 }
@@ -187,6 +249,12 @@ function extractTranscript(payload) {
     return '';
 }
 
+function normalizeDoubaoLanguage(language) {
+    if (!language) return undefined;
+    const normalized = language.toString().trim().toLowerCase().replace(/_/g, '-');
+    return DOUBAO_LANGUAGE_MAP[normalized];
+}
+
 function resolveCredentials(raw) {
     // 不再需要从环境变量读取豆包密钥,改为使用后端代理
     const envEndpoint = process.env.STT_BACKEND_ENDPOINT;
@@ -213,7 +281,7 @@ class DoubaoSttSession extends EventEmitter {
         this.buffer = Buffer.alloc(0);
         this.queue = [];
         this.sending = false;
-        this.sampleRate = options.sampleRate || 24000;
+        this.sampleRate = options.sampleRate || 16000;
         this.bytesPerSample = 2;
         this.chunkDurationMs = options.chunkDuration || 200;
         this.chunkBytes = Math.round(this.sampleRate * this.bytesPerSample * (this.chunkDurationMs / 1000));
@@ -252,6 +320,9 @@ class DoubaoSttSession extends EventEmitter {
 
     handleOpen() {
         try {
+            const doubaoLanguage = normalizeDoubaoLanguage(this.language);
+            const isChineseLike = doubaoLanguage === 'zh-CN';
+
             const payload = {
                 user: { uid: 'glass_user' },
                 audio: {
@@ -259,22 +330,23 @@ class DoubaoSttSession extends EventEmitter {
                     codec: 'raw',
                     rate: this.sampleRate,
                     bits: 16,
-                    channel: 1
+                    channel: 1,
+                    ...(doubaoLanguage ? { language: doubaoLanguage } : {})
                 },
                 request: {
                     model_name: this.modelName,
                     enable_itn: true,
                     enable_punc: true,
-                    enable_ddc: true,
+                    // 非中文场景关闭 DDC，避免中文纠错策略误把日/西/俄语拉回中文
+                    enable_ddc: isChineseLike,
                     show_utterances: true,
                     enable_nonstream: false,
-                    result_type: 'incremental', // 增量返回：服务端只返回新增的文本片段，客户端无需计算增量
+                    result_type: 'single', // 文档约定：single 为增量返回
                     // VAD 判停参数：默认 force_to_speech_time=10000ms 导致前 10s 内短句无法触发 is_final
                     end_window_size: 800,       // 静音持续超过 800ms 后触发判停，发出 is_final=true
                     force_to_speech_time: 1000, // 音频累计超过 1s 后即可触发判停（默认 10s 太长，面试问题通常较短）
                 }
             };
-
             const request = buildFullClientRequest(this.seq, payload);
             this.ws.send(request);
             this.seq += 1;
@@ -465,7 +537,7 @@ async function createSTT({ apiKey, language = 'zh', callbacks = {}, model = 'dou
             language,
             modelName,
             endpoint: credentials.endpoint,
-            sampleRate: 24000, // matches current audio pipeline
+            sampleRate: 16000, // 豆包文档要求目前仅支持 16000
             chunkDuration: 200
         });
 
