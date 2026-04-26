@@ -609,7 +609,9 @@ function createFeatureWindows(header, namesToCreate) {
                     width: 524,
                     height: 393,
                     maxHeight: 900,
-                    resizable: true,
+                    // 禁用 Windows 原生边框 resize，统一走渲染层 + IPC 的自定义 resize 逻辑
+                    resizable: false,
+                    thickFrame: false,
                     minWidth: 524,
                     minHeight: 393,
                     alwaysOnTop: isAlwaysOnTopOn, // 确保 main 窗口也始终置顶
@@ -1039,7 +1041,9 @@ function createMainOnlyWindow() {
         minWidth: 524,
         minHeight: 393,
         maxHeight: 900,
-        resizable: true,
+        // 禁用 Windows 原生边框 resize，统一走渲染层 + IPC 的自定义 resize 逻辑
+        resizable: false,
+        thickFrame: false,
         parent: undefined,
         alwaysOnTop: isAlwaysOnTopOn, // 确保 main 窗口也始终置顶
     });
@@ -1210,6 +1214,9 @@ function resizeMainWindow(senderWebContents, { edge, deltaX, deltaY, startWidth,
     const startBounds = resizeState.startBounds;
 
     let newBounds = { ...startBounds };
+    // 统一使用会话首帧的 startBounds 作为几何基准，避免与渲染层 startWidth/startHeight 混用导致临界抖动
+    const baseWidth = startBounds.width;
+    const baseHeight = startBounds.height;
 
     // 最小尺寸限制 - 使用传递的动态最小宽度（面板打开时 988px，关闭时 524px）
     const MIN_WIDTH = minWidth || 524;
@@ -1219,37 +1226,37 @@ function resizeMainWindow(senderWebContents, { edge, deltaX, deltaY, startWidth,
     switch (edge) {
         case 'top':
             newBounds.y = Math.max(workArea.y, startBounds.y + deltaY);
-            newBounds.height = startHeight - deltaY;
+            newBounds.height = baseHeight - (newBounds.y - startBounds.y);
             break;
         case 'bottom':
-            newBounds.height = startHeight + deltaY;
+            newBounds.height = baseHeight + deltaY;
             break;
         case 'left':
             newBounds.x = Math.max(workArea.x, startBounds.x + deltaX);
-            newBounds.width = startWidth - deltaX;
+            newBounds.width = baseWidth - (newBounds.x - startBounds.x);
             break;
         case 'right':
-            newBounds.width = startWidth + deltaX;
+            newBounds.width = baseWidth + deltaX;
             break;
         case 'top-left':
             newBounds.x = Math.max(workArea.x, startBounds.x + deltaX);
             newBounds.y = Math.max(workArea.y, startBounds.y + deltaY);
-            newBounds.width = startWidth - deltaX;
-            newBounds.height = startHeight - deltaY;
+            newBounds.width = baseWidth - (newBounds.x - startBounds.x);
+            newBounds.height = baseHeight - (newBounds.y - startBounds.y);
             break;
         case 'top-right':
             newBounds.y = Math.max(workArea.y, startBounds.y + deltaY);
-            newBounds.width = startWidth + deltaX;
-            newBounds.height = startHeight - deltaY;
+            newBounds.width = baseWidth + deltaX;
+            newBounds.height = baseHeight - (newBounds.y - startBounds.y);
             break;
         case 'bottom-left':
             newBounds.x = Math.max(workArea.x, startBounds.x + deltaX);
-            newBounds.width = startWidth - deltaX;
-            newBounds.height = startHeight + deltaY;
+            newBounds.width = baseWidth - (newBounds.x - startBounds.x);
+            newBounds.height = baseHeight + deltaY;
             break;
         case 'bottom-right':
-            newBounds.width = startWidth + deltaX;
-            newBounds.height = startHeight + deltaY;
+            newBounds.width = baseWidth + deltaX;
+            newBounds.height = baseHeight + deltaY;
             break;
     }
 
