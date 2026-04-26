@@ -17,6 +17,8 @@ import { LeftTimeIcon } from "../assets/Svg";
 
 /** 边沿按下后，超过该距离才判定是「缩放」还是「移动窗口」，避免与 useMainWindowDrag 冲突 */
 const PENDING_RESIZE_THRESHOLD_PX = 5;
+/** 仅在真正贴边(更窄区域)时才允许触发 resize，避免 Win11 上误命中边沿 handle */
+const STRICT_EDGE_HIT_SIZE_PX = 6;
 const RESIZE_DEBUG_STORAGE_KEY = 'muyuResizeDebug';
 
 /**
@@ -64,6 +66,33 @@ function createSyntheticMouseDownFromPending(
     button: 0,
     buttons: 1,
   } as unknown as React.MouseEvent;
+}
+
+function isInStrictEdgeZone(edge: string, x: number, y: number, width: number, height: number): boolean {
+  const nearTop = y <= STRICT_EDGE_HIT_SIZE_PX;
+  const nearBottom = y >= height - STRICT_EDGE_HIT_SIZE_PX;
+  const nearLeft = x <= STRICT_EDGE_HIT_SIZE_PX;
+  const nearRight = x >= width - STRICT_EDGE_HIT_SIZE_PX;
+  switch (edge) {
+    case 'top':
+      return nearTop;
+    case 'bottom':
+      return nearBottom;
+    case 'left':
+      return nearLeft;
+    case 'right':
+      return nearRight;
+    case 'top-left':
+      return nearTop && nearLeft;
+    case 'top-right':
+      return nearTop && nearRight;
+    case 'bottom-left':
+      return nearBottom && nearLeft;
+    case 'bottom-right':
+      return nearBottom && nearRight;
+    default:
+      return false;
+  }
 }
 
 interface MainInterfaceProps {
@@ -254,7 +283,7 @@ export function MainInterface({
   const containerWidth = leftWidth;
   const containerHeight = windowSize.height;
 
-  const RESIZE_HANDLE_SIZE = 12; // 窗口边沿拖拽区域大小（像素）- 增大以提高捕获率
+  const RESIZE_HANDLE_SIZE = 6; // 窗口边沿拖拽区域大小（像素）- 增大以提高捕获率
   const resizeStateRef = useRef<{ isResizing: boolean; edge: string | null; startX: number; startY: number; startWidth: number; startHeight: number } | null>(null);
   const pendingResizeRef = useRef<{
     edge: string;
@@ -414,6 +443,20 @@ export function MainInterface({
   }, [minWindowWidth, onMouseDown]);
 
   const handleResizeStart = (edge: string, e: React.MouseEvent) => {
+    // 仅在“严格贴边”区域才进入 resize；否则回落到窗口拖动（避免误触发放大）
+    const isIn = isInStrictEdgeZone(edge, e.clientX, e.clientY, window.innerWidth, window.innerHeight);
+    if (!isIn) {
+      // 防止上一轮会话残留导致“未贴边也继续 resize”
+      resizeSessionAuthorizedRef.current = false;
+      pendingResizeRef.current = null;
+      resizeStateRef.current = null;
+      if ((window.api?.headerController as any)?.clearResizeState) {
+        (window.api.headerController as any).clearResizeState();
+      }
+      onMouseDown(e);
+      return;
+    }
+
     e.stopPropagation();
     e.preventDefault(); // 阻止默认行为，避免文本选择等
 
@@ -512,7 +555,7 @@ export function MainInterface({
       {/* 窗口边沿拖拽区域 - 用于调整窗口大小 */}
       {/* 上边沿 - 添加 pointer-events: none，除了鼠标悬停时 */}
       <div
-        className="absolute top-0 left-0 right-0 z-[9999] pointer-events-none hover:pointer-events-auto"
+        className="absolute top-0 left-0 right-0 z-[9999] pointer-events-auto"
         style={{
           height: `${RESIZE_HANDLE_SIZE}px`,
           cursor: 'ns-resize',
@@ -522,7 +565,7 @@ export function MainInterface({
       />
       {/* 下边沿 */}
       <div
-        className="absolute bottom-0 left-0 right-0 z-[9999] pointer-events-none hover:pointer-events-auto"
+        className="absolute bottom-0 left-0 right-0 z-[9999] pointer-events-auto"
         style={{
           height: `${RESIZE_HANDLE_SIZE}px`,
           cursor: 'ns-resize',
@@ -532,7 +575,7 @@ export function MainInterface({
       />
       {/* 左边沿 */}
       <div
-        className="absolute top-0 bottom-0 left-0 z-[9999] pointer-events-none hover:pointer-events-auto"
+        className="absolute top-0 bottom-0 left-0 z-[9999] pointer-events-auto"
         style={{
           width: `${RESIZE_HANDLE_SIZE}px`,
           cursor: 'ew-resize',
@@ -542,7 +585,7 @@ export function MainInterface({
       />
       {/* 右边沿 */}
       <div
-        className="absolute top-0 bottom-0 right-0 z-[9999] pointer-events-none hover:pointer-events-auto"
+        className="absolute top-0 bottom-0 right-0 z-[9999] pointer-events-auto"
         style={{
           width: `${RESIZE_HANDLE_SIZE}px`,
           cursor: 'ew-resize',
