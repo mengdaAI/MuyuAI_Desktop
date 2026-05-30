@@ -86,7 +86,6 @@ jobs:
                   MUYU_API_DOMAIN: https://resume-api.muyulab.com
                   MUYU_WEB_URL: https://resume.muyulab.com
                   STT_BACKEND_ENDPOINT: wss://resume-api.muyulab.com/api/v1/stt/stream
-                  WINDOWS_CERTIFICATE_SHA1: ${{ secrets.WINDOWS_CERTIFICATE_SHA1 }}
                   # macOS signing and notarization (electron-builder built-in)
                   APPLE_ID: ${{ secrets.APPLE_ID }}
                   APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}

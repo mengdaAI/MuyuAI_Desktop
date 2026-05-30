@@ -41,7 +41,6 @@ win:
     # certificate store, for example via Certum SimplySign on a self-hosted runner.
     signtoolOptions:
         certificateSubjectName: 北京候鸟智迁科技有限公司
-        certificateSha1: ${env.WINDOWS_CERTIFICATE_SHA1}
         rfc3161TimeStampServer: http://timestamp.digicert.com
 
 # NSIS installer configuration for Windows
