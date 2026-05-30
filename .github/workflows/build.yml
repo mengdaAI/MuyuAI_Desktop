@@ -29,8 +29,8 @@ jobs:
                           dist/*.zip
                     # Windows builds must run on the Parallels Windows VM where
                     # SimplySign is installed and logged in.
-                    - runsOn: '["self-hosted","Windows","X64"]'
-                      buildArgs: '--win nsis'
+                    - runsOn: '["self-hosted","Windows"]'
+                      buildArgs: '--win nsis --x64'
                       artifactName: windows-exe
                       artifactPath: 'dist/*.exe'
         runs-on: ${{ fromJSON(matrix.runsOn) }}
@@ -44,6 +44,11 @@ jobs:
               with:
                   node-version: '20.x'
                   cache: 'npm'
+
+            - name: 🐍 Setup Python for native modules
+              uses: actions/setup-python@v5
+              with:
+                  python-version: '3.12'
 
             - name: 📦 Install root dependencies
               run: |
