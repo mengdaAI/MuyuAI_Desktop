@@ -112,5 +112,11 @@ build/
 !build/icon.ico
 !build/icon.icns
 
+# Code signing certificates should only live in CI secrets or local secret stores
+*.pfx
+*.p12
+*.cer
+*.crt
+
 .env
 .env.production

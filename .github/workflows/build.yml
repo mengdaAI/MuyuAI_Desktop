@@ -15,23 +15,25 @@ jobs:
             fail-fast: false
             matrix:
                 include:
-                    - os: macos-15
+                    - runsOn: '"macos-15"'
                       buildArgs: '--mac --x64'
                       artifactName: mac-intel
                       artifactPath: |
                           dist/*.dmg
                           dist/*.zip
-                    - os: macos-14
+                    - runsOn: '"macos-14"'
                       buildArgs: '--mac --arm64'
                       artifactName: mac-apple-silicon
                       artifactPath: |
                           dist/*.dmg
                           dist/*.zip
-                    - os: windows-latest
+                    # Windows builds must run on the Parallels Windows VM where
+                    # SimplySign is installed and logged in.
+                    - runsOn: '["self-hosted","Windows","X64"]'
                       buildArgs: '--win nsis'
                       artifactName: windows-exe
                       artifactPath: 'dist/*.exe'
-        runs-on: ${{ matrix.os }}
+        runs-on: ${{ fromJSON(matrix.runsOn) }}
 
         steps:
             - name: 🚚 Checkout code
@@ -79,6 +81,7 @@ jobs:
                   MUYU_API_DOMAIN: https://resume-api.muyulab.com
                   MUYU_WEB_URL: https://resume.muyulab.com
                   STT_BACKEND_ENDPOINT: wss://resume-api.muyulab.com/api/v1/stt/stream
+                  WINDOWS_CERTIFICATE_SHA1: ${{ secrets.WINDOWS_CERTIFICATE_SHA1 }}
                   # macOS signing and notarization (electron-builder built-in)
                   APPLE_ID: ${{ secrets.APPLE_ID }}
                   APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
