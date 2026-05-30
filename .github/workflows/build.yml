@@ -94,10 +94,6 @@ jobs:
                   npm run build:renderer
                   npx electron-builder ${{ matrix.buildArgs }} --publish never
 
-            - name: 📋 List dist directory
-              shell: pwsh
-              run: Get-ChildItem -Force dist
-
             - name: 📤 Upload artifact
               uses: actions/upload-artifact@v4
               with:
