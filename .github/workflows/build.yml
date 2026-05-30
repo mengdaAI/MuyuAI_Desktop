@@ -95,8 +95,8 @@ jobs:
                   npx electron-builder ${{ matrix.buildArgs }} --publish never
 
             - name: 📋 List dist directory
-              shell: bash
-              run: ls -lah dist/ || dir dist\
+              shell: pwsh
+              run: Get-ChildItem -Force dist
 
             - name: 📤 Upload artifact
               uses: actions/upload-artifact@v4
