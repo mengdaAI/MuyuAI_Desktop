@@ -33,6 +33,10 @@ const API_PATHS = {
 
     // STT endpoints
     STT_STREAM: '/api/v1/stt/stream',
+
+    // Interview review endpoints
+    INTERVIEW_REVIEW_TURNS: '/api/v1/interview-review/turns',
+    INTERVIEW_REVIEW_GENERATE_PERSIST: '/api/v1/interview-review/generate',
 };
 
 // Application defaults

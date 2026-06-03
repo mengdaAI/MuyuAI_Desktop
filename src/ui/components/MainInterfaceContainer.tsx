@@ -559,9 +559,29 @@ export function MainInterfaceContainer() {
     }
   }, [wasJustDragged]);
 
-  const handleExitInterview = useCallback(() => {
-    if (window.api?.common?.quitApplication) {
-      window.api.common.quitApplication();
+  const handleExitInterview = useCallback(async () => {
+    const settingsApi = (window as any).api?.settingsView;
+    const passcodeApi = (window as any).api?.passcode;
+
+    try {
+      await passcodeApi?.stopRecordingHeartbeat?.();
+    } catch (error) {
+      console.warn('[MainInterfaceContainer] Failed to stop recording heartbeat before exit:', error);
+    }
+
+    try {
+      const result = await settingsApi?.stopInterviewSession?.();
+      if (result && !result.success && !result.skipped) {
+        console.warn('[MainInterfaceContainer] Failed to stop interview session before exit:', result.error);
+      }
+    } catch (error) {
+      console.error('[MainInterfaceContainer] Error when stopping interview session before exit:', error);
+    }
+
+    if (settingsApi?.quitApplication) {
+      await settingsApi.quitApplication();
+    } else if (window.api?.common?.quitApplication) {
+      await window.api.common.quitApplication();
     }
   }, []);
 

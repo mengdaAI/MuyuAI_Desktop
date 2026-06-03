@@ -5,6 +5,7 @@ const LiveInsightsService = require('./liveInsightsService');
 const authService = require('../common/services/authService');
 const sessionRepository = require('../common/repositories/session');
 const sttRepository = require('./stt/repositories');
+const interviewReviewApi = require('./interviewReviewApi');
 const internalBridge = require('../../bridge/internalBridge');
 const passcodeService = require('../common/services/passcodeService');
 const { windowPool } = require('../../window/windowManager');
@@ -96,6 +97,24 @@ class ListenService {
             candidateProfile,
             interviewTopic,
         };
+    }
+
+    _recordReviewTurn(turn, text, timestamp) {
+        const { sessionId } = this._getInterviewSessionMetadata();
+        const normalizedText = (text || '').trim();
+        if (!sessionId || !turn?.id || !normalizedText) return;
+
+        interviewReviewApi.recordTurn({
+            sessionId,
+            turn: {
+                id: turn.id,
+                speaker: this._mapSpeakerForInsights(turn.speaker),
+                text: normalizedText,
+                timestamp: timestamp || Date.now(),
+            },
+        }).catch((err) => {
+            console.warn('[ListenService] Failed to record interview review turn:', err?.message || err);
+        });
     }
 
     _buildRecentTranscript(currentTurnText = '') {
@@ -355,6 +374,8 @@ class ListenService {
 
         // 核心修复：更新 lastCompletedText 为完整的累积文本
         this.lastCompletedText[normalizedSpeaker] = cumulativeFinal;
+
+        this._recordReviewTurn(turn, normalizedFinal, timestamp);
 
         if (normalizedSpeaker === 'Them' && this.liveInsightsService) {
             this.liveInsightsService.handleTranscriptUpdate({
