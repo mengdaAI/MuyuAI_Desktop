@@ -49,6 +49,7 @@ const askService = require('./features/ask/askService');
 const settingsService = require('./features/settings/settingsService');
 const sessionRepository = require('./features/common/repositories/session');
 const modelStateService = require('./features/common/services/modelStateService');
+const analyticsService = require('./features/common/services/analyticsService');
 const featureBridge = require('./bridge/featureBridge');
 const windowBridge = require('./bridge/windowBridge');
 
@@ -174,6 +175,9 @@ app.whenReady().then(async () => {
         console.log('[index.js] Creating windows...');
         createWindows();
         console.log('[index.js] Windows creation completed');
+        analyticsService.trackAppOpened().catch((error) => {
+            console.warn('[index.js] Failed to report desktop_app_opened:', error);
+        });
 
     } catch (err) {
         console.error('>>> [index.js] Database initialization failed - some features may not work', err);

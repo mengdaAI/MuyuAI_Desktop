@@ -23,6 +23,9 @@ const API_PATHS = {
     // Auth endpoints
     INTERVIEW_LOGIN: '/api/v1/auth/login_by_token',
 
+    // Analytics endpoints
+    ANALYTICS_EVENTS: '/api/v1/analytics/events',
+
     // Session endpoints
     SESSION_START: '/api/v1/session/start',
     SESSION_STOP: '/api/v1/session/stop',
