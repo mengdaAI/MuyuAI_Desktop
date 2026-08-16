@@ -31,8 +31,26 @@ const LATEST_SCHEMA = {
             { name: 'text', type: 'TEXT' },
             { name: 'lang', type: 'TEXT' },
             { name: 'created_at', type: 'INTEGER' },
-            { name: 'sync_state', type: 'TEXT DEFAULT \'clean\'' }
+            { name: 'sync_state', type: 'TEXT DEFAULT \'clean\'' },
+            { name: 'client_turn_id', type: 'TEXT' }
         ]
+    },
+    transcript_sync_outbox: {
+        columns: [
+            { name: 'id', type: 'TEXT PRIMARY KEY' },
+            { name: 'session_id', type: 'TEXT NOT NULL' },
+            { name: 'remote_session_id', type: 'TEXT NOT NULL' },
+            { name: 'client_turn_id', type: 'TEXT NOT NULL' },
+            { name: 'payload', type: 'TEXT NOT NULL' },
+            { name: 'status', type: 'TEXT DEFAULT \'pending\'' },
+            { name: 'attempts', type: 'INTEGER DEFAULT 0' },
+            { name: 'next_retry_at', type: 'INTEGER' },
+            { name: 'last_error', type: 'TEXT' },
+            { name: 'created_at', type: 'INTEGER' },
+            { name: 'updated_at', type: 'INTEGER' },
+            { name: 'synced_at', type: 'INTEGER' }
+        ],
+        constraints: ['UNIQUE (remote_session_id, client_turn_id)']
     },
     ai_messages: {
         columns: [

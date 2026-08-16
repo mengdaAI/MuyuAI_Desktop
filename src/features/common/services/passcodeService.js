@@ -4,6 +4,7 @@ const authService = require('./authService');
 const { API_PATHS } = require('../config/constants');
 const internalBridge = require('../../../bridge/internalBridge');
 const interviewReviewApi = require('../../listen/interviewReviewApi');
+const transcriptSyncService = require('./transcriptSyncService');
 
 const loggerPrefix = '[PasscodeService]';
 const SESSION_START_PATH = API_PATHS.SESSION_START;
@@ -445,6 +446,7 @@ class PasscodeService {
 
             console.log(`${loggerPrefix} Interview session ${targetSessionId} stopped successfully.`);
             try {
+                await transcriptSyncService.flush({ timeoutMs: 5000 });
                 const reviewResult = await interviewReviewApi.generatePersistedReview(targetSessionId);
                 console.log(`${loggerPrefix} Interview review generation result:`, reviewResult);
             } catch (reviewError) {

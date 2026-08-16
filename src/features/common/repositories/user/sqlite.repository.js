@@ -66,6 +66,7 @@ function deleteById(uid) {
     const transaction = db.transaction(() => {
         if (sessionIds.length > 0) {
             const placeholders = sessionIds.map(() => '?').join(',');
+            db.prepare(`DELETE FROM transcript_sync_outbox WHERE session_id IN (${placeholders})`).run(...sessionIds);
             db.prepare(`DELETE FROM transcripts WHERE session_id IN (${placeholders})`).run(...sessionIds);
             db.prepare(`DELETE FROM ai_messages WHERE session_id IN (${placeholders})`).run(...sessionIds);
             db.prepare(`DELETE FROM summaries WHERE session_id IN (${placeholders})`).run(...sessionIds);

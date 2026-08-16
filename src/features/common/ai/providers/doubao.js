@@ -273,6 +273,7 @@ class DoubaoSttSession extends EventEmitter {
         this.callbacks = options.callbacks || {};
         this.language = options.language || 'zh';
         this.modelName = options.modelName || 'bigmodel';
+        this.sessionType = options.sessionType || 'their';
         this.endpoint = options.endpoint || DEFAULT_WS_ENDPOINT;
         this.seq = 1;
         this.ws = null;
@@ -322,6 +323,7 @@ class DoubaoSttSession extends EventEmitter {
         try {
             const doubaoLanguage = normalizeDoubaoLanguage(this.language);
             const isChineseLike = doubaoLanguage === 'zh-CN';
+            const isCandidateSession = this.sessionType === 'my';
 
             const payload = {
                 user: { uid: 'glass_user' },
@@ -341,10 +343,12 @@ class DoubaoSttSession extends EventEmitter {
                     enable_ddc: isChineseLike,
                     show_utterances: true,
                     enable_nonstream: false,
-                    result_type: 'single', // 文档约定：single 为增量返回
-                    // VAD 判停参数：默认 force_to_speech_time=10000ms 导致前 10s 内短句无法触发 is_final
-                    end_window_size: 800,       // 静音持续超过 800ms 后触发判停，发出 is_final=true
-                    force_to_speech_time: 1000, // 音频累计超过 1s 后即可触发判停（默认 10s 太长，面试问题通常较短）
+                    result_type: isCandidateSession ? 'full' : 'single',
+                    ...(isCandidateSession ? {} : {
+                        // VAD 判停参数：默认 force_to_speech_time=10000ms 导致前 10s 内短句无法触发 is_final
+                        end_window_size: 800,
+                        force_to_speech_time: 1000,
+                    }),
                 }
             };
             const request = buildFullClientRequest(this.seq, payload);
@@ -522,7 +526,7 @@ class DoubaoProvider {
     }
 }
 
-async function createSTT({ apiKey, language = 'zh', callbacks = {}, model = 'doubao-bigmodel' }) {
+async function createSTT({ apiKey, language = 'zh', callbacks = {}, model = 'doubao-bigmodel', sessionType = 'their' }) {
     const credentials = resolveCredentials(apiKey);
     if (!credentials) {
         throw new Error('Invalid Doubao credentials. Please provide {"appKey":"...","accessKey":"..."}');
@@ -536,16 +540,18 @@ async function createSTT({ apiKey, language = 'zh', callbacks = {}, model = 'dou
             callbacks,
             language,
             modelName,
+            sessionType,
             endpoint: credentials.endpoint,
-            sampleRate: 16000, // 豆包文档要求目前仅支持 16000
-            chunkDuration: 200
+            sampleRate: 24000,
+            chunkDuration: 100
         });
 
         session.once('ready', () => {
             resolve({
                 sendRealtimeInput: (audioData) => session.sendRealtimeInput(audioData),
                 keepAlive: () => session.keepAlive(),
-                close: () => session.close()
+                close: () => session.close(),
+                sessionType: session.sessionType
             });
         });
 

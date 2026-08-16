@@ -8,6 +8,7 @@ const sttRepository = require('./stt/repositories');
 const interviewReviewApi = require('./interviewReviewApi');
 const internalBridge = require('../../bridge/internalBridge');
 const passcodeService = require('../common/services/passcodeService');
+const transcriptSyncService = require('../common/services/transcriptSyncService');
 const { windowPool } = require('../../window/windowManager');
 
 class ListenService {
@@ -28,6 +29,7 @@ class ListenService {
         
         // Track last received complete text from STT (for incremental extraction)
         this.lastReceivedText = { Me: '', Them: '' };
+        this.pendingTranscriptWrites = new Set();
 
         this.setupServiceCallbacks();
     }
@@ -375,7 +377,15 @@ class ListenService {
         // 核心修复：更新 lastCompletedText 为完整的累积文本
         this.lastCompletedText[normalizedSpeaker] = cumulativeFinal;
 
-        this._recordReviewTurn(turn, normalizedFinal, timestamp);
+        const persistencePromise = this.saveConversationTurn(normalizedSpeaker, normalizedFinal, turn, timestamp);
+        this.pendingTranscriptWrites.add(persistencePromise);
+        persistencePromise.then(
+            () => this.pendingTranscriptWrites.delete(persistencePromise),
+            () => this.pendingTranscriptWrites.delete(persistencePromise),
+        );
+        persistencePromise.catch((error) => {
+            console.error('[ListenService] Failed to persist finalized transcript:', error);
+        });
 
         if (normalizedSpeaker === 'Them' && this.liveInsightsService) {
             this.liveInsightsService.handleTranscriptUpdate({
@@ -530,9 +540,6 @@ class ListenService {
             provider: this.sttService?.modelInfo?.provider || null,
         });
 
-        // Save to database (normalized)
-        await this.saveConversationTurn(speaker, normalizedText);
-
         // Add to summary service for analysis (normalized)
         this.summaryService.addConversationTurn(speaker, normalizedText);
     }
@@ -644,23 +651,40 @@ class ListenService {
         });
     }
 
-    async saveConversationTurn(speaker, transcription) {
+    async saveConversationTurn(speaker, transcription, turn = null, timestamp = Date.now()) {
         if (!this.currentSessionId) {
             console.error('[DB] Cannot save turn, no active session ID.');
             return;
         }
-        if (transcription.trim() === '') return;
+        if (!transcription || transcription.trim() === '') return;
 
         try {
             await sessionRepository.touch(this.currentSessionId);
-            await sttRepository.addTranscript({
-                sessionId: this.currentSessionId,
-                speaker: speaker,
-                text: transcription.trim(),
-            });
+            const { sessionId: remoteSessionId } = this._getInterviewSessionMetadata();
+            if (remoteSessionId && turn?.id) {
+                sttRepository.addTranscriptAndQueue({
+                    sessionId: this.currentSessionId,
+                    remoteSessionId,
+                    clientTurnId: turn.id,
+                    speaker,
+                    remoteSpeaker: this._mapSpeakerForInsights(speaker),
+                    text: transcription.trim(),
+                    timestamp,
+                });
+                transcriptSyncService.schedule(0);
+            } else {
+                sttRepository.addTranscript({
+                    sessionId: this.currentSessionId,
+                    speaker,
+                    text: transcription.trim(),
+                    clientTurnId: turn?.id,
+                    timestamp,
+                });
+            }
             console.log(`[DB] Saved transcript for session ${this.currentSessionId}: (${speaker})`);
         } catch (error) {
             console.error('Failed to save transcript to DB:', error);
+            throw error;
         }
     }
 
@@ -796,6 +820,10 @@ class ListenService {
             await this.sttService.closeSessions();
 
             await this.stopMacOSAudioCapture();
+
+            if (this.pendingTranscriptWrites.size > 0) {
+                await Promise.allSettled([...this.pendingTranscriptWrites]);
+            }
 
             // End database session
             if (this.currentSessionId) {

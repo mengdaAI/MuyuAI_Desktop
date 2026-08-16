@@ -41,6 +41,7 @@ const listenService = require('./features/listen/listenService');
 
 const databaseInitializer = require('./features/common/services/databaseInitializer');
 const authService = require('./features/common/services/authService');
+const transcriptSyncService = require('./features/common/services/transcriptSyncService');
 const fetch = require('node-fetch');
 // Delay autoUpdater import until app is ready
 let autoUpdater;
@@ -146,6 +147,7 @@ app.whenReady().then(async () => {
         // sessionRepository.endAllActiveSessions();
 
         await authService.initialize();
+        transcriptSyncService.start();
 
         //////// after_modelStateService ////////
         await modelStateService.initialize();
@@ -241,6 +243,8 @@ app.on('before-quit', async (event) => {
                 console.warn('[Shutdown] Force shutdown also failed:', forceShutdownError.message);
             }
         }
+
+        transcriptSyncService.stop();
 
         // 4. Close database connections (final cleanup)
         try {

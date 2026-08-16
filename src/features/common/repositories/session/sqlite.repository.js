@@ -36,6 +36,7 @@ function updateTitle(id, title) {
 function deleteWithRelatedData(id) {
     const db = sqliteClient.getDb();
     const transaction = db.transaction(() => {
+        db.prepare("DELETE FROM transcript_sync_outbox WHERE session_id = ?").run(id);
         db.prepare("DELETE FROM transcripts WHERE session_id = ?").run(id);
         db.prepare("DELETE FROM ai_messages WHERE session_id = ?").run(id);
         db.prepare("DELETE FROM summaries WHERE session_id = ?").run(id);

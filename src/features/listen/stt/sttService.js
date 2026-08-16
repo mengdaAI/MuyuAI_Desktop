@@ -9,6 +9,7 @@ const { createSTT, isVirtualOpenAIProvider } = require('../../common/ai/factory'
 const modelStateService = require('../../common/services/modelStateService');
 
 const COMPLETION_DEBOUNCE_MS = 2000; // 2 seconds
+const MY_COMPLETION_DEBOUNCE_MS = 3500;
 
 // ── New heartbeat / renewal constants ────────────────────────────────────────────
 // Interval to send low-cost keep-alive messages so the remote service does not
@@ -252,7 +253,7 @@ class SttService {
         }
 
         if (this.myCompletionTimer) clearTimeout(this.myCompletionTimer);
-        this.myCompletionTimer = setTimeout(() => this.flushMyCompletion(), COMPLETION_DEBOUNCE_MS);
+        this.myCompletionTimer = setTimeout(() => this.flushMyCompletion(), MY_COMPLETION_DEBOUNCE_MS);
     }
 
     debounceTheirCompletion(text) {
@@ -533,7 +534,10 @@ class SttService {
                     // 增量模式：直接用最新完整文本替换（避免累积导致的重复问题）
                     if (this.modelInfo.provider === 'doubao') {
                         this.myCurrentUtterance = text;
-                        const continuousText = (this.myCompletionBuffer + ' ' + this.myCurrentUtterance).trim();
+                        const isFullMode = this.mySttSession?.sessionType === 'my';
+                        const continuousText = isFullMode
+                            ? this.myCurrentUtterance
+                            : (this.myCompletionBuffer + ' ' + this.myCurrentUtterance).trim();
                         
                         this.sendToRenderer('stt-update', {
                             speaker: 'Me',
@@ -552,7 +556,7 @@ class SttService {
                         if (this.myCompletionTimer) clearTimeout(this.myCompletionTimer);
                         this.myCompletionTimer = setTimeout(() => {
                             this.flushMyCompletion();
-                        }, COMPLETION_DEBOUNCE_MS);
+                        }, MY_COMPLETION_DEBOUNCE_MS);
                     } else {
                         // 其他 provider 保持原有逻辑
                         if (this.myCompletionTimer) clearTimeout(this.myCompletionTimer);
@@ -609,7 +613,7 @@ class SttService {
 
                         this.myCompletionTimer = setTimeout(() => {
                             this.flushMyCompletion();
-                        }, COMPLETION_DEBOUNCE_MS);
+                        }, MY_COMPLETION_DEBOUNCE_MS);
                     }
                 }
 

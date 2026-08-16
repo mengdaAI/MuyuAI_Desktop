@@ -23,20 +23,27 @@ function buildHeaders() {
     return headers;
 }
 
-async function recordTurn({ sessionId, turn }) {
+async function recordTurn({ sessionId, turn }, options = {}) {
     if (!sessionId || !turn?.text?.trim()) {
         return { success: false, skipped: true };
     }
 
+    const headers = buildHeaders();
+    if (options.idempotencyKey) {
+        headers['Idempotency-Key'] = options.idempotencyKey;
+    }
+
     const response = await fetchImpl(buildEndpoint(API_PATHS.INTERVIEW_REVIEW_TURNS), {
         method: 'POST',
-        headers: buildHeaders(),
+        headers,
         body: JSON.stringify({ sessionId, turn }),
     });
 
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-        throw new Error(data?.message || data?.error || `Record interview review turn failed (${response.status})`);
+        const error = new Error(data?.message || data?.error || `Record interview review turn failed (${response.status})`);
+        error.status = response.status;
+        throw error;
     }
     return data;
 }

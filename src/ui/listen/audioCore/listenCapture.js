@@ -31,6 +31,7 @@ if (aecModPromise) return aecModPromise;   // Use cached promise
 const SAMPLE_RATE = 24000;
 const AUDIO_CHUNK_DURATION = 0.1;
 const BUFFER_SIZE = 4096;
+const ENABLE_CUSTOM_MIC_AEC = false;
 
 const isLinux = window.api.platform.isLinux;
 const isMacOS = window.api.platform.isMacOS;
@@ -291,9 +292,10 @@ setInterval(() => {
 // ---------------------------
 async function setupMicProcessing(micStream) {
 /* ── Load WASM first ───────────────────────── */
-    const mod = await getAec();
-    if (!aecPtr) aecPtr = mod.newPtr(160, 1600, 24000, 1);
-
+    if (ENABLE_CUSTOM_MIC_AEC) {
+        const mod = await getAec();
+        if (!aecPtr) aecPtr = mod.newPtr(160, 1600, 24000, 1);
+    }
 
     const micAudioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
     await micAudioContext.resume(); 
@@ -314,7 +316,7 @@ async function setupMicProcessing(micStream) {
 let processedChunk = new Float32Array(chunk); // Default
 
             // ───────────────── WASM AEC ─────────────────
-            if (systemAudioBuffer.length > 0) {
+            if (ENABLE_CUSTOM_MIC_AEC && systemAudioBuffer.length > 0) {
                 const latest = systemAudioBuffer[systemAudioBuffer.length - 1];
                 const sysF32 = base64ToFloat32Array(latest.data);
 
